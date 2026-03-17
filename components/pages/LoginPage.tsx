@@ -40,12 +40,19 @@ export default function LoginPage() {
   }
 
   const handleGoogleSignIn = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { redirectTo: `${window.location.origin}/dashboard` },
-    })
-    if (error) setError(error.message)
-  }
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: {
+      redirectTo: `${window.location.origin}/dashboard`,
+      queryParams: {
+        // ✅ Pass role as a query param — we'll read it after redirect
+        access_type: 'offline',
+        prompt: 'consent',
+      },
+    },
+  })
+  if (error) setError(error.message)
+}
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

@@ -12,14 +12,34 @@ export default function Dashboard() {
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) {
-        router.push('/login')
-      } else {
-        setUser(session.user)
-      }
-      setIsLoading(false)
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+  if (!session) {
+    router.push('/login')
+    return
+  }
+
+  // ✅ Check if profile has a role
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', session.user.id)
+    .maybeSingle()
+
+  // ✅ If no profile or no role — insert with default tenant role
+  if (!profile) {
+    await supabase.from('profiles').insert({
+      id: session.user.id,
+      role: 'tenant',
+      full_name: session.user.user_metadata?.name ||
+                 session.user.user_metadata?.full_name ||
+                 session.user.email?.split('@')[0],
+      email: session.user.email,
     })
+  }
+
+  setUser(session.user)
+  setIsLoading(false)
+})
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
