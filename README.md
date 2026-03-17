@@ -1,4 +1,4 @@
-# ProConnect - Professional Real Estate Communication Platform
+# LEA Executive Residency - Professional Real Estate Communication Platform
 
 A modern, minimalistic PWA for seamless tenant-landlord communication with real-time messaging, notifications, and property management tools.
 
@@ -83,7 +83,7 @@ A modern, minimalistic PWA for seamless tenant-landlord communication with real-
 
 ```bash
 # Clone or extract the project
-cd proconnect
+cd LEA Executive Residency
 
 # Install dependencies
 npm install
@@ -286,7 +286,7 @@ pnpm update
 ### Service Worker Cache
 Modify cache version in `public/sw.js`:
 ```javascript
-const CACHE_NAME = 'proconnect-v2';
+const CACHE_NAME = 'LEA Executive Residency-v2';
 ```
 
 ### Monitor PWA Performance
