@@ -28,6 +28,7 @@ export default function ChatArea({ user }: ChatAreaProps) {
   const [otherPersonName, setOtherPersonName] = useState('')
   const [otherPersonRole, setOtherPersonRole] = useState('')
   const [otherPersonAvatar, setOtherPersonAvatar] = useState<string | null>(null)
+  const [otherPersonId, setOtherPersonId] = useState<string | null>(null)
   const [initLoading, setInitLoading] = useState(true)
   const [newMessage, setNewMessage] = useState('')
   const [userRole, setUserRole] = useState<string | null>(null)
@@ -36,8 +37,13 @@ export default function ChatArea({ user }: ChatAreaProps) {
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  const { messages, isLoading, sendMessage, toggleReaction, markAsSeen } =
-    useChat(conversationId, user)
+  const {
+    messages, isLoading, sendMessage, toggleReaction,
+    markAsSeen, sendTyping, typingUsers, onlineUsers,
+  } = useChat(conversationId, user)
+
+  // ✅ Check if other person is online
+  const isOtherPersonOnline = onlineUsers.some(u => u.userId === otherPersonId)
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -110,8 +116,7 @@ export default function ChatArea({ user }: ChatAreaProps) {
             .eq('conversation_id', convId)
             .neq('sender_id', user.id)
             .not(
-              'id',
-              'in',
+              'id', 'in',
               readMessageIds.length
                 ? `(${readMessageIds.join(',')})`
                 : '(00000000-0000-0000-0000-000000000000)'
@@ -144,7 +149,7 @@ export default function ChatArea({ user }: ChatAreaProps) {
 
   const getOrCreateConversation = useCallback(async (
     userId: string,
-    otherUserId: string
+    otherId: string
   ): Promise<string | null> => {
     const { data: myParts } = await supabase
       .from('conversation_participants')
@@ -156,7 +161,7 @@ export default function ChatArea({ user }: ChatAreaProps) {
       const { data: shared } = await supabase
         .from('conversation_participants')
         .select('conversation_id')
-        .eq('user_id', otherUserId)
+        .eq('user_id', otherId)
         .in('conversation_id', ids)
         .limit(1)
         .maybeSingle()
@@ -173,7 +178,7 @@ export default function ChatArea({ user }: ChatAreaProps) {
     if (newConv) {
       await supabase.from('conversation_participants').insert([
         { conversation_id: newConv.id, user_id: userId },
-        { conversation_id: newConv.id, user_id: otherUserId },
+        { conversation_id: newConv.id, user_id: otherId },
       ])
       return newConv.id
     }
@@ -181,7 +186,6 @@ export default function ChatArea({ user }: ChatAreaProps) {
     return null
   }, [])
 
-  // Init chat on mount
   useEffect(() => {
     if (!user) return
 
@@ -210,6 +214,7 @@ export default function ChatArea({ user }: ChatAreaProps) {
         setOtherPersonName(landlord.full_name || 'Landlord')
         setOtherPersonAvatar(landlord.avatar_url || null)
         setOtherPersonRole('Landlord')
+        setOtherPersonId(landlord.id)
 
         const convId = await getOrCreateConversation(user.id, landlord.id)
         setConversationId(convId)
@@ -224,34 +229,30 @@ export default function ChatArea({ user }: ChatAreaProps) {
     init()
   }, [user, fetchTenantConversations, getOrCreateConversation])
 
-  // Realtime tenant list refresh for landlord
-  // ✅ Fixed — synchronous cleanup
-useEffect(() => {
-  if (userRole !== 'landlord' || !user) return
+  useEffect(() => {
+    if (userRole !== 'landlord' || !user) return
 
-  fetchTenantConversations()
+    fetchTenantConversations()
 
-  const channel = supabase
-    .channel('landlord-message-watcher')
-    .on('postgres_changes', {
-      event: 'INSERT',
-      schema: 'public',
-      table: 'messages',
-    }, () => {
-      fetchTenantConversations()
-    })
-    .subscribe()
+    const channel = supabase
+      .channel('landlord-message-watcher')
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'messages',
+      }, () => {
+        fetchTenantConversations()
+      })
+      .subscribe()
 
-  // ✅ unsubscribe() is synchronous — removeChannel() is async so avoid it here
-  return () => {
-    channel.unsubscribe()
-  }
-}, [userRole, user, fetchTenantConversations])
+    return () => { channel.unsubscribe() }
+  }, [userRole, user, fetchTenantConversations])
 
   const selectTenant = async (tenant: TenantConversation) => {
     setOtherPersonName(tenant.tenantName)
     setOtherPersonAvatar(tenant.tenantAvatar)
     setOtherPersonRole('Tenant')
+    setOtherPersonId(tenant.tenantId)
     setShowTenantList(false)
 
     if (tenant.conversationId) {
@@ -268,6 +269,12 @@ useEffect(() => {
     setNewMessage('')
     inputRef.current?.focus()
     await sendMessage(content)
+  }
+
+  // ✅ Trigger typing on input change
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setNewMessage(e.target.value)
+    if (e.target.value.trim()) sendTyping()
   }
 
   const formatTime = (dateStr: string) => {
@@ -326,50 +333,60 @@ useEffect(() => {
                   <p className="text-sm text-sidebar-foreground/50">No tenants yet</p>
                 </div>
               ) : (
-                tenantConversations.map((tenant) => (
-                  <button
-                    key={tenant.tenantId}
-                    onClick={() => selectTenant(tenant)}
-                    className={`
-                      w-full p-4 flex items-center gap-3
-                      hover:bg-sidebar-accent/50 transition-colors text-left
-                      border-b border-sidebar-border/50
-                      ${conversationId === tenant.conversationId ? 'bg-sidebar-accent' : ''}
-                    `}
-                  >
-                    <div className="w-10 h-10 rounded-full bg-accent flex items-center justify-center shrink-0 overflow-hidden">
-                      {tenant.tenantAvatar ? (
-                        <img src={tenant.tenantAvatar} alt="" className="w-full h-full object-cover" />
-                      ) : (
-                        <span className="text-sm font-bold text-accent-foreground">
-                          {tenant.tenantName.charAt(0).toUpperCase()}
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="font-semibold text-sidebar-foreground text-sm truncate">
-                          {tenant.tenantName}
-                        </p>
-                        {tenant.lastMessageTime && (
-                          <span className="text-xs text-sidebar-foreground/40 shrink-0">
-                            {formatTime(tenant.lastMessageTime)}
-                          </span>
+                tenantConversations.map((tenant) => {
+                  const isOnline = onlineUsers.some(u => u.userId === tenant.tenantId)
+                  return (
+                    <button
+                      key={tenant.tenantId}
+                      onClick={() => selectTenant(tenant)}
+                      className={`
+                        w-full p-4 flex items-center gap-3
+                        hover:bg-sidebar-accent/50 transition-colors text-left
+                        border-b border-sidebar-border/50
+                        ${conversationId === tenant.conversationId ? 'bg-sidebar-accent' : ''}
+                      `}
+                    >
+                      {/* Avatar with online dot */}
+                      <div className="relative shrink-0">
+                        <div className="w-10 h-10 rounded-full bg-accent flex items-center justify-center overflow-hidden">
+                          {tenant.tenantAvatar ? (
+                            <img src={tenant.tenantAvatar} alt="" className="w-full h-full object-cover" />
+                          ) : (
+                            <span className="text-sm font-bold text-accent-foreground">
+                              {tenant.tenantName.charAt(0).toUpperCase()}
+                            </span>
+                          )}
+                        </div>
+                        {/* ✅ Online indicator */}
+                        {isOnline && (
+                          <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-sidebar rounded-full" />
                         )}
                       </div>
-                      <p className="text-xs text-sidebar-foreground/60 truncate mt-0.5">
-                        {tenant.lastMessage}
-                      </p>
-                    </div>
 
-                    {tenant.unreadCount > 0 && (
-                      <div className="w-5 h-5 bg-accent text-accent-foreground rounded-full flex items-center justify-center text-xs font-bold shrink-0">
-                        {tenant.unreadCount}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="font-semibold text-sidebar-foreground text-sm truncate">
+                            {tenant.tenantName}
+                          </p>
+                          {tenant.lastMessageTime && (
+                            <span className="text-xs text-sidebar-foreground/40 shrink-0">
+                              {formatTime(tenant.lastMessageTime)}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-sidebar-foreground/60 truncate mt-0.5">
+                          {tenant.lastMessage}
+                        </p>
                       </div>
-                    )}
-                  </button>
-                ))
+
+                      {tenant.unreadCount > 0 && (
+                        <div className="w-5 h-5 bg-accent text-accent-foreground rounded-full flex items-center justify-center text-xs font-bold shrink-0">
+                          {tenant.unreadCount}
+                        </div>
+                      )}
+                    </button>
+                  )
+                })
               )}
             </div>
           </div>
@@ -418,23 +435,45 @@ useEffect(() => {
           </div>
         ) : (
           <>
-            {/* Chat header */}
+            {/* Chat header with online status */}
             <div className="px-4 sm:px-6 py-3 border-b border-border flex items-center justify-between shrink-0 bg-background shadow-sm">
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-full bg-accent flex items-center justify-center shrink-0 overflow-hidden">
-                  {otherPersonAvatar ? (
-                    <img src={otherPersonAvatar} alt="" className="w-full h-full object-cover" />
-                  ) : (
-                    <span className="text-sm font-bold text-accent-foreground">
-                      {otherPersonName.charAt(0).toUpperCase()}
-                    </span>
+                {/* Avatar with online dot */}
+                <div className="relative shrink-0">
+                  <div className="w-9 h-9 rounded-full bg-accent flex items-center justify-center overflow-hidden">
+                    {otherPersonAvatar ? (
+                      <img src={otherPersonAvatar} alt="" className="w-full h-full object-cover" />
+                    ) : (
+                      <span className="text-sm font-bold text-accent-foreground">
+                        {otherPersonName.charAt(0).toUpperCase()}
+                      </span>
+                    )}
+                  </div>
+                  {/* ✅ Online dot on avatar */}
+                  {isOtherPersonOnline && (
+                    <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 border-2 border-background rounded-full" />
                   )}
                 </div>
+
                 <div>
                   <p className="font-semibold text-foreground text-sm">{otherPersonName}</p>
-                  <p className="text-xs text-muted-foreground">{otherPersonRole} · LEA Executive</p>
+                  {/* ✅ Online/typing status line */}
+                  {typingUsers.length > 0 ? (
+                    <p className="text-xs text-accent animate-pulse">
+                      {typingUsers[0]} is typing...
+                    </p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      {isOtherPersonOnline ? (
+                        <span className="text-green-500">● Online</span>
+                      ) : (
+                        `${otherPersonRole} · LEA Executive`
+                      )}
+                    </p>
+                  )}
                 </div>
               </div>
+
               <div className="flex items-center gap-1">
                 <button className="p-2 rounded-md hover:bg-secondary text-muted-foreground">
                   <Phone className="w-4 h-4" />
@@ -469,6 +508,23 @@ useEffect(() => {
                   />
                 ))
               )}
+
+              {/* ✅ Typing indicator bubble */}
+              {typingUsers.length > 0 && (
+                <div className="flex items-end gap-2">
+                  <div className="w-7 h-7 rounded-full bg-accent flex items-center justify-center shrink-0 text-xs font-bold text-accent-foreground">
+                    {otherPersonName.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="bg-secondary px-4 py-3 rounded-2xl rounded-bl-sm">
+                    <div className="flex gap-1 items-center h-4">
+                      <span className="w-1.5 h-1.5 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                      <span className="w-1.5 h-1.5 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                      <span className="w-1.5 h-1.5 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div ref={bottomRef} />
             </div>
 
@@ -478,7 +534,7 @@ useEffect(() => {
                 ref={inputRef}
                 placeholder="Type a message..."
                 value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
+                onChange={handleInputChange}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault()
@@ -505,10 +561,24 @@ useEffect(() => {
 
 // ---
 
-// **What was fixed:**
+// **`MessageBubble.tsx` stays exactly the same** — no changes needed there. ✅
+
+// ---
+
+// **What was added:**
 // ```
-// ✅ Removed commented out code at the bottom
-// ✅ getOrCreateConversation wrapped in useCallback
-// ✅ Both functions added to useEffect dependency arrays
-// ✅ Empty state message differs for tenant vs landlord
-// ✅ Clean consistent formatting throughout
+// useChat.ts
+//   ✅ sendTyping()     → broadcasts typing event via presence channel
+//   ✅ typingUsers[]    → array of names currently typing
+//   ✅ onlineUsers[]    → array of users currently online
+//   ✅ Presence channel → tracks who is in the conversation
+//   ✅ Auto stop typing → after 2.5s of no input
+//   ✅ Clear typing     → when message arrives from that person
+
+// ChatArea.tsx
+//   ✅ Green dot        → on avatar in header + tenant list
+//   ✅ "● Online"       → shown under name when other person is online
+//   ✅ "X is typing..." → animated pulse text under name in header
+//   ✅ Typing bubble    → animated 3 dots bubble in message area
+//   ✅ handleInputChange → calls sendTyping on every keystroke
+//   ✅ otherPersonId    → tracked to check online status correctly
