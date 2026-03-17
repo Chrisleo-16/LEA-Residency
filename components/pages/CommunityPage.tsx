@@ -175,7 +175,15 @@ export default function CommunityPage({ user }: CommunityPageProps) {
             <p className="text-xs text-muted-foreground">All tenants and landlord</p>
           </div>
 
-          <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 space-y-3">
+          <div
+  className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 space-y-3"
+  style={{
+    backgroundImage: `url('/images/best.jpg')`,
+    backgroundSize: 'cover',
+    backgroundPosition: 'center',
+    backgroundAttachment: 'local',
+  }}
+>
             {isLoading ? (
               <div className="flex items-center justify-center h-full">
                 <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-accent" />
