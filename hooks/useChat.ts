@@ -38,6 +38,22 @@ export function useChat(conversationId: string | null, currentUser: User | null)
   const [messages, setMessages] = useState<Message[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
+  // ✅ Use ref to avoid stale closure in realtime callbacks
+  const currentUserRef = useRef(currentUser)
+  useEffect(() => { currentUserRef.current = currentUser }, [currentUser])
+
+  const buildReactionsMap = (rawReactions: any[], userId?: string) => {
+    const reactionsMap: Record<string, Reaction> = {}
+    rawReactions.forEach(r => {
+      if (!reactionsMap[r.emoji]) {
+        reactionsMap[r.emoji] = { emoji: r.emoji, count: 0, users: [], reactedByMe: false }
+      }
+      reactionsMap[r.emoji].count++
+      if (r.profiles) reactionsMap[r.emoji].users.push(r.profiles)
+      if (r.user_id === userId) reactionsMap[r.emoji].reactedByMe = true
+    })
+    return reactionsMap
+  }
 
   const fetchMessages = useCallback(async () => {
     if (!conversationId) return
@@ -52,34 +68,25 @@ export function useChat(conversationId: string | null, currentUser: User | null)
 
     const messageIds = rawMessages.map(m => m.id)
 
-    const { data: rawReactions } = await supabase
-      .from('message_reactions')
-      .select('*, profiles(id, full_name, avatar_url)')
-      .in('message_id', messageIds)
+    const [{ data: rawReactions }, { data: rawReads }] = await Promise.all([
+      supabase
+        .from('message_reactions')
+        .select('*, profiles(id, full_name, avatar_url)')
+        .in('message_id', messageIds.length ? messageIds : ['00000000-0000-0000-0000-000000000000']),
+      supabase
+        .from('message_reads')
+        .select('*, profiles(id, full_name, avatar_url)')
+        .in('message_id', messageIds.length ? messageIds : ['00000000-0000-0000-0000-000000000000']),
+    ])
 
-    const { data: rawReads } = await supabase
-      .from('message_reads')
-      .select('*, profiles(id, full_name, avatar_url)')
-      .in('message_id', messageIds)
-
-    const enriched: Message[] = rawMessages.map(msg => {
-      const msgReactions = (rawReactions || []).filter(r => r.message_id === msg.id)
-      const msgReads = (rawReads || []).filter(r => r.message_id === msg.id)
-
-      const reactionsMap: Record<string, Reaction> = {}
-      msgReactions.forEach(r => {
-        if (!reactionsMap[r.emoji]) {
-          reactionsMap[r.emoji] = { emoji: r.emoji, count: 0, users: [], reactedByMe: false }
-        }
-        reactionsMap[r.emoji].count++
-        reactionsMap[r.emoji].users.push(r.profiles)
-        if (r.user_id === currentUser?.id) {
-          reactionsMap[r.emoji].reactedByMe = true
-        }
-      })
-
-      return { ...msg, reactions: reactionsMap, reads: msgReads }
-    })
+    const enriched: Message[] = rawMessages.map(msg => ({
+      ...msg,
+      reactions: buildReactionsMap(
+        (rawReactions || []).filter(r => r.message_id === msg.id),
+        currentUser?.id
+      ),
+      reads: (rawReads || []).filter(r => r.message_id === msg.id),
+    }))
 
     setMessages(enriched)
     setIsLoading(false)
@@ -87,13 +94,12 @@ export function useChat(conversationId: string | null, currentUser: User | null)
 
   const markAsSeen = useCallback(async (messageIds: string[]) => {
     if (!currentUser || !messageIds.length) return
-    const inserts = messageIds.map(id => ({
-      message_id: id,
-      user_id: currentUser.id,
-    }))
     await supabase
       .from('message_reads')
-      .upsert(inserts, { onConflict: 'message_id,user_id', ignoreDuplicates: true })
+      .upsert(
+        messageIds.map(id => ({ message_id: id, user_id: currentUser.id })),
+        { onConflict: 'message_id,user_id', ignoreDuplicates: true }
+      )
   }, [currentUser])
 
   const sendMessage = useCallback(async (content: string) => {
@@ -111,121 +117,163 @@ export function useChat(conversationId: string | null, currentUser: User | null)
 
     if (error) { console.error('Send error:', error.message); return }
 
-    // ✅ Optimistic update — appears instantly
-    setMessages(prev => [...prev, { ...newMsg, reactions: {}, reads: [] }])
+    // ✅ Optimistic update — message appears instantly for sender
+    setMessages(prev => {
+      if (prev.find(m => m.id === newMsg.id)) return prev
+      return [...prev, { ...newMsg, reactions: {}, reads: [] }]
+    })
   }, [conversationId, currentUser])
 
   const toggleReaction = useCallback(async (messageId: string, emoji: string) => {
     if (!currentUser) return
 
-    const msg = messages.find(m => m.id === messageId)
-    const alreadyReacted = msg?.reactions[emoji]?.reactedByMe
+    // Use functional state to avoid stale closure
+    setMessages(prev => {
+      const msg = prev.find(m => m.id === messageId)
+      const alreadyReacted = msg?.reactions[emoji]?.reactedByMe
+      // Fire async side effect
+      if (alreadyReacted) {
+        supabase.from('message_reactions').delete()
+          .eq('message_id', messageId).eq('user_id', currentUser.id).eq('emoji', emoji)
+          .then(() => refreshReactions(messageId))
+      } else {
+        supabase.from('message_reactions')
+          .upsert({ message_id: messageId, user_id: currentUser.id, emoji })
+          .then(() => refreshReactions(messageId))
+      }
+      return prev
+    })
+  }, [currentUser])
 
-    if (alreadyReacted) {
-      await supabase
-        .from('message_reactions')
-        .delete()
-        .eq('message_id', messageId)
-        .eq('user_id', currentUser.id)
-        .eq('emoji', emoji)
-    } else {
-      await supabase
-        .from('message_reactions')
-        .upsert({ message_id: messageId, user_id: currentUser.id, emoji })
-    }
-
-    const { data: updatedReactions } = await supabase
+  const refreshReactions = async (messageId: string) => {
+    const { data } = await supabase
       .from('message_reactions')
       .select('*, profiles(id, full_name, avatar_url)')
       .eq('message_id', messageId)
 
-    const reactionsMap: Record<string, Reaction> = {}
-    ;(updatedReactions || []).forEach(r => {
-      if (!reactionsMap[r.emoji]) {
-        reactionsMap[r.emoji] = { emoji: r.emoji, count: 0, users: [], reactedByMe: false }
-      }
-      reactionsMap[r.emoji].count++
-      reactionsMap[r.emoji].users.push(r.profiles)
-      if (r.user_id === currentUser.id) {
-        reactionsMap[r.emoji].reactedByMe = true
-      }
-    })
-
     setMessages(prev =>
-      prev.map(m => m.id === messageId ? { ...m, reactions: reactionsMap } : m)
+      prev.map(m => m.id === messageId
+        ? { ...m, reactions: buildReactionsMap(data || [], currentUserRef.current?.id) }
+        : m
+      )
     )
-  }, [messages, currentUser])
+  }
 
-  // ✅ Fixed realtime — proper useEffect cleanup
+  // ✅ Fixed realtime subscription — no async cleanup
   useEffect(() => {
-    if (!conversationId) return
+  if (!conversationId) return
 
-    fetchMessages()
+  setIsLoading(true)
+  fetchMessages()
 
-    if (channelRef.current) {
-      supabase.removeChannel(channelRef.current)
-    }
+  if (channelRef.current) {
+    supabase.removeChannel(channelRef.current)
+    channelRef.current = null
+  }
 
-    const channel = supabase
-      .channel(`chat-room:${conversationId}`)
-      .on('postgres_changes', {
-        event: 'INSERT', schema: 'public', table: 'messages',
+  const channel = supabase
+    .channel(`chat-room:${conversationId}`)
+    .on(
+      'postgres_changes',
+      {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'messages',
         filter: `conversation_id=eq.${conversationId}`,
-      }, async (payload) => {
-        // Skip our own — already added optimistically
-        if (payload.new.sender_id === currentUser?.id) return
+      },
+      (payload) => {
+        if (payload.new.sender_id === currentUserRef.current?.id) return
 
-        const { data: fullMsg } = await supabase
+        supabase
           .from('messages')
           .select('*, profiles(id, full_name, avatar_url)')
           .eq('id', payload.new.id)
           .single()
-
-        if (fullMsg) {
-          setMessages(prev => {
-            if (prev.find(m => m.id === fullMsg.id)) return prev
-            return [...prev, { ...fullMsg, reactions: {}, reads: [] }]
+          .then(({ data: fullMsg }) => {
+            if (!fullMsg) return
+            setMessages(prev => {
+              if (prev.find(m => m.id === fullMsg.id)) return prev
+              return [...prev, { ...fullMsg, reactions: {}, reads: [] }]
+            })
+            if (currentUserRef.current) {
+              supabase.from('message_reads').upsert(
+                [{ message_id: fullMsg.id, user_id: currentUserRef.current.id }],
+                { onConflict: 'message_id,user_id', ignoreDuplicates: true }
+              )
+            }
+            if (
+              'Notification' in window &&
+              Notification.permission === 'granted' &&
+              document.visibilityState === 'hidden'
+            ) {
+              navigator.serviceWorker.ready.then(reg => {
+                reg.showNotification(
+                  `New message from ${fullMsg.profiles?.full_name || 'Someone'}`,
+                  {
+                    body: fullMsg.content,
+                    icon: '/icons/icon-192x192.png',
+                    badge: '/icons/icon-72x72.png',
+                    tag: `msg-${fullMsg.conversation_id}`,
+                    data: { url: '/dashboard' },
+                  }
+                )
+              })
+            }
           })
-          await markAsSeen([fullMsg.id])
-        }
-      })
-      .on('postgres_changes', {
-        event: '*', schema: 'public', table: 'message_reactions',
-      }, () => { fetchMessages() })
-      .on('postgres_changes', {
-        event: 'INSERT', schema: 'public', table: 'message_reads',
-      }, async (payload) => {
-        const { data: readProfile } = await supabase
+      }
+    )
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'message_reactions' },
+      (payload) => {
+        const messageId =
+          (payload.new as any)?.message_id ||
+          (payload.old as any)?.message_id
+        if (messageId) refreshReactions(messageId)
+      }
+    )
+    .on(
+      'postgres_changes',
+      { event: 'INSERT', schema: 'public', table: 'message_reads' },
+      (payload) => {
+        supabase
           .from('profiles')
           .select('id, full_name, avatar_url')
           .eq('id', payload.new.user_id)
           .single()
-
-        setMessages(prev =>
-          prev.map(m => {
-            if (m.id !== payload.new.message_id) return m
-            if (m.reads.find(r => r.user_id === payload.new.user_id)) return m
-            return {
-              ...m,
-              reads: [...m.reads, {
-                user_id: payload.new.user_id,
-                seen_at: payload.new.seen_at,
-                profiles: readProfile || undefined,
-              }],
-            }
+          .then(({ data: profile }) => {
+            setMessages(prev =>
+              prev.map(m => {
+                if (m.id !== payload.new.message_id) return m
+                if (m.reads.find(r => r.user_id === payload.new.user_id)) return m
+                return {
+                  ...m,
+                  reads: [
+                    ...m.reads,
+                    {
+                      user_id: payload.new.user_id,
+                      seen_at: payload.new.seen_at,
+                      profiles: profile || undefined,
+                    },
+                  ],
+                }
+              })
+            )
           })
-        )
-      })
-      .subscribe()
+      }
+    )
+    .subscribe((status) => {
+    console.log(`[Chat ${conversationId}] Realtime status:`, status)
+  // Should log "SUBSCRIBED" — if it logs "CLOSED" messages won't arrive
+})
+  channelRef.current = channel
 
-    channelRef.current = channel
-
-    // ✅ Proper cleanup
-    return () => {
-      supabase.removeChannel(channel)
-      channelRef.current = null
-    }
-  }, [conversationId, currentUser?.id])
+  // ✅ Cleanup is a plain synchronous function — no async, no promise
+  return () => {
+    channel.unsubscribe()
+    channelRef.current = null
+  }
+}, [conversationId]) // ✅ Only conversationId as dependency // ✅ Only re-run when conversationId changes
 
   return { messages, isLoading, sendMessage, toggleReaction, markAsSeen, fetchMessages }
 }

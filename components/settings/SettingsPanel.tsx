@@ -15,6 +15,10 @@ import {
 interface SettingsPanelProps {
   user: User | null
 }
+// Replace the notification toggle handler with this
+import { usePushNotifications } from '@/hooks/usePushNotifications'
+
+// Inside your component
 
 export default function SettingsPanel({ user }: SettingsPanelProps) {
   const [fullName, setFullName] = useState('')
@@ -32,7 +36,19 @@ export default function SettingsPanel({ user }: SettingsPanelProps) {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const fileRef = useRef<HTMLInputElement>(null)
+  const { subscribe, unsubscribe, isSubscribed, requestPermission } = usePushNotifications()
 
+const handleToggleNotifications = async () => {
+  if (notifications) {
+    await unsubscribe()
+    setNotifications(false)
+    localStorage.setItem('notifications', 'false')
+  } else {
+    const success = await subscribe()
+    setNotifications(success)
+    localStorage.setItem('notifications', String(success))
+  }
+}
   useEffect(() => {
     if (!user) return
     fetchProfile()
@@ -114,12 +130,6 @@ export default function SettingsPanel({ user }: SettingsPanelProps) {
     }
   }
 
-  const handleToggleNotifications = async () => {
-    const newValue = !notifications
-    setNotifications(newValue)
-    localStorage.setItem('notifications', String(newValue))
-    if (newValue && 'Notification' in window) await Notification.requestPermission()
-  }
 
   const handleToggleTheme = () => {
     const newDark = !isDark
