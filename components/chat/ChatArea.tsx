@@ -42,7 +42,6 @@ export default function ChatArea({ user }: ChatAreaProps) {
     markAsSeen, sendTyping, typingUsers, onlineUsers,
   } = useChat(conversationId, user)
 
-  // ✅ Check if other person is online
   const isOtherPersonOnline = onlineUsers.some(u => u.userId === otherPersonId)
 
   useEffect(() => {
@@ -151,6 +150,7 @@ export default function ChatArea({ user }: ChatAreaProps) {
     userId: string,
     otherId: string
   ): Promise<string | null> => {
+    // Check existing first
     const { data: myParts } = await supabase
       .from('conversation_participants')
       .select('conversation_id')
@@ -169,47 +169,78 @@ export default function ChatArea({ user }: ChatAreaProps) {
       if (shared?.conversation_id) return shared.conversation_id
     }
 
-    const { data: newConv } = await supabase
+    // ✅ Create new conversation
+    const { data: newConv, error: convError } = await supabase
       .from('conversations')
       .insert({ type: 'direct' })
       .select()
       .single()
 
+    if (convError) {
+      console.error('Error creating conversation:', convError.message)
+      return null
+    }
+
     if (newConv) {
-      await supabase.from('conversation_participants').insert([
-        { conversation_id: newConv.id, user_id: userId },
-        { conversation_id: newConv.id, user_id: otherId },
-      ])
+      const { error: partError } = await supabase
+        .from('conversation_participants')
+        .insert([
+          { conversation_id: newConv.id, user_id: userId },
+          { conversation_id: newConv.id, user_id: otherId },
+        ])
+
+      if (partError) {
+        console.error('Error adding participants:', partError.message)
+        return null
+      }
+
       return newConv.id
     }
 
     return null
   }, [])
 
+  // ✅ Single clean init — no duplicate
   useEffect(() => {
     if (!user) return
 
     const init = async () => {
       setInitLoading(true)
 
-      const { data: myProfile } = await supabase
+      const { data: myProfile, error: profileError } = await supabase
         .from('profiles')
         .select('role')
         .eq('id', user.id)
         .single()
 
+      if (profileError) {
+        console.error('Profile fetch error:', profileError.message)
+        setInitLoading(false)
+        return
+      }
+
       const role = myProfile?.role
       setUserRole(role)
 
       if (role === 'tenant') {
-        const { data: landlord } = await supabase
+        const { data: landlord, error: landlordError } = await supabase
           .from('profiles')
           .select('id, full_name, avatar_url')
           .eq('role', 'landlord')
           .limit(1)
-          .single()
+          .maybeSingle()
 
-        if (!landlord) { setInitLoading(false); return }
+        if (landlordError) {
+          console.error('Landlord fetch error:', landlordError.message)
+          setInitLoading(false)
+          return
+        }
+
+        if (!landlord) {
+          console.warn('No landlord found in profiles table')
+          setInitLoading(false)
+          return
+        }
 
         setOtherPersonName(landlord.full_name || 'Landlord')
         setOtherPersonAvatar(landlord.avatar_url || null)
@@ -271,7 +302,6 @@ export default function ChatArea({ user }: ChatAreaProps) {
     await sendMessage(content)
   }
 
-  // ✅ Trigger typing on input change
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setNewMessage(e.target.value)
     if (e.target.value.trim()) sendTyping()
@@ -346,7 +376,6 @@ export default function ChatArea({ user }: ChatAreaProps) {
                         ${conversationId === tenant.conversationId ? 'bg-sidebar-accent' : ''}
                       `}
                     >
-                      {/* Avatar with online dot */}
                       <div className="relative shrink-0">
                         <div className="w-10 h-10 rounded-full bg-accent flex items-center justify-center overflow-hidden">
                           {tenant.tenantAvatar ? (
@@ -357,7 +386,6 @@ export default function ChatArea({ user }: ChatAreaProps) {
                             </span>
                           )}
                         </div>
-                        {/* ✅ Online indicator */}
                         {isOnline && (
                           <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-sidebar rounded-full" />
                         )}
@@ -435,10 +463,9 @@ export default function ChatArea({ user }: ChatAreaProps) {
           </div>
         ) : (
           <>
-            {/* Chat header with online status */}
+            {/* Chat header */}
             <div className="px-4 sm:px-6 py-3 border-b border-border flex items-center justify-between shrink-0 bg-background shadow-sm">
               <div className="flex items-center gap-3">
-                {/* Avatar with online dot */}
                 <div className="relative shrink-0">
                   <div className="w-9 h-9 rounded-full bg-accent flex items-center justify-center overflow-hidden">
                     {otherPersonAvatar ? (
@@ -449,7 +476,6 @@ export default function ChatArea({ user }: ChatAreaProps) {
                       </span>
                     )}
                   </div>
-                  {/* ✅ Online dot on avatar */}
                   {isOtherPersonOnline && (
                     <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 border-2 border-background rounded-full" />
                   )}
@@ -457,18 +483,16 @@ export default function ChatArea({ user }: ChatAreaProps) {
 
                 <div>
                   <p className="font-semibold text-foreground text-sm">{otherPersonName}</p>
-                  {/* ✅ Online/typing status line */}
                   {typingUsers.length > 0 ? (
                     <p className="text-xs text-accent animate-pulse">
                       {typingUsers[0]} is typing...
                     </p>
                   ) : (
                     <p className="text-xs text-muted-foreground">
-                      {isOtherPersonOnline ? (
-                        <span className="text-green-500">● Online</span>
-                      ) : (
-                        `${otherPersonRole} · LEA Executive`
-                      )}
+                      {isOtherPersonOnline
+                        ? <span className="text-green-500">● Online</span>
+                        : `${otherPersonRole} · LEA Executive`
+                      }
                     </p>
                   )}
                 </div>
@@ -509,7 +533,7 @@ export default function ChatArea({ user }: ChatAreaProps) {
                 ))
               )}
 
-              {/* ✅ Typing indicator bubble */}
+              {/* Typing bubble */}
               {typingUsers.length > 0 && (
                 <div className="flex items-end gap-2">
                   <div className="w-7 h-7 rounded-full bg-accent flex items-center justify-center shrink-0 text-xs font-bold text-accent-foreground">
@@ -561,24 +585,10 @@ export default function ChatArea({ user }: ChatAreaProps) {
 
 // ---
 
-// **`MessageBubble.tsx` stays exactly the same** — no changes needed there. ✅
-
-// ---
-
-// **What was added:**
+// **Summary of fixes:**
 // ```
-// useChat.ts
-//   ✅ sendTyping()     → broadcasts typing event via presence channel
-//   ✅ typingUsers[]    → array of names currently typing
-//   ✅ onlineUsers[]    → array of users currently online
-//   ✅ Presence channel → tracks who is in the conversation
-//   ✅ Auto stop typing → after 2.5s of no input
-//   ✅ Clear typing     → when message arrives from that person
-
-// ChatArea.tsx
-//   ✅ Green dot        → on avatar in header + tenant list
-//   ✅ "● Online"       → shown under name when other person is online
-//   ✅ "X is typing..." → animated pulse text under name in header
-//   ✅ Typing bubble    → animated 3 dots bubble in message area
-//   ✅ handleInputChange → calls sendTyping on every keystroke
-//   ✅ otherPersonId    → tracked to check online status correctly
+// ✅ SQL  → Added conversations INSERT + SELECT policies
+// ✅ Code → Removed duplicate floating init function
+// ✅ Code → Added error logging to getOrCreateConversation
+// ✅ Code → Added error logging to profileError
+// ✅ Code → Clean single useEffect with single init

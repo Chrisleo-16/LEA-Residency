@@ -57,39 +57,52 @@ export default function CommunityPage({ user }: CommunityPageProps) {
   }, [user])
 
   const initCommunity = async () => {
-    setInitLoading(true)
+  setInitLoading(true)
 
-    const { data: profile } = await supabase
-      .from('profiles').select('role').eq('id', user!.id).single()
-    setRole(profile?.role || null)
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user!.id)
+    .single()
 
-    let convId: string | null = null
-    const { data: existing } = await supabase
-      .from('conversations').select('id').eq('type', 'group').limit(1).single()
-    convId = existing?.id ?? null
+  setRole(profile?.role || null)
 
-    if (!convId) {
-      const { data: newConv } = await supabase
-        .from('conversations').insert({ type: 'group' }).select().single()
-      convId = newConv?.id ?? null
-    }
+  // ✅ Just fetch — never insert (pre-created in DB)
+  const { data: existing } = await supabase
+    .from('conversations')
+    .select('id')
+    .eq('type', 'group')
+    .limit(1)
+    .maybeSingle()
 
-    if (convId) {
-      const { data: participant } = await supabase
-        .from('conversation_participants').select('id')
-        .eq('conversation_id', convId).eq('user_id', user!.id).maybeSingle()
+  const convId = existing?.id ?? null
 
-      if (!participant) {
-        await supabase.from('conversation_participants').insert({
-          conversation_id: convId, user_id: user!.id,
-        })
-      }
-
-      setCommunityConvId(convId)
-    }
-
+  if (!convId) {
+    console.error('Group conversation not found — please create it in Supabase')
     setInitLoading(false)
+    return
   }
+
+  // Add user as participant if not already
+  const { data: participant } = await supabase
+    .from('conversation_participants')
+    .select('id')
+    .eq('conversation_id', convId)
+    .eq('user_id', user!.id)
+    .maybeSingle()
+
+  if (!participant) {
+    await supabase
+      .from('conversation_participants')
+      .insert({
+        conversation_id: convId,
+        user_id: user!.id,
+      })
+  }
+
+  setCommunityConvId(convId)
+  setInitLoading(false)
+}
 
   const fetchAnnouncements = async () => {
     const { data } = await supabase
