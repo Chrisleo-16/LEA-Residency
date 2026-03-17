@@ -177,7 +177,7 @@ export default function LoginPage() {
               </div>
             )}
 
-            {/* Role selector — signup only */}
+            {/* Role selector — signup only
             {!isLogin && (
               <div className="space-y-1.5">
                 <label className="text-sm font-medium text-foreground">I am a</label>
@@ -201,7 +201,7 @@ export default function LoginPage() {
                   ))}
                 </div>
               </div>
-            )}
+            )} */}
 
             {/* Email */}
             <div className="space-y-1.5">
