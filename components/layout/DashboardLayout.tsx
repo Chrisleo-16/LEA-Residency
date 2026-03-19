@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { User } from '@supabase/supabase-js'
-import { Menu } from 'lucide-react'
+import { Menu, Building2 } from 'lucide-react'
 import Sidebar from '@/components/layout/Sidebar'
 import ChatArea from '@/components/chat/ChatArea'
 import SettingsPanel from '@/components/settings/SettingsPanel'
@@ -27,7 +27,7 @@ export default function DashboardLayout({ user }: DashboardLayoutProps) {
 
   const getPageTitle = () => {
     const titles: Record<string, string> = {
-      chat: 'Chat',
+      chat: 'Messages',
       community: 'Community',
       complaints: 'Complaints',
       requests: 'Requests',
@@ -35,6 +35,18 @@ export default function DashboardLayout({ user }: DashboardLayoutProps) {
       settings: 'Settings',
     }
     return titles[activeTab] || 'LEA Executive'
+  }
+
+  const getPageSubtitle = () => {
+    const subtitles: Record<string, string> = {
+      chat: 'Your private conversations',
+      community: 'Group chat & announcements',
+      complaints: 'Submit and track your issues',
+      requests: 'Service & maintenance requests',
+      policy: 'Rules, documents & guidelines',
+      settings: 'Account & preferences',
+    }
+    return subtitles[activeTab] || ''
   }
 
   const renderContent = () => {
@@ -53,10 +65,10 @@ export default function DashboardLayout({ user }: DashboardLayoutProps) {
     <>
       <div className="flex h-dvh bg-background overflow-hidden">
 
-        {/* Mobile overlay backdrop */}
+        {/* Mobile overlay */}
         {sidebarOpen && (
           <div
-            className="fixed inset-0 bg-black/50 z-20 md:hidden"
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-20 md:hidden"
             onClick={() => setSidebarOpen(false)}
           />
         )}
@@ -71,20 +83,33 @@ export default function DashboardLayout({ user }: DashboardLayoutProps) {
           <Sidebar activeTab={activeTab} setActiveTab={handleTabChange} />
         </div>
 
-        {/* Main content area */}
+        {/* Main content */}
         <div className="flex-1 flex flex-col overflow-hidden min-w-0">
 
+          {/* Desktop top bar */}
+          <div className="hidden md:flex items-center justify-between px-6 py-4 border-b border-border bg-background/80 backdrop-blur-sm shrink-0">
+            <div>
+              <h1 className="text-lg font-bold text-foreground">{getPageTitle()}</h1>
+              <p className="text-xs text-muted-foreground mt-0.5">{getPageSubtitle()}</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-accent animate-pulse" />
+              <span className="text-xs text-muted-foreground">LEA Executive Residency</span>
+            </div>
+          </div>
+
           {/* Mobile top navbar */}
-          <div className="md:hidden flex items-center justify-between px-4 py-3 border-b border-border bg-background shrink-0 shadow-sm">
+          <div className="md:hidden flex items-center justify-between px-4 py-3 border-b border-border bg-background shrink-0">
             <button
               onClick={() => setSidebarOpen(true)}
-              className="p-2 rounded-md hover:bg-secondary text-foreground transition-colors"
-              aria-label="Open menu"
+              className="p-2 rounded-xl hover:bg-secondary text-foreground transition-colors"
             >
               <Menu className="w-5 h-5" />
             </button>
-            <h1 className="font-bold text-foreground text-sm">{getPageTitle()}</h1>
-            {/* Spacer to center the title */}
+            <div className="flex items-center gap-2">
+              <Building2 className="w-4 h-4 text-accent" />
+              <h1 className="font-bold text-foreground text-sm">{getPageTitle()}</h1>
+            </div>
             <div className="w-9" />
           </div>
 

@@ -2,11 +2,10 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import {
   MessageSquare, Settings, LogOut, Search,
-  AlertCircle, ClipboardList, FileText, Users, X
+  AlertCircle, ClipboardList, FileText, Users,
+  X, Home, Building2, ChevronRight
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { User } from '@supabase/supabase-js'
@@ -28,13 +27,11 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (!session) { router.push('/login'); return }
       setUser(session.user)
-
       const { data: profile } = await supabase
         .from('profiles')
         .select('role, full_name, avatar_url')
         .eq('id', session.user.id)
         .single()
-
       if (profile) {
         setRole(profile.role)
         setFullName(profile.full_name || '')
@@ -49,118 +46,161 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
   }
 
   const tenantTabs = [
-    { id: 'chat',       label: 'Chat with Landlord', icon: MessageSquare },
-    { id: 'community',  label: 'Community',           icon: Users         },
-    { id: 'complaints', label: 'My Complaints',       icon: AlertCircle   },
-    { id: 'requests',   label: 'My Requests',         icon: ClipboardList },
-    { id: 'policy',     label: 'Policy & Docs',       icon: FileText      },
-    { id: 'settings',   label: 'Settings',            icon: Settings      },
+    { id: 'chat',       label: 'Chat with Landlord', icon: MessageSquare, desc: 'Direct messages' },
+    { id: 'community',  label: 'Community',           icon: Users,         desc: 'Group & announcements' },
+    { id: 'complaints', label: 'My Complaints',       icon: AlertCircle,   desc: 'Submit & track issues' },
+    { id: 'requests',   label: 'My Requests',         icon: ClipboardList, desc: 'Service requests' },
+    { id: 'policy',     label: 'Policy & Docs',       icon: FileText,      desc: 'Rules & documents' },
+    { id: 'settings',   label: 'Settings',            icon: Settings,      desc: 'Account preferences' },
   ]
 
   const landlordTabs = [
-    { id: 'chat',       label: 'Conversations',       icon: MessageSquare },
-    { id: 'community',  label: 'Community',           icon: Users         },
-    { id: 'complaints', label: 'Complaints',          icon: AlertCircle   },
-    { id: 'requests',   label: 'Requests',            icon: ClipboardList },
-    { id: 'policy',     label: 'Manage Policies',     icon: FileText      },
-    { id: 'settings',   label: 'Settings',            icon: Settings      },
+    { id: 'chat',       label: 'Conversations',       icon: MessageSquare, desc: 'Tenant messages' },
+    { id: 'community',  label: 'Community',           icon: Users,         desc: 'Group & announcements' },
+    { id: 'complaints', label: 'Complaints',          icon: AlertCircle,   desc: 'Manage tenant issues' },
+    { id: 'requests',   label: 'Requests',            icon: ClipboardList, desc: 'Service requests' },
+    { id: 'policy',     label: 'Manage Policies',     icon: FileText,      desc: 'Publish documents' },
+    { id: 'settings',   label: 'Settings',            icon: Settings,      desc: 'Account preferences' },
   ]
 
   const tabs = role === 'landlord' ? landlordTabs : tenantTabs
-
   const filteredTabs = tabs.filter(t =>
     t.label.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
   return (
-    <div className="w-72 bg-sidebar border-r border-sidebar-border flex flex-col h-full overflow-hidden">
+    <div className="w-72 bg-sidebar flex flex-col h-full overflow-hidden">
 
-      {/* Header */}
-      <div className="p-4 border-b border-sidebar-border shrink-0">
-        <div className="flex items-center justify-between mb-3">
+      {/* Brand header */}
+      <div className="px-5 pt-6 pb-4 shrink-0">
+        <div className="flex items-center gap-3 mb-5">
+          <div className="w-10 h-10 rounded-xl bg-accent flex items-center justify-center shrink-0 shadow-lg shadow-accent/25">
+            <Building2 className="w-5 h-5 text-white" />
+          </div>
           <div>
-            <h1 className="text-base font-bold text-sidebar-foreground leading-tight">
+            <h1 className="text-sm font-bold text-sidebar-foreground leading-tight tracking-wide">
               LEA Executive
             </h1>
-            <p className="text-xs text-sidebar-foreground/50">Residency & Apartments</p>
+            <p className="text-[11px] text-sidebar-foreground/40 tracking-wider uppercase mt-0.5">
+              Residency & Apts
+            </p>
           </div>
-          {role && (
-            <span className="text-xs capitalize bg-accent text-accent-foreground px-2 py-0.5 rounded-full shrink-0">
-              {role}
-            </span>
-          )}
         </div>
+
+        {/* Role badge */}
+        {role && (
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-1.5 h-1.5 rounded-full bg-accent" />
+            <span className="text-xs text-sidebar-foreground/50 capitalize tracking-wide">
+              {role === 'landlord' ? 'Property Manager' : 'Resident Tenant'}
+            </span>
+          </div>
+        )}
 
         {/* Search */}
         <div className="relative">
-          <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-sidebar-foreground/40" />
-          <Input
-            placeholder="Search menu..."
+          <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-sidebar-foreground/30" />
+          <input
+            placeholder="Search..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-8 bg-sidebar-accent border-sidebar-border text-sidebar-foreground placeholder:text-sidebar-foreground/40 h-9 text-sm"
+            className="w-full pl-8 pr-8 py-2 bg-sidebar-accent border border-sidebar-border rounded-lg text-sidebar-foreground placeholder:text-sidebar-foreground/30 text-xs focus:outline-none focus:ring-1 focus:ring-sidebar-primary/50 transition-all"
           />
           {searchQuery && (
             <button
               onClick={() => setSearchQuery('')}
-              className="absolute right-2.5 top-2.5 text-sidebar-foreground/40 hover:text-sidebar-foreground"
+              className="absolute right-2.5 top-2.5 text-sidebar-foreground/30 hover:text-sidebar-foreground/60"
             >
-              <X className="w-4 h-4" />
+              <X className="w-3.5 h-3.5" />
             </button>
           )}
         </div>
       </div>
 
+      {/* Nav label */}
+      <div className="px-5 mb-2 shrink-0">
+        <p className="text-[10px] font-semibold text-sidebar-foreground/30 uppercase tracking-widest">
+          Navigation
+        </p>
+      </div>
+
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto py-2">
+      <nav className="flex-1 overflow-y-auto px-3 space-y-0.5 pb-4">
         {filteredTabs.map((tab) => {
           const Icon = tab.icon
+          const isActive = activeTab === tab.id
           return (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium transition-all duration-150 ${
-                activeTab === tab.id
-                  ? 'bg-sidebar-accent text-sidebar-primary border-r-2 border-sidebar-primary'
-                  : 'text-sidebar-foreground/70 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground'
-              }`}
+              className={`
+                w-full flex items-center gap-3 px-3 py-3 rounded-xl text-left
+                transition-all duration-150 group relative
+                ${isActive
+                  ? 'bg-accent text-white shadow-md shadow-accent/20'
+                  : 'text-sidebar-foreground/60 hover:bg-sidebar-accent hover:text-sidebar-foreground'
+                }
+              `}
             >
-              <Icon className={`w-4 h-4 shrink-0 ${activeTab === tab.id ? 'text-sidebar-primary' : ''}`} />
-              <span className="truncate">{tab.label}</span>
+              <div className={`
+                w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-all
+                ${isActive
+                  ? 'bg-white/20'
+                  : 'bg-sidebar-accent group-hover:bg-sidebar-border'
+                }
+              `}>
+                <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-sidebar-foreground/60'}`} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className={`text-sm font-medium truncate leading-tight ${isActive ? 'text-white' : ''}`}>
+                  {tab.label}
+                </p>
+                <p className={`text-[11px] truncate mt-0.5 ${isActive ? 'text-white/60' : 'text-sidebar-foreground/30'}`}>
+                  {tab.desc}
+                </p>
+              </div>
+              {isActive && (
+                <ChevronRight className="w-3.5 h-3.5 text-white/60 shrink-0" />
+              )}
             </button>
           )
         })}
       </nav>
 
-      {/* User Footer */}
-      <div className="border-t border-sidebar-border p-4 shrink-0">
-        <div className="flex items-center gap-3 mb-3">
-          <div className="w-9 h-9 rounded-full bg-accent flex items-center justify-center shrink-0 overflow-hidden">
-            {avatarUrl ? (
-              <img src={avatarUrl} alt="avatar" className="w-full h-full object-cover" />
-            ) : (
-              <span className="text-sm font-bold text-accent-foreground">
-                {fullName.charAt(0).toUpperCase() || '?'}
-              </span>
-            )}
+      {/* Divider */}
+      <div className="mx-5 border-t border-sidebar-border shrink-0" />
+
+      {/* User footer */}
+      <div className="p-4 shrink-0">
+        <div className="flex items-center gap-3 p-3 rounded-xl bg-sidebar-accent border border-sidebar-border">
+          <div className="relative shrink-0">
+            <div className="w-9 h-9 rounded-full bg-accent flex items-center justify-center overflow-hidden ring-2 ring-accent/30">
+              {avatarUrl ? (
+                <img src={avatarUrl} alt="avatar" className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-sm font-bold text-white">
+                  {fullName.charAt(0).toUpperCase() || '?'}
+                </span>
+              )}
+            </div>
+            <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-400 border-2 border-sidebar-accent rounded-full" />
           </div>
-          <div className="min-w-0">
-            <p className="text-sm font-medium text-sidebar-foreground truncate">
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-semibold text-sidebar-foreground truncate">
               {fullName || 'Loading...'}
             </p>
-            <p className="text-xs text-sidebar-foreground/50 truncate">
+            <p className="text-[10px] text-sidebar-foreground/40 truncate mt-0.5">
               {user?.email}
             </p>
           </div>
+          <button
+            onClick={handleLogout}
+            className="p-1.5 rounded-lg hover:bg-sidebar-border text-sidebar-foreground/40 hover:text-sidebar-foreground transition-colors shrink-0"
+            title="Logout"
+          >
+            <LogOut className="w-3.5 h-3.5" />
+          </button>
         </div>
-        <Button
-          onClick={handleLogout}
-          variant="outline"
-          className="w-full border-sidebar-border text-sidebar-foreground hover:bg-sidebar-accent/50 justify-center gap-2 h-9 text-sm"
-        >
-          <LogOut className="w-4 h-4" />
-          Logout
-        </Button>
       </div>
     </div>
   )
