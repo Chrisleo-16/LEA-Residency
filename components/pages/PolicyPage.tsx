@@ -74,13 +74,27 @@ export default function PolicyPage({ user }: PolicyPageProps) {
   const fileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    if (!user) return
-    fetchData()
-    const stored = localStorage.getItem(`read-policies-${user.id}`)
-    if (stored) setReadPolicies(new Set(JSON.parse(stored)))
-    const agreed = localStorage.getItem(`agreement-signed-${user.id}`)
-    if (agreed) setAgreementGenerated(true)
-  }, [user])
+  if (!user) return
+  fetchData()
+  const stored = localStorage.getItem(`read-policies-${user.id}`)
+  if (stored) setReadPolicies(new Set(JSON.parse(stored)))
+  const agreed = localStorage.getItem(`agreement-signed-${user.id}`)
+  if (agreed) setAgreementGenerated(true)
+
+  // ✅ Hot reload
+  const channel = supabase
+    .channel('policies-realtime')
+    .on('postgres_changes', {
+      event: '*',
+      schema: 'public',
+      table: 'policies',
+    }, () => {
+      fetchData()
+    })
+    .subscribe()
+
+  return () => { channel.unsubscribe() }
+}, [user])
 
   const fetchData = async () => {
     setIsLoading(true)

@@ -23,22 +23,45 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
 
-  useEffect(() => {
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (!session) { router.push('/login'); return }
-      setUser(session.user)
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('role, full_name, avatar_url')
-        .eq('id', session.user.id)
-        .single()
-      if (profile) {
-        setRole(profile.role)
-        setFullName(profile.full_name || '')
-        setAvatarUrl(profile.avatar_url || null)
-      }
-    })
-  }, [])
+ useEffect(() => {
+  let channel: ReturnType<typeof supabase.channel> | null = null
+
+  supabase.auth.getSession().then(async ({ data: { session } }) => {
+    if (!session) { router.push('/login'); return }
+    setUser(session.user)
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role, full_name, avatar_url')
+      .eq('id', session.user.id)
+      .single()
+
+    if (profile) {
+      setRole(profile.role)
+      setFullName(profile.full_name || '')
+      setAvatarUrl(profile.avatar_url || null)
+    }
+
+    // ✅ Now inside .then() so session.user.id is accessible
+    channel = supabase
+      .channel('sidebar-profile-realtime')
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'profiles',
+        filter: `id=eq.${session.user.id}`,
+      }, (payload) => {
+        setFullName(payload.new.full_name || '')
+        setAvatarUrl(payload.new.avatar_url || null)
+        setRole(payload.new.role || null)
+      })
+      .subscribe()
+  })
+
+  return () => {
+    channel?.unsubscribe()
+  }
+}, [])
 
   const handleLogout = async () => {
     await supabase.auth.signOut()

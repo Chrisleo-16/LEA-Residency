@@ -64,12 +64,34 @@ export default function SettingsPanel({ user }: SettingsPanelProps) {
   }
 
   useEffect(() => {
-    if (!user) return
-    fetchProfile()
-    const saved = localStorage.getItem('theme')
-    if (saved === 'dark') { setIsDark(true); document.documentElement.classList.add('dark') }
-    setNotifications(localStorage.getItem('notifications') === 'true')
-  }, [user])
+  if (!user) return
+  fetchProfile()
+  const saved = localStorage.getItem('theme')
+  if (saved === 'dark') { setIsDark(true); document.documentElement.classList.add('dark') }
+  setNotifications(localStorage.getItem('notifications') === 'true')
+
+  // ✅ Hot reload — profile changes + deletion requests
+  const channel = supabase
+    .channel('settings-realtime')
+    .on('postgres_changes', {
+      event: '*',
+      schema: 'public',
+      table: 'profiles',
+      filter: `id=eq.${user.id}`,
+    }, () => {
+      fetchProfile()
+    })
+    .on('postgres_changes', {
+      event: '*',
+      schema: 'public',
+      table: 'account_deletion_requests',
+    }, () => {
+      fetchProfile()
+    })
+    .subscribe()
+
+  return () => { channel.unsubscribe() }
+}, [user])
 
   const fetchProfile = async () => {
     setIsLoading(true)

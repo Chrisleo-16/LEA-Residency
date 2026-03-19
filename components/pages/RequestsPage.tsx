@@ -48,7 +48,23 @@ export default function RequestsPage({ user }: RequestsPageProps) {
   const [success, setSuccess] = useState('')
   const [activeCount, setActiveCount] = useState(0)
 
-  useEffect(() => { if (!user) return; fetchData() }, [user])
+  useEffect(() => {
+  if (!user) return
+  fetchData()
+
+  const channel = supabase
+    .channel('requests-realtime')
+    .on('postgres_changes', {
+      event: '*',
+      schema: 'public',
+      table: 'requests',
+    }, () => {
+      fetchData()
+    })
+    .subscribe()
+
+  return () => { channel.unsubscribe() }
+}, [user])
 
   const fetchData = async () => {
     setIsLoading(true)

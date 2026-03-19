@@ -55,10 +55,25 @@ export default function CommunityPage({ user }: CommunityPageProps) {
   }, [messages, user])
 
   useEffect(() => {
-    if (!user) return
-    initCommunity()
-    fetchAnnouncements()
-  }, [user])
+  if (!user) return
+  initCommunity()
+  fetchAnnouncements()
+
+  // ✅ Hot reload announcements
+  const channel = supabase
+    .channel('announcements-realtime')
+    .on('postgres_changes', {
+      event: '*',
+      schema: 'public',
+      table: 'policies',
+      filter: `category=eq.announcement`,
+    }, () => {
+      fetchAnnouncements()
+    })
+    .subscribe()
+
+  return () => { channel.unsubscribe() }
+}, [user])
 
   const initCommunity = async () => {
     setInitLoading(true)

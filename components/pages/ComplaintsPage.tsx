@@ -36,7 +36,24 @@ export default function ComplaintsPage({ user }: ComplaintsPageProps) {
   const [success, setSuccess] = useState('')
   const [activeCount, setActiveCount] = useState(0)
 
-  useEffect(() => { if (!user) return; fetchData() }, [user])
+  useEffect(() => {
+  if (!user) return
+  fetchData()
+
+  // ✅ Hot reload — listen for any complaint changes
+  const channel = supabase
+    .channel('complaints-realtime')
+    .on('postgres_changes', {
+      event: '*', // INSERT, UPDATE, DELETE
+      schema: 'public',
+      table: 'complaints',
+    }, () => {
+      fetchData() // refetch silently when anything changes
+    })
+    .subscribe()
+
+  return () => { channel.unsubscribe() }
+}, [user])
 
   const fetchData = async () => {
     setIsLoading(true)
