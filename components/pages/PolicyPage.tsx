@@ -717,8 +717,8 @@ export default function PolicyPage({ user }: PolicyPageProps) {
                     {/* Unread warning */}
                     {unreadCount > 0 && (
                       <div className="flex items-start gap-2.5 p-3.5 bg-amber-50 border border-amber-200 dark:bg-amber-950/20 dark:border-amber-800 rounded-xl">
-                        <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                        <p className="text-xs text-amber-700 dark:text-amber-400 leading-relaxed">
+                        <AlertTriangle className="w-4 h-4 text-amber-900 shrink-0 mt-0.5" />
+                        <p className="text-xs text-amber-900 dark:text-amber-900 leading-relaxed">
                           You still have <b>{unreadCount} unread</b> policy document{unreadCount !== 1 ? 's' : ''} above.
                           Please read all policies before agreeing to and downloading your tenancy agreement.
                         </p>
