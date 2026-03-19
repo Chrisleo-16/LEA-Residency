@@ -175,37 +175,274 @@ export default function PolicyPage({ user }: PolicyPageProps) {
   }
 
   const handleDownloadAgreement = async () => {
-    if (!agreedToAll) return
-    setIsGenerating(true)
-    try {
-      const res = await fetch('/api/generate-agreement', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          tenantName: fullName || 'Tenant',
-          tenantId: tenantNationalId,
-          tenantEmail: email,
-        }),
-      })
-      if (!res.ok) throw new Error('Failed to generate PDF')
-      const blob = await res.blob()
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `LEA_Tenancy_Agreement_${(fullName || 'Tenant').replace(/\s+/g, '_')}.pdf`
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
-      setAgreementGenerated(true)
-      localStorage.setItem(`agreement-signed-${user?.id}`, new Date().toISOString())
-    } catch (err: any) {
-      setError('Could not generate agreement. Please try again.')
-      console.error(err)
-    } finally {
-      setIsGenerating(false)
+  if (!agreedToAll) return
+  setIsGenerating(true)
+
+  try {
+    // ✅ Dynamic import — only loads when needed
+    const { jsPDF } = await import('jspdf')
+
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+    const W = 210
+    const margin = 18
+    const contentW = W - margin * 2
+    let y = 0
+
+    // ── Helpers ──────────────────────────────────────
+    const toUTCNow = () => new Date().toLocaleDateString('en-GB', {
+      day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Africa/Nairobi',
+    })
+
+    const addPage = () => {
+      doc.addPage()
+      y = 18
     }
+
+    const checkPageBreak = (needed: number) => {
+      if (y + needed > 272) addPage()
+    }
+
+    const fillRect = (x: number, ry: number, w: number, h: number, hex: string) => {
+      doc.setFillColor(hex)
+      doc.rect(x, ry, w, h, 'F')
+    }
+
+    const text = (
+      str: string,
+      x: number,
+      ry: number,
+      opts?: { size?: number; bold?: boolean; color?: string; align?: 'left' | 'center' | 'right'; maxWidth?: number }
+    ) => {
+      const { size = 10, bold = false, color = '#374151', align = 'left', maxWidth } = opts || {}
+      doc.setFontSize(size)
+      doc.setFont('helvetica', bold ? 'bold' : 'normal')
+      doc.setTextColor(color)
+      if (maxWidth) {
+        doc.text(str, x, ry, { align, maxWidth })
+      } else {
+        doc.text(str, x, ry, { align })
+      }
+    }
+
+    const wrappedText = (str: string, x: number, ry: number, maxW: number, lineH: number, opts?: { size?: number; bold?: boolean; color?: string }) => {
+      const { size = 9.5, bold = false, color = '#374151' } = opts || {}
+      doc.setFontSize(size)
+      doc.setFont('helvetica', bold ? 'bold' : 'normal')
+      doc.setTextColor(color)
+      const lines = doc.splitTextToSize(str, maxW)
+      doc.text(lines, x, ry)
+      return lines.length * lineH
+    }
+
+    const dateStr = toUTCNow()
+
+    // ── PAGE 1 HEADER ─────────────────────────────────
+    // Teal header bar
+    fillRect(0, 0, W, 38, '#0d9488')
+    fillRect(0, 38, W, 2, '#0f766e')
+
+    text('LEA Executive Residency', W / 2, 16, { size: 20, bold: true, color: '#ffffff', align: 'center' })
+    text('Tenancy Agreement — Official Document', W / 2, 28, { size: 11, color: '#ccfbf1', align: 'center' })
+
+    y = 50
+
+    // Green info box
+    fillRect(margin, y, contentW, 18, '#f0fdf4')
+    doc.setDrawColor('#86efac')
+    doc.setLineWidth(0.3)
+    doc.rect(margin, y, contentW, 18)
+    wrappedText(
+      'This agreement is electronically generated and pre-filled with your details. Print and sign physically where indicated.',
+      margin + 4, y + 7, contentW - 8, 5,
+      { size: 9, color: '#166534' }
+    )
+    y += 24
+
+    // ── PARTIES TABLE ─────────────────────────────────
+    text('PARTIES TO THIS AGREEMENT', margin, y, { size: 12, bold: true, color: '#0d9488' })
+    y += 7
+
+    const rows = [
+      ['TENANT NAME', (fullName || 'Tenant').toUpperCase()],
+      ['NATIONAL ID', tenantNationalId || 'To be provided upon signing'],
+      ['EMAIL ADDRESS', email || ''],
+      ['LANDLORD / AGENT', 'LEA Executive Residency Management'],
+      ['AGREEMENT DATE', dateStr],
+      ['PROPERTY', 'LEA Executive Residency & Apartments'],
+      ['LEASE TERM', '12 Months (Renewable)'],
+    ]
+
+    rows.forEach(([label, value], i) => {
+      const rowH = 9
+      fillRect(margin, y, 42, rowH, i % 2 === 0 ? '#f3f4f6' : '#f9fafb')
+      fillRect(margin + 42, y, contentW - 42, rowH, i % 2 === 0 ? '#f9fafb' : '#ffffff')
+      doc.setDrawColor('#e5e7eb')
+      doc.setLineWidth(0.2)
+      doc.rect(margin, y, contentW, rowH)
+      text(label, margin + 3, y + 6, { size: 8.5, color: '#6b7280' })
+      text(value, margin + 46, y + 6, { size: 9, bold: true, color: '#111827' })
+      y += rowH
+    })
+
+    y += 8
+
+    // ── AGREEMENT TERMS ───────────────────────────────
+    checkPageBreak(12)
+    text('AGREEMENT TERMS', margin, y, { size: 12, bold: true, color: '#0d9488' })
+    y += 7
+
+    const introText = `This agreement is made between ${fullName || 'the Tenant'} (the Tenant) and LEA Executive Residency Management (the Landlord) on ${dateStr}. The parties agree to the following terms and conditions:`
+    const introH = wrappedText(introText, margin, y, contentW, 5, { size: 9.5, color: '#374151' })
+    y += introH + 6
+
+    const clauses = [
+      ['1. LEASE PERIOD & RENT', 'The lease period shall be for 12 Months, renewable. Monthly rent is payable by the 5th day of each month. Late payment attracts a penalty of 10% of monthly rent. Bounced cheques attract re-collection fees of KShs. 3,500/=.'],
+      ['2. UTILITY BILLS', 'Rent is exclusive of utility bills (electricity and water), payable by the Tenant. Refundable deposits for both utilities are payable upon signing this agreement.'],
+      ['3. SECURITY DEPOSIT', 'A refundable deposit equivalent to two (2) months rent is payable upon signing. The deposit must not be used as rent under any circumstances.'],
+      ['4. NOTICE TO TERMINATE', 'Either party may terminate by giving 30 days written notice or payment of one months rent in lieu of notice.'],
+      ['5. CONSIDERATION', 'The Tenant agrees to pay all consideration fees including stamp duty and charges for preparation of this Agreement.'],
+    ]
+
+    clauses.forEach(([heading, body]) => {
+      checkPageBreak(20)
+      text(heading, margin, y, { size: 10, bold: true, color: '#1e40af' })
+      y += 5
+      const h = wrappedText(body, margin + 4, y, contentW - 4, 5, { size: 9.5, color: '#374151' })
+      y += h + 5
+    })
+
+    // ── TENANT OBLIGATIONS ────────────────────────────
+    checkPageBreak(12)
+    y += 4
+    doc.setDrawColor('#e5e7eb')
+    doc.setLineWidth(0.3)
+    doc.line(margin, y, W - margin, y)
+    y += 6
+    text('THE TENANT HEREBY AGREES TO:', margin, y, { size: 12, bold: true, color: '#0d9488' })
+    y += 7
+
+    const tenantObs = [
+      ['Keep Premises Clean', 'Maintain the premises in good order at own expense and return them in the same condition upon termination, fair wear and tear excepted.'],
+      ['Residential Use Only', 'Use the premises strictly for residential purposes only. No trade, business, or commercial activity shall be conducted on the premises.'],
+      ['No Subletting', 'Not to assign, sublet, or part with possession without prior written consent from the Landlord.'],
+      ['No Alterations', 'Not to make alterations or drive fasteners into walls, floors, or ceilings without written consent from management.'],
+      ['No Charcoal or Wood', 'Not to use charcoal or firewood for cooking inside the house at any time.'],
+      ['Report Defects', 'Report immediately in writing any structural defects, pest infestations, or signs of rot.'],
+      ['No Nuisance', 'Not to permit any act which may be a nuisance to neighbors or detrimental to the Landlord reputation.'],
+      ['Damage Responsibility', 'Be responsible for all damages and replace any items lost, broken, or damaged during tenancy with articles of similar quality.'],
+      ['Pay Estate Fees', 'Pay garbage collection fees, security charges, and any other estate levies as required.'],
+      ['Attend Meetings', 'Participate in estate welfare meetings and cooperate with neighbors and management.'],
+      ['Pre-departure Painting', 'One month before expiration, professionally paint the premises with two coats of quality paint to the Landlords satisfaction.'],
+      ['Clean Handover', 'Yield up the premises in good order with all fixtures, fittings, and equipment intact and functional.'],
+    ]
+
+    tenantObs.forEach(([title, desc], i) => {
+      checkPageBreak(18)
+      fillRect(margin, y - 1, contentW, 16, i % 2 === 0 ? '#fafafa' : '#ffffff')
+      text(`${i + 1}. ${title}`, margin + 2, y + 5, { size: 9, bold: true, color: '#0d9488' })
+      const h = wrappedText(desc, margin + 38, y + 5, contentW - 40, 4.5, { size: 9, color: '#374151' })
+      y += Math.max(16, h + 8)
+    })
+
+    // ── LANDLORD OBLIGATIONS ──────────────────────────
+    checkPageBreak(12)
+    y += 4
+    doc.line(margin, y, W - margin, y)
+    y += 6
+    text('THE LANDLORD AGREES TO:', margin, y, { size: 12, bold: true, color: '#0d9488' })
+    y += 7
+
+    const landlordObs = [
+      'Allow the Tenant to quietly possess and enjoy the premises without unlawful interruption.',
+      'Keep the outside walls, roof, and main structure in good repair.',
+      'Pay rates and land rent in respect of the premises.',
+      'Give the Tenant first option to renew the lease for a further 12 months, provided 3 months prior written notice is given and no breach of lease terms has occurred.',
+      'Take action, including repossession, only if rent is in arrears for more than 10 days or if the Tenant fails to observe any covenant herein.',
+    ]
+
+    landlordObs.forEach((obs, i) => {
+      checkPageBreak(14)
+      const h = wrappedText(`${i + 1}. ${obs}`, margin + 4, y, contentW - 4, 5, { size: 9.5, color: '#374151' })
+      y += h + 5
+    })
+
+    // ── SIGNATURE SECTION ─────────────────────────────
+    checkPageBreak(70)
+    y += 8
+    fillRect(0, y - 2, W, 2, '#0d9488')
+    y += 6
+    text('SIGNATURES', margin, y, { size: 12, bold: true, color: '#0d9488' })
+    y += 6
+    wrappedText(
+      'By signing below, both parties confirm they have read, understood, and agree to be bound by all terms of this Tenancy Agreement.',
+      margin, y, contentW, 5, { size: 9.5, color: '#374151' }
+    )
+    y += 12
+
+    // Two column signature boxes
+    const boxW = (contentW - 8) / 2
+    const boxH = 52
+
+    // Left box — Tenant
+    fillRect(margin, y, boxW, 10, '#f0fdf4')
+    doc.setDrawColor('#e5e7eb')
+    doc.setLineWidth(0.3)
+    doc.rect(margin, y, boxW, boxH)
+    text('TENANT', margin + boxW / 2, y + 7, { size: 10, bold: true, color: '#374151', align: 'center' })
+    text(`Name: ${fullName || 'Tenant'}`, margin + 4, y + 18, { size: 9, color: '#374151' })
+    text(`ID No: ${tenantNationalId || 'To be provided'}`, margin + 4, y + 26, { size: 9, color: '#374151' })
+    text('Signature: _______________________', margin + 4, y + 36, { size: 9, color: '#374151' })
+    text(`Date: ${dateStr}`, margin + 4, y + 44, { size: 9, color: '#374151' })
+
+    // Right box — Landlord
+    const rx = margin + boxW + 8
+    fillRect(rx, y, boxW, 10, '#f0fdf4')
+    doc.rect(rx, y, boxW, boxH)
+    text('LANDLORD / AGENT', rx + boxW / 2, y + 7, { size: 10, bold: true, color: '#374151', align: 'center' })
+    text('Name: LEA Executive Management', rx + 4, y + 18, { size: 9, color: '#374151' })
+    text('Designation: Property Manager', rx + 4, y + 26, { size: 9, color: '#374151' })
+    text('Signature: _______________________', rx + 4, y + 36, { size: 9, color: '#374151' })
+    text('Date: _______________________', rx + 4, y + 44, { size: 9, color: '#374151' })
+
+    y += boxH + 12
+
+    // ── FOOTER ────────────────────────────────────────
+    checkPageBreak(16)
+    doc.setDrawColor('#e5e7eb')
+    doc.line(margin, y, W - margin, y)
+    y += 5
+    text(
+      `Digitally generated by LEA Executive Residency System on ${dateStr}`,
+      W / 2, y, { size: 8, color: '#9ca3af', align: 'center' }
+    )
+    y += 5
+    text(
+      `Tenant: ${fullName || 'Tenant'} | ID: ${tenantNationalId || 'N/A'} | Email: ${email || 'N/A'}`,
+      W / 2, y, { size: 8, color: '#9ca3af', align: 'center' }
+    )
+
+    // Add teal bottom strip on every page
+    const totalPages = (doc as any).internal.getNumberOfPages()
+    for (let i = 1; i <= totalPages; i++) {
+      doc.setPage(i)
+      fillRect(0, 295, W, 2, '#0d9488')
+    }
+
+    // ── SAVE ──────────────────────────────────────────
+    const fileName = `LEA_Tenancy_Agreement_${(fullName || 'Tenant').replace(/\s+/g, '_')}.pdf`
+    doc.save(fileName)
+
+    setAgreementGenerated(true)
+    localStorage.setItem(`agreement-signed-${user?.id}`, new Date().toISOString())
+
+  } catch (err: any) {
+    console.error('PDF generation error:', err)
+    setError('Could not generate agreement. Please try again.')
+  } finally {
+    setIsGenerating(false)
   }
+}
+
 
   const getCategoryConfig = (value: string) =>
     CATEGORIES.find(c => c.value === value) || CATEGORIES[0]
