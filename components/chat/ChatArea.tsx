@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Send, Phone, MoreVertical, Users, X } from 'lucide-react'
-import { useChat } from '@/hooks/useChat'
+import { useChat, Message } from '@/hooks/useChat'
 import MessageBubble from '@/components/chat/MessageBubble'
 
 interface ChatAreaProps {
@@ -34,11 +34,12 @@ export default function ChatArea({ user }: ChatAreaProps) {
   const [userRole, setUserRole] = useState<string | null>(null)
   const [tenantConversations, setTenantConversations] = useState<TenantConversation[]>([])
   const [showTenantList, setShowTenantList] = useState(false)
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   const {
-    messages, isLoading, sendMessage, toggleReaction,
+    messages, isLoading, sendMessage, editMessage, toggleReaction,
     markAsSeen, sendTyping, typingUsers, onlineUsers,
   } = useChat(conversationId, user)
 
@@ -150,7 +151,6 @@ export default function ChatArea({ user }: ChatAreaProps) {
     userId: string,
     otherId: string
   ): Promise<string | null> => {
-    // Check existing first
     const { data: myParts } = await supabase
       .from('conversation_participants')
       .select('conversation_id')
@@ -169,7 +169,6 @@ export default function ChatArea({ user }: ChatAreaProps) {
       if (shared?.conversation_id) return shared.conversation_id
     }
 
-    // ✅ Create new conversation
     const { data: newConv, error: convError } = await supabase
       .from('conversations')
       .insert({ type: 'direct' })
@@ -200,7 +199,6 @@ export default function ChatArea({ user }: ChatAreaProps) {
     return null
   }, [])
 
-  // ✅ Single clean init — no duplicate
   useEffect(() => {
     if (!user) return
 
@@ -285,6 +283,7 @@ export default function ChatArea({ user }: ChatAreaProps) {
     setOtherPersonRole('Tenant')
     setOtherPersonId(tenant.tenantId)
     setShowTenantList(false)
+    setReplyingTo(null)
 
     if (tenant.conversationId) {
       setConversationId(tenant.conversationId)
@@ -297,9 +296,11 @@ export default function ChatArea({ user }: ChatAreaProps) {
   const handleSend = async () => {
     if (!newMessage.trim()) return
     const content = newMessage
+    const replyId = replyingTo?.id
     setNewMessage('')
+    setReplyingTo(null)
     inputRef.current?.focus()
-    await sendMessage(content)
+    await sendMessage(content, replyId)
   }
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -308,14 +309,22 @@ export default function ChatArea({ user }: ChatAreaProps) {
   }
 
   const formatTime = (dateStr: string) => {
-    if (!dateStr) return ''
-    const date = new Date(dateStr)
-    const now = new Date()
-    const isToday = date.toDateString() === now.toDateString()
-    return isToday
-      ? date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      : date.toLocaleDateString([], { day: 'numeric', month: 'short' })
-  }
+  if (!dateStr) return ''
+  const date = new Date(dateStr)
+  const now = new Date()
+  const isToday = date.toDateString() === now.toDateString()
+  return isToday
+    ? date.toLocaleTimeString([], { 
+        hour: '2-digit', 
+        minute: '2-digit',
+        timeZone: 'Africa/Nairobi' // ✅ UTC+3
+      })
+    : date.toLocaleDateString([], { 
+        day: 'numeric', 
+        month: 'short',
+        timeZone: 'Africa/Nairobi' // ✅ UTC+3
+      })
+}
 
   if (initLoading) {
     return (
@@ -480,7 +489,6 @@ export default function ChatArea({ user }: ChatAreaProps) {
                     <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-500 border-2 border-background rounded-full" />
                   )}
                 </div>
-
                 <div>
                   <p className="font-semibold text-foreground text-sm">{otherPersonName}</p>
                   {typingUsers.length > 0 ? (
@@ -497,7 +505,6 @@ export default function ChatArea({ user }: ChatAreaProps) {
                   )}
                 </div>
               </div>
-
               <div className="flex items-center gap-1">
                 <button className="p-2 rounded-md hover:bg-secondary text-muted-foreground">
                   <Phone className="w-4 h-4" />
@@ -510,14 +517,14 @@ export default function ChatArea({ user }: ChatAreaProps) {
 
             {/* Messages */}
             <div
-  className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 space-y-3"
-  style={{
-    backgroundImage: `url('/images/best.jpg')`,
-    backgroundSize: 'cover',
-    backgroundPosition: 'center',
-    backgroundAttachment: 'local',
-  }}
->
+              className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 space-y-3"
+              style={{
+                backgroundImage: `url('/images/best.jpg')`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+                backgroundAttachment: 'local',
+              }}
+            >
               {isLoading ? (
                 <div className="flex items-center justify-center h-full">
                   <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-accent" />
@@ -536,6 +543,8 @@ export default function ChatArea({ user }: ChatAreaProps) {
                     isMe={msg.sender_id === user?.id}
                     currentUserId={user?.id || ''}
                     onReact={toggleReaction}
+                    onReply={setReplyingTo}
+                    onEdit={editMessage}
                     showAvatar={false}
                   />
                 ))
@@ -556,9 +565,31 @@ export default function ChatArea({ user }: ChatAreaProps) {
                   </div>
                 </div>
               )}
-
               <div ref={bottomRef} />
             </div>
+
+            {/* Reply preview bar */}
+            {replyingTo && (
+              <div className="px-4 sm:px-6 py-2 border-t border-border bg-secondary/30 flex items-center justify-between gap-3 shrink-0">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="w-0.5 h-8 bg-accent rounded-full shrink-0" />
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-accent">
+                      Replying to {replyingTo.profiles?.full_name || 'Unknown'}
+                    </p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {replyingTo.content}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setReplyingTo(null)}
+                  className="p-1 rounded-md hover:bg-secondary text-muted-foreground shrink-0"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
 
             {/* Input */}
             <div className="px-4 sm:px-6 py-3 border-t border-border flex gap-2 items-center shrink-0 bg-background">
@@ -589,14 +620,3 @@ export default function ChatArea({ user }: ChatAreaProps) {
     </div>
   )
 }
-// ```
-
-// ---
-
-// **Summary of fixes:**
-// ```
-// ✅ SQL  → Added conversations INSERT + SELECT policies
-// ✅ Code → Removed duplicate floating init function
-// ✅ Code → Added error logging to getOrCreateConversation
-// ✅ Code → Added error logging to profileError
-// ✅ Code → Clean single useEffect with single init

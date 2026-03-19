@@ -9,7 +9,7 @@ import { Card } from '@/components/ui/card'
 import {
   AlertCircle, FileText, Home, DollarSign,
   Wrench, LogOut, Shield, BookOpen,
-  Trash2, Upload, ChevronDown, ChevronUp, Plus
+  Trash2, Upload, ChevronDown, ChevronUp, Plus, Pencil, X
 } from 'lucide-react'
 
 interface Policy {
@@ -26,12 +26,12 @@ interface PolicyPageProps {
 }
 
 const CATEGORIES = [
-  { value: 'house_rules',  label: 'House Rules',           icon: Home       },
-  { value: 'rent_payment', label: 'Rent & Payment',        icon: DollarSign },
-  { value: 'maintenance',  label: 'Maintenance',           icon: Wrench     },
-  { value: 'move_in_out',  label: 'Move In & Out',         icon: LogOut     },
-  { value: 'security',     label: 'Security & Safety',     icon: Shield     },
-  { value: 'lease',        label: 'Lease Agreement',       icon: BookOpen   },
+  { value: 'house_rules',  label: 'House Rules',       icon: Home       },
+  { value: 'rent_payment', label: 'Rent & Payment',    icon: DollarSign },
+  { value: 'maintenance',  label: 'Maintenance',       icon: Wrench     },
+  { value: 'move_in_out',  label: 'Move In & Out',     icon: LogOut     },
+  { value: 'security',     label: 'Security & Safety', icon: Shield     },
+  { value: 'lease',        label: 'Lease Agreement',   icon: BookOpen   },
 ]
 
 export default function PolicyPage({ user }: PolicyPageProps) {
@@ -48,6 +48,10 @@ export default function PolicyPage({ user }: PolicyPageProps) {
   const [success, setSuccess] = useState('')
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [activeCategory, setActiveCategory] = useState('all')
+  const [editingPolicy, setEditingPolicy] = useState<Policy | null>(null)
+  const [editTitle, setEditTitle] = useState('')
+  const [editContent, setEditContent] = useState('')
+  const [isSavingEdit, setIsSavingEdit] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -117,6 +121,27 @@ export default function PolicyPage({ user }: PolicyPageProps) {
     fetchData()
   }
 
+  const handleEdit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editingPolicy) return
+    setIsSavingEdit(true)
+
+    const { error } = await supabase
+      .from('policies')
+      .update({ title: editTitle, content: editContent })
+      .eq('id', editingPolicy.id)
+
+    setIsSavingEdit(false)
+
+    if (!error) {
+      setEditingPolicy(null)
+      setSuccess('Policy updated successfully!')
+      fetchData()
+    } else {
+      setError(error.message)
+    }
+  }
+
   const getCategoryConfig = (value: string) =>
     CATEGORIES.find(c => c.value === value) || CATEGORIES[0]
 
@@ -177,8 +202,6 @@ export default function PolicyPage({ user }: PolicyPageProps) {
           <Card className="p-4 sm:p-6 border border-border">
             <h3 className="text-base font-semibold text-foreground mb-4">Publish a Policy</h3>
             <form onSubmit={handleSubmit} className="space-y-4">
-
-              {/* Category */}
               <div>
                 <label className="text-sm font-medium text-foreground block mb-2">Category</label>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
@@ -202,7 +225,6 @@ export default function PolicyPage({ user }: PolicyPageProps) {
                   })}
                 </div>
               </div>
-
               <div>
                 <label className="text-sm font-medium text-foreground block mb-1.5">Title</label>
                 <Input
@@ -215,7 +237,6 @@ export default function PolicyPage({ user }: PolicyPageProps) {
                   className="bg-input border-border text-foreground"
                 />
               </div>
-
               <div>
                 <label className="text-sm font-medium text-foreground block mb-1.5">Content</label>
                 <textarea
@@ -227,8 +248,6 @@ export default function PolicyPage({ user }: PolicyPageProps) {
                   className="w-full rounded-md border border-border bg-input text-foreground placeholder:text-muted-foreground p-3 text-sm focus:outline-none focus:ring-2 focus:ring-accent resize-none"
                 />
               </div>
-
-              {/* PDF Upload */}
               <div>
                 <label className="text-sm font-medium text-foreground block mb-1.5">
                   Attach PDF (optional)
@@ -250,7 +269,6 @@ export default function PolicyPage({ user }: PolicyPageProps) {
                   onChange={(e) => setPdfFile(e.target.files?.[0] || null)}
                 />
               </div>
-
               <div className="flex gap-2">
                 <Button
                   type="button"
@@ -272,7 +290,7 @@ export default function PolicyPage({ user }: PolicyPageProps) {
           </Card>
         )}
 
-        {/* Category Filter — scrollable on mobile */}
+        {/* Category Filter */}
         <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
           <button
             onClick={() => setActiveCategory('all')}
@@ -325,21 +343,43 @@ export default function PolicyPage({ user }: PolicyPageProps) {
                           <CatIcon className="w-3.5 h-3.5 shrink-0" />
                           <span className="truncate">{catConfig.label}</span>
                         </div>
-                        <h4 className="font-semibold text-foreground text-sm sm:text-base">{policy.title}</h4>
+                        <h4 className="font-semibold text-foreground text-sm sm:text-base">
+                          {policy.title}
+                        </h4>
                         <p className="text-xs text-muted-foreground mt-1">
-                          Published {new Date(policy.created_at).toLocaleDateString('en-US', {
+                          Published {new Date(policy.created_at).toLocaleDateString(undefined, {
                             day: 'numeric', month: 'short', year: 'numeric'
                           })}
                         </p>
                       </div>
                       <div className="flex items-center gap-1 shrink-0">
                         {role === 'landlord' && (
-                          <button
-                            onClick={(e) => { e.stopPropagation(); handleDelete(policy.id, policy.file_url) }}
-                            className="p-1.5 rounded-md hover:bg-destructive/10 text-destructive transition-colors"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          <>
+                            {/* Edit button */}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setEditingPolicy(policy)
+                                setEditTitle(policy.title)
+                                setEditContent(policy.content)
+                              }}
+                              className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground transition-colors"
+                              title="Edit policy"
+                            >
+                              <Pencil className="w-4 h-4" />
+                            </button>
+                            {/* Delete button */}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleDelete(policy.id, policy.file_url)
+                              }}
+                              className="p-1.5 rounded-md hover:bg-destructive/10 text-destructive transition-colors"
+                              title="Delete policy"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </>
                         )}
                         {expandedId === policy.id
                           ? <ChevronUp className="w-4 h-4 text-muted-foreground" />
@@ -357,8 +397,8 @@ export default function PolicyPage({ user }: PolicyPageProps) {
                         </p>
                       )}
                       {policy.file_url && (
-                        <a
-                          href={policy.file_url}
+                        
+                          <a href={policy.file_url}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="inline-flex items-center gap-2 text-sm text-accent hover:underline"
@@ -375,6 +415,92 @@ export default function PolicyPage({ user }: PolicyPageProps) {
           )}
         </div>
       </div>
+
+      {/* Edit Policy Modal */}
+      {editingPolicy && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-background rounded-2xl border border-border w-full max-w-lg p-6 shadow-2xl">
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="font-semibold text-foreground text-lg">Edit Policy</h3>
+              <button
+                onClick={() => setEditingPolicy(null)}
+                className="p-1.5 rounded-md hover:bg-secondary text-muted-foreground"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <form onSubmit={handleEdit} className="space-y-4">
+              <div>
+                <label className="text-sm font-medium text-foreground block mb-1.5">Title</label>
+                <Input
+                  value={editTitle}
+                  onChange={e => setEditTitle(e.target.value)}
+                  required
+                  className="bg-input border-border text-foreground"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-medium text-foreground block mb-1.5">Content</label>
+                <textarea
+                  value={editContent}
+                  onChange={e => setEditContent(e.target.value)}
+                  rows={7}
+                  className="w-full rounded-md border border-border bg-input text-foreground p-3 text-sm focus:outline-none focus:ring-2 focus:ring-accent resize-none"
+                />
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setEditingPolicy(null)}
+                  className="flex-1 border-border"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={isSavingEdit}
+                  className="flex-1 bg-accent hover:bg-accent/90 text-accent-foreground"
+                >
+                  {isSavingEdit ? 'Saving...' : 'Save Changes'}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
+// ```
+
+// ---
+
+// **What was fixed across all three files:**
+// ```
+// ChatArea.tsx
+//   ✅ Message import added from useChat
+//   ✅ replyingTo state declared before useChat call
+//   ✅ editMessage added to useChat destructure
+//   ✅ Reply preview bar moved INSIDE the chat section (above input)
+//   ✅ onReply + onEdit passed to MessageBubble
+//   ✅ handleSend captures replyId before clearing state
+//   ✅ selectTenant resets replyingTo when switching tenants
+//   ✅ Commented out code removed
+
+// CommunityPage.tsx
+//   ✅ Message imported from useChat
+//   ✅ replyingTo state added
+//   ✅ editMessage added to useChat destructure
+//   ✅ Reply preview bar added above input
+//   ✅ onReply + onEdit passed to MessageBubble
+//   ✅ handleSend captures replyId before clearing
+//   ✅ Commented out code removed
+
+// PolicyPage.tsx
+//   ✅ Pencil + X imported from lucide
+//   ✅ editingPolicy, editTitle, editContent states added
+//   ✅ handleEdit function added
+//   ✅ Edit button added next to delete on each card
+//   ✅ Edit modal added at bottom of return
+//   ✅ Commented out code removed

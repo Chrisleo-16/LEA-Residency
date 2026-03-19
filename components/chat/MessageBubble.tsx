@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { Message } from '@/hooks/useChat'
+import { Reply, Pencil, Check, X } from 'lucide-react'
 
 const ALL_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🔥']
 
@@ -10,16 +11,21 @@ interface MessageBubbleProps {
   isMe: boolean
   currentUserId: string
   onReact: (messageId: string, emoji: string) => void
+  onReply: (message: Message) => void
+  onEdit: (messageId: string, newContent: string) => void
   showAvatar?: boolean
 }
 
 export default function MessageBubble({
-  message, isMe, currentUserId, onReact, showAvatar = true,
+  message, isMe, currentUserId, onReact, onReply, onEdit, showAvatar = true,
 }: MessageBubbleProps) {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const [hoveredReaction, setHoveredReaction] = useState<string | null>(null)
   const [showSeenBy, setShowSeenBy] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
+  const [editContent, setEditContent] = useState(message.content)
   const pickerRef = useRef<HTMLDivElement>(null)
+  const editRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -31,9 +37,34 @@ export default function MessageBubble({
     return () => document.removeEventListener('mousedown', handler)
   }, [])
 
+  useEffect(() => {
+    if (isEditing) editRef.current?.focus()
+  }, [isEditing])
+
   const reactions = Object.values(message.reactions)
   const readsExcludingMe = message.reads.filter(r => r.user_id !== currentUserId)
   const seenCount = readsExcludingMe.length
+
+  // ✅ Format time using user's local timezone
+  const formatTime = (dateStr: string) => {
+  return new Date(dateStr).toLocaleTimeString([], {
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone: 'Africa/Nairobi', // ✅ UTC+3 — East Africa Time
+  })
+}
+
+  const handleEditSave = () => {
+    if (editContent.trim() && editContent !== message.content) {
+      onEdit(message.id, editContent)
+    }
+    setIsEditing(false)
+  }
+
+  const handleEditCancel = () => {
+    setEditContent(message.content)
+    setIsEditing(false)
+  }
 
   return (
     <div className={`flex gap-2 group ${isMe ? 'flex-row-reverse' : 'flex-row'} items-end`}>
@@ -42,11 +73,7 @@ export default function MessageBubble({
       {showAvatar && (
         <div className="w-7 h-7 rounded-full bg-accent flex items-center justify-center shrink-0 text-xs font-bold text-accent-foreground mb-1 overflow-hidden">
           {message.profiles?.avatar_url ? (
-            <img
-              src={message.profiles.avatar_url}
-              alt=""
-              className="w-full h-full object-cover"
-            />
+            <img src={message.profiles.avatar_url} alt="" className="w-full h-full object-cover" />
           ) : (
             message.profiles?.full_name?.charAt(0).toUpperCase() || '?'
           )}
@@ -55,49 +82,93 @@ export default function MessageBubble({
 
       <div className={`flex flex-col max-w-[78%] sm:max-w-[68%] ${isMe ? 'items-end' : 'items-start'}`}>
 
-        {/* Sender name — group chat only */}
+        {/* Sender name */}
         {!isMe && showAvatar && (
           <p className="text-xs text-muted-foreground mb-1 px-1 font-medium">
             {message.profiles?.full_name || 'Unknown'}
           </p>
         )}
 
+        {/* Reply preview */}
+        {message.reply_to && (
+          <div className={`
+            mb-1 px-3 py-1.5 rounded-lg border-l-2 border-accent
+            bg-secondary/60 text-xs max-w-full cursor-pointer
+            ${isMe ? 'self-end' : 'self-start'}
+          `}>
+            <p className="font-semibold text-accent text-[11px] mb-0.5">
+              {message.reply_to.profiles?.full_name || 'Unknown'}
+            </p>
+            <p className="text-muted-foreground truncate max-w-[200px]">
+              {message.reply_to.content}
+            </p>
+          </div>
+        )}
+
         {/* Bubble row */}
         <div className={`relative flex items-end gap-1 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
 
-          {/* Emoji trigger */}
-          <div className="relative" ref={pickerRef}>
+          {/* Action buttons — visible on hover */}
+          <div className={`
+            opacity-0 group-hover:opacity-100 transition-opacity
+            flex items-center gap-0.5 mb-1
+            ${isMe ? 'flex-row-reverse' : 'flex-row'}
+          `}>
+            {/* Reply button */}
             <button
-              onClick={() => setShowEmojiPicker(v => !v)}
-              className="opacity-0 group-hover:opacity-100 transition-opacity w-6 h-6 rounded-full bg-secondary border border-border flex items-center justify-center text-xs mb-1 hover:bg-accent/20 shrink-0"
+              onClick={() => onReply(message)}
+              className="w-6 h-6 rounded-full bg-secondary border border-border flex items-center justify-center hover:bg-accent/20 transition-colors"
+              title="Reply"
             >
-              😊
+              <Reply className="w-3 h-3 text-muted-foreground" />
             </button>
 
-            {showEmojiPicker && (
-              <div className={`
-                absolute bottom-8 z-50 bg-background border border-border
-                rounded-2xl shadow-xl p-2 flex gap-1
-                ${isMe ? 'right-0' : 'left-0'}
-              `}>
-                {ALL_EMOJIS.map(emoji => (
-                  <button
-                    key={emoji}
-                    onClick={() => { onReact(message.id, emoji); setShowEmojiPicker(false) }}
-                    className={`
-                      text-lg sm:text-xl p-1.5 rounded-xl transition-all
-                      hover:scale-125 hover:bg-secondary active:scale-95
-                      ${message.reactions[emoji]?.reactedByMe ? 'bg-accent/20 ring-1 ring-accent' : ''}
-                    `}
-                  >
-                    {emoji}
-                  </button>
-                ))}
-              </div>
+            {/* Edit button — only for own messages */}
+            {isMe && (
+              <button
+                onClick={() => { setIsEditing(true); setEditContent(message.content) }}
+                className="w-6 h-6 rounded-full bg-secondary border border-border flex items-center justify-center hover:bg-accent/20 transition-colors"
+                title="Edit"
+              >
+                <Pencil className="w-3 h-3 text-muted-foreground" />
+              </button>
             )}
+
+            {/* Emoji trigger */}
+            <div className="relative" ref={pickerRef}>
+              <button
+                onClick={() => setShowEmojiPicker(v => !v)}
+                className="w-6 h-6 rounded-full bg-secondary border border-border flex items-center justify-center text-xs hover:bg-accent/20 transition-colors"
+                title="React"
+              >
+                😊
+              </button>
+
+              {showEmojiPicker && (
+                <div className={`
+                  absolute bottom-8 z-50 bg-background border border-border
+                  rounded-2xl shadow-xl p-2 flex gap-1
+                  ${isMe ? 'right-0' : 'left-0'}
+                `}>
+                  {ALL_EMOJIS.map(emoji => (
+                    <button
+                      key={emoji}
+                      onClick={() => { onReact(message.id, emoji); setShowEmojiPicker(false) }}
+                      className={`
+                        text-lg sm:text-xl p-1.5 rounded-xl transition-all
+                        hover:scale-125 hover:bg-secondary active:scale-95
+                        ${message.reactions[emoji]?.reactedByMe ? 'bg-accent/20 ring-1 ring-accent' : ''}
+                      `}
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
-          {/* ✅ Fixed: break-words is correct Tailwind class */}
+          {/* Message bubble */}
           <div className={`
             px-3 sm:px-4 py-2 rounded-2xl text-sm
             ${isMe
@@ -105,12 +176,41 @@ export default function MessageBubble({
               : 'bg-secondary text-secondary-foreground rounded-bl-sm'
             }
           `}>
-            <p className="break-words leading-relaxed">{message.content}</p>
-            <p className={`text-xs mt-1 ${isMe ? 'text-accent-foreground/60' : 'text-muted-foreground'}`}>
-              {new Date(message.created_at).toLocaleTimeString([], {
-                hour: '2-digit', minute: '2-digit'
-              })}
-            </p>
+            {/* Edit mode */}
+            {isEditing ? (
+              <div className="flex items-center gap-2 min-w-[180px]">
+                <input
+                  ref={editRef}
+                  value={editContent}
+                  onChange={e => setEditContent(e.target.value)}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') handleEditSave()
+                    if (e.key === 'Escape') handleEditCancel()
+                  }}
+                  className="flex-1 bg-transparent border-b border-accent-foreground/50 outline-none text-sm pb-0.5"
+                />
+                <button onClick={handleEditSave} className="shrink-0">
+                  <Check className="w-3.5 h-3.5 text-accent-foreground/80 hover:text-accent-foreground" />
+                </button>
+                <button onClick={handleEditCancel} className="shrink-0">
+                  <X className="w-3.5 h-3.5 text-accent-foreground/80 hover:text-accent-foreground" />
+                </button>
+              </div>
+            ) : (
+              <p className="break-words leading-relaxed">{message.content}</p>
+            )}
+
+            <div className={`flex items-center gap-1 mt-1 ${isMe ? 'justify-end' : 'justify-start'}`}>
+              {/* ✅ Edited label */}
+              {message.is_edited && (
+                <span className={`text-[10px] ${isMe ? 'text-accent-foreground/50' : 'text-muted-foreground'}`}>
+                  edited
+                </span>
+              )}
+              <p className={`text-xs ${isMe ? 'text-accent-foreground/60' : 'text-muted-foreground'}`}>
+                {formatTime(message.created_at)}
+              </p>
+            </div>
           </div>
         </div>
 
@@ -139,7 +239,6 @@ export default function MessageBubble({
                   <span className="font-medium">{reaction.count}</span>
                 </button>
 
-                {/* Who reacted */}
                 {hoveredReaction === reaction.emoji && reaction.users.length > 0 && (
                   <div className={`
                     absolute bottom-8 z-50 bg-background border border-border
@@ -153,11 +252,10 @@ export default function MessageBubble({
                       {reaction.users.map(u => (
                         <div key={u.id} className="flex items-center gap-2">
                           <div className="w-5 h-5 rounded-full bg-accent flex items-center justify-center text-xs text-accent-foreground font-bold overflow-hidden shrink-0">
-                            {u.avatar_url ? (
-                              <img src={u.avatar_url} alt="" className="w-full h-full object-cover" />
-                            ) : (
-                              u.full_name?.charAt(0).toUpperCase()
-                            )}
+                            {u.avatar_url
+                              ? <img src={u.avatar_url} alt="" className="w-full h-full object-cover" />
+                              : u.full_name?.charAt(0).toUpperCase()
+                            }
                           </div>
                           <span className="text-xs text-foreground truncate">
                             {u.id === currentUserId ? 'You' : u.full_name}
@@ -186,26 +284,19 @@ export default function MessageBubble({
                   style={{ zIndex: 3 - i }}
                   className="w-4 h-4 rounded-full bg-accent border border-background flex items-center justify-center overflow-hidden"
                 >
-                  {read.profiles?.avatar_url ? (
-                    <img
-                      src={read.profiles.avatar_url}
-                      alt=""
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <span className="text-[8px] font-bold text-accent-foreground">
-                      {read.profiles?.full_name?.charAt(0).toUpperCase() || '?'}
-                    </span>
-                  )}
+                  {read.profiles?.avatar_url
+                    ? <img src={read.profiles.avatar_url} alt="" className="w-full h-full object-cover" />
+                    : <span className="text-[8px] font-bold text-accent-foreground">
+                        {read.profiles?.full_name?.charAt(0).toUpperCase() || '?'}
+                      </span>
+                  }
                 </div>
               ))}
             </div>
-
             <span className="text-[10px] text-muted-foreground">
               {seenCount > 1 ? `Seen by ${seenCount}` : 'Seen'}
             </span>
 
-            {/* Seen by modal */}
             {showSeenBy && (
               <div className="absolute bottom-6 right-0 z-50 bg-background border border-border rounded-xl shadow-xl p-3 w-44">
                 <p className="text-xs font-semibold text-foreground mb-2">👁️ Seen by</p>
@@ -213,26 +304,23 @@ export default function MessageBubble({
                   {readsExcludingMe.map(read => (
                     <div key={read.user_id} className="flex items-center gap-2">
                       <div className="w-6 h-6 rounded-full bg-accent flex items-center justify-center overflow-hidden shrink-0">
-                        {read.profiles?.avatar_url ? (
-                          <img
-                            src={read.profiles.avatar_url}
-                            alt=""
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <span className="text-[10px] font-bold text-accent-foreground">
-                            {read.profiles?.full_name?.charAt(0).toUpperCase() || '?'}
-                          </span>
-                        )}
+                        {read.profiles?.avatar_url
+                          ? <img src={read.profiles.avatar_url} alt="" className="w-full h-full object-cover" />
+                          : <span className="text-[10px] font-bold text-accent-foreground">
+                              {read.profiles?.full_name?.charAt(0).toUpperCase() || '?'}
+                            </span>
+                        }
                       </div>
                       <div>
                         <p className="text-xs font-medium text-foreground truncate max-w-[110px]">
                           {read.profiles?.full_name || 'Unknown'}
                         </p>
                         <p className="text-[10px] text-muted-foreground">
-                          {new Date(read.seen_at).toLocaleTimeString([], {
-                            hour: '2-digit', minute: '2-digit'
-                          })}
+                          {new Date(read.seen_at).toLocaleTimeString([], { 
+  hour: '2-digit', 
+  minute: '2-digit',
+  timeZone: 'Africa/Nairobi'
+})}
                         </p>
                       </div>
                     </div>

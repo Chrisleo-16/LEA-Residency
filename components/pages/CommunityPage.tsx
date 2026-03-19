@@ -6,8 +6,8 @@ import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
-import { Send, Megaphone, MessageSquare } from 'lucide-react'
-import { useChat } from '@/hooks/useChat'
+import { Send, Megaphone, MessageSquare, X } from 'lucide-react'
+import { useChat, Message } from '@/hooks/useChat'
 import MessageBubble from '@/components/chat/MessageBubble'
 
 interface CommunityPageProps {
@@ -27,6 +27,7 @@ export default function CommunityPage({ user }: CommunityPageProps) {
   const [communityConvId, setCommunityConvId] = useState<string | null>(null)
   const [initLoading, setInitLoading] = useState(true)
   const [newMessage, setNewMessage] = useState('')
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null)
   const [announcements, setAnnouncements] = useState<Announcement[]>([])
   const [annTitle, setAnnTitle] = useState('')
   const [annContent, setAnnContent] = useState('')
@@ -35,7 +36,7 @@ export default function CommunityPage({ user }: CommunityPageProps) {
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
-  const { messages, isLoading, sendMessage, toggleReaction, markAsSeen } =
+  const { messages, isLoading, sendMessage, editMessage, toggleReaction, markAsSeen } =
     useChat(communityConvId, user)
 
   useEffect(() => {
@@ -57,52 +58,47 @@ export default function CommunityPage({ user }: CommunityPageProps) {
   }, [user])
 
   const initCommunity = async () => {
-  setInitLoading(true)
+    setInitLoading(true)
 
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user!.id)
-    .single()
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user!.id)
+      .single()
 
-  setRole(profile?.role || null)
+    setRole(profile?.role || null)
 
-  // ✅ Just fetch — never insert (pre-created in DB)
-  const { data: existing } = await supabase
-    .from('conversations')
-    .select('id')
-    .eq('type', 'group')
-    .limit(1)
-    .maybeSingle()
+    const { data: existing } = await supabase
+      .from('conversations')
+      .select('id')
+      .eq('type', 'group')
+      .limit(1)
+      .maybeSingle()
 
-  const convId = existing?.id ?? null
+    const convId = existing?.id ?? null
 
-  if (!convId) {
-    console.error('Group conversation not found — please create it in Supabase')
-    setInitLoading(false)
-    return
-  }
+    if (!convId) {
+      console.error('Group conversation not found — please create it in Supabase')
+      setInitLoading(false)
+      return
+    }
 
-  // Add user as participant if not already
-  const { data: participant } = await supabase
-    .from('conversation_participants')
-    .select('id')
-    .eq('conversation_id', convId)
-    .eq('user_id', user!.id)
-    .maybeSingle()
-
-  if (!participant) {
-    await supabase
+    const { data: participant } = await supabase
       .from('conversation_participants')
-      .insert({
-        conversation_id: convId,
-        user_id: user!.id,
-      })
-  }
+      .select('id')
+      .eq('conversation_id', convId)
+      .eq('user_id', user!.id)
+      .maybeSingle()
 
-  setCommunityConvId(convId)
-  setInitLoading(false)
-}
+    if (!participant) {
+      await supabase
+        .from('conversation_participants')
+        .insert({ conversation_id: convId, user_id: user!.id })
+    }
+
+    setCommunityConvId(convId)
+    setInitLoading(false)
+  }
 
   const fetchAnnouncements = async () => {
     const { data } = await supabase
@@ -114,9 +110,11 @@ export default function CommunityPage({ user }: CommunityPageProps) {
   const handleSend = async () => {
     if (!newMessage.trim()) return
     const content = newMessage
+    const replyId = replyingTo?.id
     setNewMessage('')
+    setReplyingTo(null)
     inputRef.current?.focus()
-    await sendMessage(content)
+    await sendMessage(content, replyId)
   }
 
   const handlePostAnnouncement = async (e: React.FormEvent) => {
@@ -170,20 +168,20 @@ export default function CommunityPage({ user }: CommunityPageProps) {
       {/* Group Chat */}
       {activeTab === 'chat' && (
         <div className="flex flex-col flex-1 overflow-hidden">
-          <div className="px-4 sm:px-6 py-2.5 border-b border-border shrink-0">
+          <div className="px-4 sm:px-6 py-2.5 border-b border-border shrink-0 bg-background">
             <p className="font-semibold text-foreground text-sm">LEA Community Chat</p>
             <p className="text-xs text-muted-foreground">All tenants and landlord</p>
           </div>
 
           <div
-  className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 space-y-3"
-  style={{
-    backgroundImage: `url('/images/best.jpg')`,
-    backgroundSize: 'cover',
-    backgroundPosition: 'center',
-    backgroundAttachment: 'local',
-  }}
->
+            className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 space-y-3"
+            style={{
+              backgroundImage: `url('/images/best.jpg')`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
+              backgroundAttachment: 'local',
+            }}
+          >
             {isLoading ? (
               <div className="flex items-center justify-center h-full">
                 <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-accent" />
@@ -202,6 +200,8 @@ export default function CommunityPage({ user }: CommunityPageProps) {
                   isMe={msg.sender_id === user?.id}
                   currentUserId={user?.id || ''}
                   onReact={toggleReaction}
+                  onReply={setReplyingTo}
+                  onEdit={editMessage}
                   showAvatar={true}
                 />
               ))
@@ -209,13 +209,41 @@ export default function CommunityPage({ user }: CommunityPageProps) {
             <div ref={bottomRef} />
           </div>
 
+          {/* Reply preview */}
+          {replyingTo && (
+            <div className="px-4 sm:px-6 py-2 border-t border-border bg-secondary/30 flex items-center justify-between gap-3 shrink-0">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="w-0.5 h-8 bg-accent rounded-full shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold text-accent">
+                    Replying to {replyingTo.profiles?.full_name || 'Unknown'}
+                  </p>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {replyingTo.content}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setReplyingTo(null)}
+                className="p-1 rounded-md hover:bg-secondary text-muted-foreground shrink-0"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
           <div className="px-4 sm:px-6 py-3 border-t border-border flex gap-2 items-center shrink-0 bg-background">
             <Input
               ref={inputRef}
               placeholder="Message the community..."
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend() } }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault()
+                  handleSend()
+                }
+              }}
               className="flex-1 bg-input border-border text-foreground h-10 sm:h-11 text-sm"
             />
             <Button
@@ -279,7 +307,7 @@ export default function CommunityPage({ user }: CommunityPageProps) {
                     <h4 className="font-semibold text-foreground text-sm sm:text-base">{ann.title}</h4>
                   </div>
                   <p className="text-xs text-muted-foreground pl-6">
-                    {new Date(ann.created_at).toLocaleDateString('en-US', {
+                    {new Date(ann.created_at).toLocaleDateString(undefined, {
                       day: 'numeric', month: 'short', year: 'numeric'
                     })}
                   </p>
@@ -309,13 +337,3 @@ export default function CommunityPage({ user }: CommunityPageProps) {
     </div>
   )
 }
-// ```
-
-// ---
-
-// **File placement summary:**
-// ```
-// hooks/useChat.ts                       ← new
-// components/chat/MessageBubble.tsx      ← new
-// components/chat/ChatArea.tsx           ← replace
-// components/pages/CommunityPage.tsx     ← replace

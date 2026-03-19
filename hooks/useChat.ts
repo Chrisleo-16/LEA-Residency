@@ -29,7 +29,11 @@ export interface Message {
   sender_id: string
   created_at: string
   conversation_id: string
+  reply_to_id: string | null
+  is_edited: boolean
+  edited_at: string | null
   profiles?: Profile
+  reply_to?: Message | null
   reactions: Record<string, Reaction>
   reads: MessageRead[]
 }
@@ -44,7 +48,7 @@ export interface PresenceUser {
 export function useChat(conversationId: string | null, currentUser: User | null) {
   const [messages, setMessages] = useState<Message[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const [typingUsers, setTypingUsers] = useState<string[]>([]) // names of who is typing
+  const [typingUsers, setTypingUsers] = useState<string[]>([])
   const [onlineUsers, setOnlineUsers] = useState<PresenceUser[]>([])
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
   const presenceChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null)
@@ -79,20 +83,31 @@ export function useChat(conversationId: string | null, currentUser: User | null)
     if (!rawMessages) return
 
     const messageIds = rawMessages.map(m => m.id)
+    const replyToIds = rawMessages
+      .filter(m => m.reply_to_id)
+      .map(m => m.reply_to_id)
 
-    const [{ data: rawReactions }, { data: rawReads }] = await Promise.all([
-      supabase
-        .from('message_reactions')
-        .select('*, profiles(id, full_name, avatar_url)')
-        .in('message_id', messageIds.length ? messageIds : ['00000000-0000-0000-0000-000000000000']),
-      supabase
-        .from('message_reads')
-        .select('*, profiles(id, full_name, avatar_url)')
-        .in('message_id', messageIds.length ? messageIds : ['00000000-0000-0000-0000-000000000000']),
-    ])
+    const [{ data: rawReactions }, { data: rawReads }, { data: replyMessages }] =
+      await Promise.all([
+        supabase
+          .from('message_reactions')
+          .select('*, profiles(id, full_name, avatar_url)')
+          .in('message_id', messageIds.length ? messageIds : ['00000000-0000-0000-0000-000000000000']),
+        supabase
+          .from('message_reads')
+          .select('*, profiles(id, full_name, avatar_url)')
+          .in('message_id', messageIds.length ? messageIds : ['00000000-0000-0000-0000-000000000000']),
+        replyToIds.length
+          ? supabase
+              .from('messages')
+              .select('*, profiles(id, full_name, avatar_url)')
+              .in('id', replyToIds)
+          : Promise.resolve({ data: [] }),
+      ])
 
     const enriched: Message[] = rawMessages.map(msg => ({
       ...msg,
+      reply_to: replyMessages?.find(r => r.id === msg.reply_to_id) || null,
       reactions: buildReactionsMap(
         (rawReactions || []).filter(r => r.message_id === msg.id),
         currentUser?.id
@@ -114,10 +129,9 @@ export function useChat(conversationId: string | null, currentUser: User | null)
       )
   }, [currentUser])
 
-  const sendMessage = useCallback(async (content: string) => {
+  const sendMessage = useCallback(async (content: string, replyToId?: string) => {
     if (!content.trim() || !conversationId || !currentUser) return
 
-    // Stop typing indicator when message is sent
     if (presenceChannelRef.current && isTypingRef.current) {
       presenceChannelRef.current.send({
         type: 'broadcast',
@@ -133,23 +147,57 @@ export function useChat(conversationId: string | null, currentUser: User | null)
         conversation_id: conversationId,
         sender_id: currentUser.id,
         content: content.trim(),
+        reply_to_id: replyToId || null,
       })
       .select('*, profiles(id, full_name, avatar_url)')
       .single()
 
     if (error) { console.error('Send error:', error.message); return }
 
+    // Fetch reply_to if exists
+    let replyTo = null
+    if (replyToId) {
+      const { data } = await supabase
+        .from('messages')
+        .select('*, profiles(id, full_name, avatar_url)')
+        .eq('id', replyToId)
+        .single()
+      replyTo = data
+    }
+
     setMessages(prev => {
       if (prev.find(m => m.id === newMsg.id)) return prev
-      return [...prev, { ...newMsg, reactions: {}, reads: [] }]
+      return [...prev, { ...newMsg, reactions: {}, reads: [], reply_to: replyTo }]
     })
   }, [conversationId, currentUser])
 
-  // ✅ Broadcast typing indicator
+  // ✅ Edit message
+  const editMessage = useCallback(async (messageId: string, newContent: string) => {
+    if (!currentUser || !newContent.trim()) return
+
+    const { error } = await supabase
+      .from('messages')
+      .update({
+        content: newContent.trim(),
+        is_edited: true,
+        edited_at: new Date().toISOString(),
+      })
+      .eq('id', messageId)
+      .eq('sender_id', currentUser.id) // only own messages
+
+    if (error) { console.error('Edit error:', error.message); return }
+
+    setMessages(prev =>
+      prev.map(m => m.id === messageId
+        ? { ...m, content: newContent.trim(), is_edited: true, edited_at: new Date().toISOString() }
+        : m
+      )
+    )
+  }, [currentUser])
+
   const sendTyping = useCallback(() => {
     if (!presenceChannelRef.current || !currentUser) return
 
-    // Send typing: true
     if (!isTypingRef.current) {
       presenceChannelRef.current.send({
         type: 'broadcast',
@@ -159,7 +207,6 @@ export function useChat(conversationId: string | null, currentUser: User | null)
       isTypingRef.current = true
     }
 
-    // Auto-stop typing after 2.5 seconds of no input
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current)
     typingTimeoutRef.current = setTimeout(() => {
       if (presenceChannelRef.current && currentUser) {
@@ -206,11 +253,10 @@ export function useChat(conversationId: string | null, currentUser: User | null)
     )
   }
 
-  // ✅ Presence + typing channel
+  // Presence channel
   useEffect(() => {
     if (!conversationId || !currentUser) return
 
-    // Clean up previous presence channel
     if (presenceChannelRef.current) {
       presenceChannelRef.current.unsubscribe()
       presenceChannelRef.current = null
@@ -220,7 +266,6 @@ export function useChat(conversationId: string | null, currentUser: User | null)
       .channel(`presence:${conversationId}`, {
         config: { presence: { key: currentUser.id } },
       })
-      // ✅ Track who is online
       .on('presence', { event: 'sync' }, () => {
         const state = presenceChannel.presenceState<{
           userId: string
@@ -231,17 +276,14 @@ export function useChat(conversationId: string | null, currentUser: User | null)
 
         const online: PresenceUser[] = Object.values(state)
           .flat()
-          .filter((u) => u.userId !== currentUser.id)
+          .filter(u => u.userId !== currentUser.id)
 
         setOnlineUsers(online)
       })
-      // ✅ Listen for typing broadcasts
       .on('broadcast', { event: 'typing' }, (payload) => {
         const { userId, isTyping } = payload.payload
-
         if (userId === currentUser.id) return
 
-        // Get the name of who is typing
         supabase
           .from('profiles')
           .select('full_name')
@@ -259,7 +301,6 @@ export function useChat(conversationId: string | null, currentUser: User | null)
       })
       .subscribe(async (status) => {
         if (status === 'SUBSCRIBED') {
-          // ✅ Track own presence
           await presenceChannel.track({
             userId: currentUser.id,
             fullName: currentUser.user_metadata?.full_name || 'Unknown',
@@ -278,7 +319,7 @@ export function useChat(conversationId: string | null, currentUser: User | null)
     }
   }, [conversationId, currentUser?.id])
 
-  // ✅ Messages + reactions + reads realtime channel
+  // Messages realtime channel
   useEffect(() => {
     if (!conversationId) return
 
@@ -292,105 +333,113 @@ export function useChat(conversationId: string | null, currentUser: User | null)
 
     const channel = supabase
       .channel(`chat-room:${conversationId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'messages',
-          filter: `conversation_id=eq.${conversationId}`,
-        },
-        (payload) => {
-          if (payload.new.sender_id === currentUserRef.current?.id) return
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'messages',
+        filter: `conversation_id=eq.${conversationId}`,
+      }, (payload) => {
+        if (payload.new.sender_id === currentUserRef.current?.id) return
 
-          supabase
-            .from('messages')
-            .select('*, profiles(id, full_name, avatar_url)')
-            .eq('id', payload.new.id)
-            .single()
-            .then(({ data: fullMsg }) => {
-              if (!fullMsg) return
+        supabase
+          .from('messages')
+          .select('*, profiles(id, full_name, avatar_url)')
+          .eq('id', payload.new.id)
+          .single()
+          .then(async ({ data: fullMsg }) => {
+            if (!fullMsg) return
 
-              // ✅ Clear typing indicator when message arrives
-              if (fullMsg.profiles?.full_name) {
-                setTypingUsers(prev =>
-                  prev.filter(n => n !== fullMsg.profiles?.full_name)
-                )
-              }
+            if (fullMsg.profiles?.full_name) {
+              setTypingUsers(prev => prev.filter(n => n !== fullMsg.profiles?.full_name))
+            }
 
-              setMessages(prev => {
-                if (prev.find(m => m.id === fullMsg.id)) return prev
-                return [...prev, { ...fullMsg, reactions: {}, reads: [] }]
-              })
+            let replyTo = null
+            if (fullMsg.reply_to_id) {
+              const { data } = await supabase
+                .from('messages')
+                .select('*, profiles(id, full_name, avatar_url)')
+                .eq('id', fullMsg.reply_to_id)
+                .single()
+              replyTo = data
+            }
 
-              if (currentUserRef.current) {
-                supabase.from('message_reads').upsert(
-                  [{ message_id: fullMsg.id, user_id: currentUserRef.current.id }],
-                  { onConflict: 'message_id,user_id', ignoreDuplicates: true }
-                )
-              }
-
-              if (
-                'Notification' in window &&
-                Notification.permission === 'granted' &&
-                document.visibilityState === 'hidden'
-              ) {
-                navigator.serviceWorker.ready.then(reg => {
-                  reg.showNotification(
-                    `New message from ${fullMsg.profiles?.full_name || 'Someone'}`,
-                    {
-                      body: fullMsg.content,
-                      icon: '/icons/icon-192x192.png',
-                      badge: '/icons/icon-72x72.png',
-                      tag: `msg-${fullMsg.conversation_id}`,
-                      data: { url: '/dashboard' },
-                    }
-                  )
-                })
-              }
+            setMessages(prev => {
+              if (prev.find(m => m.id === fullMsg.id)) return prev
+              return [...prev, { ...fullMsg, reactions: {}, reads: [], reply_to: replyTo }]
             })
-        }
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'message_reactions' },
-        (payload) => {
-          const messageId =
-            (payload.new as any)?.message_id ||
-            (payload.old as any)?.message_id
-          if (messageId) refreshReactions(messageId)
-        }
-      )
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'message_reads' },
-        (payload) => {
-          supabase
-            .from('profiles')
-            .select('id, full_name, avatar_url')
-            .eq('id', payload.new.user_id)
-            .single()
-            .then(({ data: profile }) => {
-              setMessages(prev =>
-                prev.map(m => {
-                  if (m.id !== payload.new.message_id) return m
-                  if (m.reads.find(r => r.user_id === payload.new.user_id)) return m
-                  return {
-                    ...m,
-                    reads: [
-                      ...m.reads,
-                      {
-                        user_id: payload.new.user_id,
-                        seen_at: payload.new.seen_at,
-                        profiles: profile || undefined,
-                      },
-                    ],
-                  }
-                })
+
+            if (currentUserRef.current) {
+              supabase.from('message_reads').upsert(
+                [{ message_id: fullMsg.id, user_id: currentUserRef.current.id }],
+                { onConflict: 'message_id,user_id', ignoreDuplicates: true }
               )
-            })
-        }
-      )
+            }
+
+            if (
+              'Notification' in window &&
+              Notification.permission === 'granted' &&
+              document.visibilityState === 'hidden'
+            ) {
+              navigator.serviceWorker.ready.then(reg => {
+                reg.showNotification(
+                  `New message from ${fullMsg.profiles?.full_name || 'Someone'}`,
+                  {
+                    body: fullMsg.content,
+                    icon: '/icons/icon-192x192.png',
+                    badge: '/icons/icon-72x72.png',
+                    tag: `msg-${fullMsg.conversation_id}`,
+                    data: { url: '/dashboard' },
+                  }
+                )
+              })
+            }
+          })
+      })
+      .on('postgres_changes', {
+        event: 'UPDATE',
+        schema: 'public',
+        table: 'messages',
+        filter: `conversation_id=eq.${conversationId}`,
+      }, (payload) => {
+        // ✅ Handle message edits in realtime
+        setMessages(prev =>
+          prev.map(m => m.id === payload.new.id
+            ? { ...m, content: payload.new.content, is_edited: payload.new.is_edited, edited_at: payload.new.edited_at }
+            : m
+          )
+        )
+      })
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'message_reactions',
+      }, (payload) => {
+        const messageId = (payload.new as any)?.message_id || (payload.old as any)?.message_id
+        if (messageId) refreshReactions(messageId)
+      })
+      .on('postgres_changes', {
+        event: 'INSERT', schema: 'public', table: 'message_reads',
+      }, (payload) => {
+        supabase
+          .from('profiles')
+          .select('id, full_name, avatar_url')
+          .eq('id', payload.new.user_id)
+          .single()
+          .then(({ data: profile }) => {
+            setMessages(prev =>
+              prev.map(m => {
+                if (m.id !== payload.new.message_id) return m
+                if (m.reads.find(r => r.user_id === payload.new.user_id)) return m
+                return {
+                  ...m,
+                  reads: [...m.reads, {
+                    user_id: payload.new.user_id,
+                    seen_at: payload.new.seen_at,
+                    profiles: profile || undefined,
+                  }],
+                }
+              })
+            )
+          })
+      })
       .subscribe()
 
     channelRef.current = channel
@@ -405,11 +454,12 @@ export function useChat(conversationId: string | null, currentUser: User | null)
     messages,
     isLoading,
     sendMessage,
+    editMessage,
     toggleReaction,
     markAsSeen,
     fetchMessages,
-    sendTyping,      // ✅ new
-    typingUsers,     // ✅ new
-    onlineUsers,     // ✅ new
+    sendTyping,
+    typingUsers,
+    onlineUsers,
   }
 }
