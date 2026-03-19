@@ -513,41 +513,59 @@ export default function PolicyPage({ user }: PolicyPageProps) {
 
                   {/* Expanded content */}
                   {isExpanded && (
-                    <div className="border-t border-border">
-                      {policy.content && (
-                        <div className="px-5 py-4">
-                          <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">
-                            {policy.content}
-                          </p>
-                        </div>
-                      )}
-                      {policy.file_url && (
-                        <div className="px-5 pb-4 pt-1">
-                          
-                           <a href={policy.file_url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-2 text-sm font-medium text-accent hover:text-accent/80 bg-accent/10 border border-accent/20 px-4 py-2 rounded-xl transition-colors hover:bg-accent/15"
-                          >
-                            <FileText className="w-4 h-4" />
-                            View / Download PDF
-                            <ExternalLink className="w-3.5 h-3.5 opacity-60" />
-                          </a>
-                        </div>
-                      )}
-                      {role === 'tenant' && !isRead && (
-                        <div className="border-t border-border px-5 py-3 bg-secondary/30">
-                          <button
-                            onClick={() => markAsRead(policy.id)}
-                            className="text-xs font-medium text-accent hover:text-accent/80 flex items-center gap-1.5 transition-colors"
-                          >
-                            <CheckCircle2 className="w-3.5 h-3.5" />
-                            Mark as read
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  )}
+  <div className="border-t border-border">
+
+    {/* ✅ Show image if file_url is an image (not PDF) */}
+    {policy.file_url && !policy.file_url.endsWith('.pdf') && (
+      <div className="px-5 pt-4 pb-2">
+        <img
+          src={policy.file_url}
+          alt={policy.title}
+          className="w-full rounded-xl border border-border object-contain max-h-[600px]"
+          loading="lazy"
+        />
+      </div>
+    )}
+
+    {/* Text content */}
+    {policy.content && (
+      <div className="px-5 py-4">
+        <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">
+          {policy.content}
+        </p>
+      </div>
+    )}
+
+    {/* PDF download — only for actual PDFs */}
+    {policy.file_url && policy.file_url.endsWith('.pdf') && (
+      <div className="px-5 pb-4 pt-1">
+        
+          <a href={policy.file_url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-2 text-sm font-medium text-accent hover:text-accent/80 bg-accent/10 border border-accent/20 px-4 py-2 rounded-xl transition-colors hover:bg-accent/15"
+        >
+          <FileText className="w-4 h-4" />
+          View / Download PDF
+          <ExternalLink className="w-3.5 h-3.5 opacity-60" />
+        </a>
+      </div>
+    )}
+
+    {/* Mark as read */}
+    {role === 'tenant' && !isRead && (
+      <div className="border-t border-border px-5 py-3 bg-secondary/30">
+        <button
+          onClick={() => markAsRead(policy.id)}
+          className="text-xs font-medium text-accent hover:text-accent/80 flex items-center gap-1.5 transition-colors"
+        >
+          <CheckCircle2 className="w-3.5 h-3.5" />
+          Mark as read
+        </button>
+      </div>
+    )}
+  </div>
+)}
                 </div>
               )
             })
