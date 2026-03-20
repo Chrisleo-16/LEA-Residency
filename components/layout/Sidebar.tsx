@@ -9,7 +9,7 @@ import {
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { User } from '@supabase/supabase-js'
-
+import { Receipt } from 'lucide-react'
 interface SidebarProps {
   activeTab: string
   setActiveTab: (tab: string) => void
@@ -73,8 +73,10 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
     { id: 'community',  label: 'Community',           icon: Users,         desc: 'Group & announcements' },
     { id: 'complaints', label: 'My Complaints',       icon: AlertCircle,   desc: 'Submit & track issues' },
     { id: 'requests',   label: 'My Requests',         icon: ClipboardList, desc: 'Service requests' },
+    { id: 'payments',   label: 'Payments',            icon: Receipt,       desc: 'Rent payment history' },
     { id: 'policy',     label: 'Policy & Docs',       icon: FileText,      desc: 'Rules & documents' },
     { id: 'settings',   label: 'Settings',            icon: Settings,      desc: 'Account preferences' },
+
   ]
 
   const landlordTabs = [
@@ -82,6 +84,7 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
     { id: 'community',  label: 'Community',           icon: Users,         desc: 'Group & announcements' },
     { id: 'complaints', label: 'Complaints',          icon: AlertCircle,   desc: 'Manage tenant issues' },
     { id: 'requests',   label: 'Requests',            icon: ClipboardList, desc: 'Service requests' },
+    { id: 'payments',   label: 'Rent Ledger',         icon: Receipt,       desc: 'Track all payments' },
     { id: 'policy',     label: 'Manage Policies',     icon: FileText,      desc: 'Publish documents' },
     { id: 'settings',   label: 'Settings',            icon: Settings,      desc: 'Account preferences' },
   ]

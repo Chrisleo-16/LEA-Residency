@@ -11,7 +11,7 @@ import ComplaintsPage from '@/components/pages/ComplaintsPage'
 import RequestsPage from '@/components/pages/RequestsPage'
 import PolicyPage from '@/components/pages/PolicyPage'
 import CommunityPage from '@/components/pages/CommunityPage'
-
+import PaymentsPage from '@/components/pages/PaymentsPage'
 interface DashboardLayoutProps {
   user: User | null
 }
@@ -32,6 +32,7 @@ export default function DashboardLayout({ user }: DashboardLayoutProps) {
       complaints: 'Complaints',
       requests: 'Requests',
       policy: 'Policy & Docs',
+      payments: 'Payments',
       settings: 'Settings',
     }
     return titles[activeTab] || 'LEA Executive'
@@ -44,6 +45,7 @@ export default function DashboardLayout({ user }: DashboardLayoutProps) {
       complaints: 'Submit and track your issues',
       requests: 'Service & maintenance requests',
       policy: 'Rules, documents & guidelines',
+      payments: 'Track rent payments and receipts',
       settings: 'Account & preferences',
     }
     return subtitles[activeTab] || ''
@@ -56,6 +58,7 @@ export default function DashboardLayout({ user }: DashboardLayoutProps) {
       case 'complaints': return <ComplaintsPage user={user} />
       case 'requests':   return <RequestsPage user={user} />
       case 'policy':     return <PolicyPage user={user} />
+      case 'payments':   return <PaymentsPage user={user} />
       case 'settings':   return <SettingsPanel user={user} />
       default:           return <ChatArea user={user} />
     }
