@@ -21,6 +21,7 @@ import {
   Search,
   BadgeCheck,
 } from "lucide-react";
+import PayButton from "../payments/PaymentsButton";
 
 const TZ = "Africa/Nairobi";
 const toUTC = (s: string) => new Date(s.endsWith("Z") ? s : s + "Z");
@@ -284,7 +285,10 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
 
   const initiateSTKPush = async () => {
     if (!myRentSetting) {
-      showFeedback("Your rent amount is not set. Please contact landlord.", true);
+      showFeedback(
+        "Your rent amount is not set. Please contact landlord.",
+        true,
+      );
       return;
     }
     if (!payPhone || payPhone.length < 9) {
@@ -309,7 +313,7 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
       if (!res.ok) throw new Error(data.error);
 
       showFeedback(
-        "Payment request sent. Please check your phone and enter PIN."
+        "Payment request sent. Please check your phone and enter PIN.",
       );
       setShowPayModal(false);
       setPayPhone("");
@@ -409,7 +413,7 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
               </Button>
               <Button
                 onClick={() => setShowLogForm(!showLogForm)}
-                className="bg-accent hover:bg-accent/90 text-white rounded-xl shadow-md shadow-accent/20 h-10 gap-2 text-sm"
+                className="bg-accent hover:bg-accent/90 text-accent-foreground rounded-xl shadow-md shadow-accent/20 h-10 gap-2 text-sm"
               >
                 <Plus className="w-4 h-4" />
                 <span className="hidden sm:inline">Log Payment</span>
@@ -565,7 +569,7 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
               </div>
             )}
 
-            {!myCurrentMonthPaid && (
+            {!myCurrentMonthPaid && myRentSetting && (
               <>
                 <div className="mt-3 p-3 bg-white/60 dark:bg-black/20 rounded-xl">
                   <p className="text-xs font-semibold text-foreground mb-2">
@@ -586,12 +590,15 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
                   </div>
                 </div>
                 <div className="mt-3">
-                  <Button
-                    onClick={() => setShowPayModal(true)}
-                    className="w-full bg-accent hover:bg-accent/90 text-white rounded-xl"
-                  >
-                    Pay via M-Pesa
-                  </Button>
+                  <PayButton
+                    user={user}
+                    amount={myRentSetting.monthly_amount}
+                    month={activeMonth}
+                    onSuccess={() =>
+                      showFeedback("STK Push sent! Check your phone 📱")
+                    }
+                    onError={(msg) => showFeedback(msg, true)}
+                  />
                 </div>
               </>
             )}
@@ -614,14 +621,14 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
                 <Button
                   variant="outline"
                   onClick={() => setShowPayModal(false)}
-                  className="flex-1"
+                  className="flex-1 bg-destructive hover:bg-destructive/90 text-destructive-foreground border-destructive"
                 >
                   Cancel
                 </Button>
                 <Button
                   onClick={initiateSTKPush}
                   disabled={isPaying}
-                  className="flex-1 bg-accent"
+                  className="flex-1 bg-accent hover:bg-accent/90 text-accent-foreground"
                 >
                   {isPaying ? "Sending..." : "Pay"}
                 </Button>
@@ -726,14 +733,14 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
                   type="button"
                   variant="outline"
                   onClick={() => setShowSettingsForm(false)}
-                  className="flex-1 rounded-xl border-border"
+                  className="flex-1 bg-destructive hover:bg-destructive/90 text-destructive-foreground border-destructive rounded-xl"
                 >
                   Cancel
                 </Button>
                 <Button
                   type="submit"
                   disabled={isSavingSettings}
-                  className="flex-1 bg-accent hover:bg-accent/90 text-white rounded-xl shadow-sm shadow-accent/20"
+                  className="flex-1 bg-accent hover:bg-accent/90 text-accent-foreground rounded-xl shadow-sm shadow-accent/20"
                 >
                   {isSavingSettings ? "Saving..." : "Save Settings"}
                 </Button>
@@ -899,14 +906,14 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
                   type="button"
                   variant="outline"
                   onClick={() => setShowLogForm(false)}
-                  className="flex-1 rounded-xl border-border"
+                  className="flex-1 bg-destructive hover:bg-destructive/90 text-destructive-foreground border-destructive rounded-xl"
                 >
                   Cancel
                 </Button>
                 <Button
                   type="submit"
                   disabled={isLogging}
-                  className="flex-1 bg-accent hover:bg-accent/90 text-white rounded-xl shadow-sm shadow-accent/20"
+                  className="flex-1 bg-accent hover:bg-accent/90 text-accent-foreground rounded-xl shadow-sm shadow-accent/20"
                 >
                   {isLogging ? "Logging..." : "Log Payment"}
                 </Button>
