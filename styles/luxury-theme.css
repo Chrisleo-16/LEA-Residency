@@ -1,0 +1,303 @@
+/* LEA Executive Luxury Gold Theme */
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400&family=DM+Sans:wght@300;400;500;600;700&display=swap');
+
+:root {
+  /* Gold Color Palette */
+  --gold-primary: #c9a96e;
+  --gold-secondary: #b8914f;
+  --gold-light: rgba(201, 169, 110, 0.15);
+  --gold-border: rgba(201, 169, 110, 0.25);
+  
+  /* Dark Theme Colors */
+  --bg-primary: #0f0f0f;
+  --bg-secondary: #161616;
+  --bg-tertiary: #1a1a1a;
+  
+  /* Text Colors */
+  --text-primary: #f5f0e8;
+  --text-secondary: rgba(245, 240, 232, 0.65);
+  --text-muted: rgba(245, 240, 232, 0.45);
+  --text-dim: rgba(245, 240, 232, 0.3);
+  
+  /* Border Colors */
+  --border-subtle: rgba(245, 240, 232, 0.08);
+  --border-medium: rgba(245, 240, 232, 0.12);
+  --border-strong: rgba(245, 240, 232, 0.18);
+  
+  /* Typography */
+  --font-serif: 'Cormorant Garamond', Georgia, serif;
+  --font-sans: 'DM Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Global Styles */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-weight: 300;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Override default Tailwind colors */
+.bg-background {
+  background: var(--bg-primary) !important;
+}
+
+.bg-muted {
+  background: var(--bg-secondary) !important;
+}
+
+.bg-secondary {
+  background: var(--bg-tertiary) !important;
+}
+
+.text-foreground {
+  color: var(--text-primary) !important;
+}
+
+.text-muted-foreground {
+  color: var(--text-secondary) !important;
+}
+
+.border-border {
+  border-color: var(--border-subtle) !important;
+}
+
+.bg-accent {
+  background: var(--gold-primary) !important;
+}
+
+.text-accent {
+  color: var(--gold-primary) !important;
+}
+
+.text-accent-foreground {
+  color: var(--bg-primary) !important;
+}
+
+.hover\\:bg-accent:hover {
+  background: var(--gold-secondary) !important;
+}
+
+/* Button Styles */
+.btn-gold {
+  background: var(--gold-primary);
+  color: var(--bg-primary);
+  border: none;
+  padding: 10px 24px;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 6px;
+}
+
+.btn-gold:hover {
+  background: var(--gold-secondary);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 24px rgba(201, 169, 110, 0.25);
+}
+
+.btn-outline-gold {
+  background: transparent;
+  color: var(--text-primary);
+  border: 1px solid var(--border-medium);
+  padding: 9px 24px;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 6px;
+}
+
+.btn-outline-gold:hover {
+  border-color: var(--gold-primary);
+  color: var(--gold-primary);
+}
+
+/* Card Styles */
+.card-luxury {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.card-luxury:hover {
+  border-color: var(--gold-border);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.15);
+}
+
+/* Input Styles */
+.input-luxury {
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-primary);
+  padding: 12px 16px;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  border-radius: 8px;
+  transition: all 0.2s;
+}
+
+.input-luxury:focus {
+  outline: none;
+  border-color: var(--gold-primary);
+  box-shadow: 0 0 0 3px rgba(201, 169, 110, 0.1);
+}
+
+.input-luxury::placeholder {
+  color: var(--text-dim);
+}
+
+/* Typography Classes */
+.text-luxury-heading {
+  font-family: var(--font-serif);
+  font-weight: 300;
+  letter-spacing: 0.02em;
+  line-height: 1.2;
+}
+
+.text-luxury-subheading {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--gold-primary);
+}
+
+.text-luxury-body {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 300;
+  line-height: 1.7;
+  color: var(--text-secondary);
+}
+
+/* Utility Classes */
+.gold-divider {
+  width: 48px;
+  height: 1px;
+  background: var(--gold-primary);
+  margin: 20px 0;
+}
+
+.border-luxury {
+  border: 1px solid var(--border-subtle);
+}
+
+.border-gold-subtle {
+  border: 1px solid var(--gold-border);
+}
+
+.hover-lift:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.2);
+}
+
+/* Animation Classes */
+.fade-in {
+  animation: fadeIn 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.slide-up {
+  animation: slideUp 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Scrollbar Styles */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-secondary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-medium);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--gold-primary);
+}
+
+/* Selection Styles */
+::selection {
+  background: var(--gold-light);
+  color: var(--text-primary);
+}
+
+::-moz-selection {
+  background: var(--gold-light);
+  color: var(--text-primary);
+}
+
+/* Focus Styles */
+.focus-gold:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(201, 169, 110, 0.2);
+}
+
+/* Loading Spinner */
+.spinner-luxury {
+  width: 32px;
+  height: 32px;
+  border: 2px solid var(--border-subtle);
+  border-top: 2px solid var(--gold-primary);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
