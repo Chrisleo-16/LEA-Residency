@@ -1243,7 +1243,7 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
               {[
                 { label: "Paybill", value: "400200" },
                 { label: "Account", value: "1060544" },
-                { label: "Name", value: "Leo Evans Aunga" },
+                { label: "Name", value: "LEA Properties Ltd" },
               ].map((item) => (
                 <div
                   key={item.label}

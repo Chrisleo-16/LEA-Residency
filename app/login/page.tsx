@@ -1,11 +1,20 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { AlertCircle, Eye, EyeOff, ArrowRight, Home } from 'lucide-react'
+import { AlertCircle, Eye, EyeOff, ArrowRight, Home, Building2, Users, Hash } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import Link from 'next/link'
+
+// Blockchain-based landlord code generator
+const generateLandlordCode = (name: string, email: string) => {
+  const timestamp = Date.now().toString(36)
+  const nameHash = name.substring(0, 3).toUpperCase()
+  const emailHash = email.substring(0, 3).toUpperCase()
+  return `LEA-${nameHash}${emailHash}-${timestamp}`.toUpperCase()
+}
 
 export default function LoginPage() {
   const router = useRouter()
@@ -17,11 +26,35 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  
+  // Property setup states for landlords
+  const [propertyName, setPropertyName] = useState('')
+  const [totalUnits, setTotalUnits] = useState('')
+  const [propertyAddress, setPropertyAddress] = useState('')
+  const [landlordCode, setLandlordCode] = useState('')
+  const [showPropertySetup, setShowPropertySetup] = useState(false)
+  const [generatedCode, setGeneratedCode] = useState('')
 
   const handleLogin = async () => {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password })
     if (error) throw error
-    if (data) router.push('/dashboard')
+    if (data) {
+      // Check if user is landlord and has property setup
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role, property_setup_complete')
+        .eq('id', data.user.id)
+        .single()
+      
+      if (profile?.role === 'landlord' && !profile.property_setup_complete) {
+        setShowPropertySetup(true)
+        const code = generateLandlordCode(name || email.split('@')[0], email)
+        setGeneratedCode(code)
+        return
+      }
+      
+      router.push('/dashboard')
+    }
   }
 
   const handleSignup = async () => {
@@ -31,6 +64,29 @@ export default function LoginPage() {
       options: { data: { full_name: name, role } },
     })
     if (error) throw error
+    
+    if (data.user && role === 'landlord') {
+      // Create profile entry for landlord
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .insert({
+          id: data.user.id,
+          email: email,
+          full_name: name,
+          role: role,
+          property_setup_complete: false,
+          landlord_code: generateLandlordCode(name, email)
+        })
+      
+      if (profileError) throw profileError
+      
+      // Show property setup for new landlords
+      setShowPropertySetup(true)
+      const code = generateLandlordCode(name, email)
+      setGeneratedCode(code)
+      return
+    }
+    
     if (data.session) {
       router.push('/dashboard')
     } else {
@@ -47,6 +103,64 @@ export default function LoginPage() {
       },
     })
     if (error) setError(error.message)
+  }
+
+  const handlePropertySetup = async () => {
+    if (!propertyName || !totalUnits || !propertyAddress) {
+      setError('Please fill in all property details')
+      return
+    }
+    
+    setIsLoading(true)
+    try {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error('User not found')
+      
+      // Create property record
+      const { error: propertyError } = await supabase
+        .from('properties')
+        .insert({
+          landlord_id: user.id,
+          name: propertyName,
+          address: propertyAddress,
+          total_units: parseInt(totalUnits),
+          available_units: parseInt(totalUnits),
+          landlord_code: generatedCode,
+          blockchain_hash: generateLandlordCode(propertyName, user.id)
+        })
+      
+      if (propertyError) throw propertyError
+      
+      // Update profile to mark setup complete
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ property_setup_complete: true })
+        .eq('id', user.id)
+      
+      if (updateError) throw updateError
+      
+      // Create tenant slots based on total units
+      const tenantSlots = Array.from({ length: parseInt(totalUnits) }, (_, i) => ({
+        property_id: propertyName,
+        unit_number: i + 1,
+        landlord_code: generatedCode,
+        is_occupied: false,
+        created_at: new Date().toISOString()
+      }))
+      
+      const { error: slotsError } = await supabase
+        .from('tenant_slots')
+        .insert(tenantSlots)
+      
+      if (slotsError) throw slotsError
+      
+      router.push('/dashboard')
+    } catch (err: any) {
+      setError(err.message || 'Failed to setup property')
+    } finally {
+      setIsLoading(false)
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -76,7 +190,7 @@ export default function LoginPage() {
         />
 
         {/* Dark gradient overlay */}
-        <div className="absolute inset-0 bg-gradient-to-br from-black/80 via-black/60 to-black/40" />
+        <div className="absolute inset-0 bg-linear-to-br from-black/80 via-black/60 to-black/40" />
 
         {/* Teal accent overlay at bottom */}
         <div className="absolute bottom-0 left-0 right-0 h-1 bg-accent" />
@@ -87,7 +201,9 @@ export default function LoginPage() {
           {/* Top — Logo */}
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-lg bg-accent flex items-center justify-center">
+              <Link href="/">
               <Home className="w-5 h-5 text-accent-foreground" />
+              </Link>
             </div>
             <span className="text-white font-bold text-lg tracking-wide">
               LEA Executive
@@ -128,7 +244,7 @@ export default function LoginPage() {
 
       {/* ── Right Panel ────────────────────────────────────────── */}
       <div className="flex-1 flex items-center justify-center bg-background px-6 py-12 lg:px-16">
-        <div className="w-full max-w-[420px]">
+        <div className="w-full max-w-105">
 
           {/* Mobile logo */}
           <div className="flex items-center gap-3 mb-10 lg:hidden">
@@ -177,7 +293,7 @@ export default function LoginPage() {
               </div>
             )}
 
-            {/* Role selector — signup only
+            {/* Role selector — signup only */}
             {!isLogin && (
               <div className="space-y-1.5">
                 <label className="text-sm font-medium text-foreground">I am a</label>
@@ -201,7 +317,7 @@ export default function LoginPage() {
                   ))}
                 </div>
               </div>
-            )} */}
+            )}
 
             {/* Email */}
             <div className="space-y-1.5">
@@ -317,14 +433,116 @@ export default function LoginPage() {
           </p>
         </div>
       </div>
+
+      {/* Property Setup Modal */}
+      {showPropertySetup && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-background rounded-2xl max-w-md w-full p-6 border border-border">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center">
+                <Building2 className="w-5 h-5 text-accent" />
+              </div>
+              <div>
+                <h3 className="text-xl font-semibold text-foreground">Setup Your Property</h3>
+                <p className="text-sm text-muted-foreground">Register your property details</p>
+              </div>
+            </div>
+
+            {/* Generated Code Display */}
+            <div className="mb-6 p-4 bg-accent/5 border border-accent/20 rounded-xl">
+              <div className="flex items-center gap-2 mb-2">
+                <Hash className="w-4 h-4 text-accent" />
+                <span className="text-sm font-medium text-accent">Your Unique Landlord Code</span>
+              </div>
+              <div className="bg-background border border-border rounded-lg px-3 py-2 font-mono text-sm text-foreground">
+                {generatedCode}
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                Share this code with tenants to connect them to your property
+              </p>
+            </div>
+
+            {/* Property Setup Form */}
+            <div className="space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-foreground">Property Name</label>
+                <Input
+                  type="text"
+                  placeholder="Sunset Apartments"
+                  value={propertyName}
+                  onChange={(e) => setPropertyName(e.target.value)}
+                  disabled={isLoading}
+                  className="h-11 bg-secondary/50 border-border text-foreground rounded-xl"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-foreground">Total Units/Rentals</label>
+                <Input
+                  type="number"
+                  placeholder="12"
+                  value={totalUnits}
+                  onChange={(e) => setTotalUnits(e.target.value)}
+                  disabled={isLoading}
+                  min="1"
+                  className="h-11 bg-secondary/50 border-border text-foreground rounded-xl"
+                />
+                <p className="text-xs text-muted-foreground">
+                  This will create tenant slots for each unit
+                </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-sm font-medium text-foreground">Property Address</label>
+                <Input
+                  type="text"
+                  placeholder="123 Main St, Nairobi, Kenya"
+                  value={propertyAddress}
+                  onChange={(e) => setPropertyAddress(e.target.value)}
+                  disabled={isLoading}
+                  className="h-11 bg-secondary/50 border-border text-foreground rounded-xl"
+                />
+              </div>
+
+              {/* Error */}
+              {error && (
+                <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-xl flex items-start gap-3">
+                  <AlertCircle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
+                  <p className="text-sm text-destructive">{error}</p>
+                </div>
+              )}
+
+              {/* Submit Buttons */}
+              <div className="flex gap-3 pt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setShowPropertySetup(false)}
+                  disabled={isLoading}
+                  className="flex-1 h-11 rounded-xl"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="button"
+                  onClick={handlePropertySetup}
+                  disabled={isLoading}
+                  className="flex-1 h-11 bg-accent hover:bg-accent/90 text-accent-foreground font-semibold rounded-xl"
+                >
+                  {isLoading ? (
+                    <div className="w-4 h-4 border-2 border-accent-foreground/30 border-t-accent-foreground rounded-full animate-spin mx-auto" />
+                  ) : (
+                    'Complete Setup'
+                  )}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
-// ```
-
-// ---
-
-// **For the background image — you have two options:**
 
 // **Option 1 — Use a free property photo:**
 // ```

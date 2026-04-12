@@ -9,9 +9,12 @@ import SettingsPanel from '@/components/settings/SettingsPanel'
 import InstallPrompt from '@/components/pwa/InstallPrompt'
 import ComplaintsPage from '@/components/pages/ComplaintsPage'
 import RequestsPage from '@/components/pages/RequestsPage'
+// import MaintenancePage from '@/components/pages/MaintenancePage'
+import StaffManagementPage from '@/components/pages/StaffManagementPage'
 import PolicyPage from '@/components/pages/PolicyPage'
 import CommunityPage from '@/components/pages/CommunityPage'
 import PaymentsPage from '@/components/pages/PaymentsPage'
+
 interface DashboardLayoutProps {
   user: User | null
 }
@@ -34,6 +37,7 @@ export default function DashboardLayout({ user }: DashboardLayoutProps) {
       policy: 'Policy & Docs',
       payments: 'Payments',
       settings: 'Settings',
+      staff:"Staff Management"
     }
     return titles[activeTab] || 'LEA Executive'
   }
@@ -47,6 +51,8 @@ export default function DashboardLayout({ user }: DashboardLayoutProps) {
       policy: 'Rules, documents & guidelines',
       payments: 'Track rent payments and receipts',
       settings: 'Account & preferences',
+      maintenance: 'Maintenance requests and tracking',
+      staff: 'Staff management and information',
     }
     return subtitles[activeTab] || ''
   }
@@ -57,6 +63,8 @@ export default function DashboardLayout({ user }: DashboardLayoutProps) {
       case 'community':  return <CommunityPage user={user} />
       case 'complaints': return <ComplaintsPage user={user} />
       case 'requests':   return <RequestsPage user={user} />
+      // case 'maintenance': return <MaintenancePage user={user} />
+      case 'staff':      return <StaffManagementPage user={user} />
       case 'policy':     return <PolicyPage user={user} />
       case 'payments':   return <PaymentsPage user={user} />
       case 'settings':   return <SettingsPanel user={user} />

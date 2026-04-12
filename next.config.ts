@@ -5,6 +5,7 @@ const pwaConfig = withPWA({
   register: true,
   skipWaiting: true,
   disable: process.env.NODE_ENV === 'development', // disable in dev to avoid noise
+  sw: '/sw-notifications.js', // Use our custom service worker with push notifications
   runtimeCaching: [
     {
       // Cache Supabase API responses

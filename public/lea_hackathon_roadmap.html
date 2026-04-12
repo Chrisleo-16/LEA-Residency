@@ -1,0 +1,173 @@
+
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: var(--font-sans); }
+.section { margin-bottom: 2rem; }
+.section-title { font-size: 13px; font-weight: 500; color: var(--color-text-secondary); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 10px; padding-bottom: 6px; border-bottom: 0.5px solid var(--color-border-tertiary); }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); gap: 10px; }
+.card { background: var(--color-background-primary); border: 0.5px solid var(--color-border-tertiary); border-radius: var(--border-radius-lg); padding: 14px; }
+.card.done { border-left: 3px solid #1D9E75; }
+.card.apr { border-left: 3px solid #3B8BD4; }
+.card.later { border-left: 3px solid #888780; }
+.card.win { border-left: 3px solid #EF9F27; }
+.tag { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 20px; font-weight: 500; margin-bottom: 8px; }
+.tag.done { background: #E1F5EE; color: #0F6E56; }
+.tag.apr { background: #E6F1FB; color: #185FA5; }
+.tag.later { background: #F1EFE8; color: #5F5E5A; }
+.tag.win { background: #FAEEDA; color: #854F0B; }
+.card h4 { font-size: 13px; font-weight: 500; color: var(--color-text-primary); margin-bottom: 4px; }
+.card p { font-size: 12px; color: var(--color-text-secondary); line-height: 1.5; }
+.card .africa { font-size: 11px; color: #185FA5; margin-top: 6px; }
+.score-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.score-bar { flex: 1; height: 4px; background: var(--color-border-tertiary); border-radius: 2px; overflow: hidden; }
+.score-fill { height: 100%; border-radius: 2px; }
+.score-label { font-size: 11px; color: var(--color-text-secondary); min-width: 28px; text-align: right; }
+.stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 1.5rem; }
+.stat { background: var(--color-background-secondary); border-radius: var(--border-radius-md); padding: 12px; text-align: center; }
+.stat .num { font-size: 22px; font-weight: 500; color: var(--color-text-primary); }
+.stat .lbl { font-size: 11px; color: var(--color-text-secondary); margin-top: 2px; }
+.timeline { display: flex; gap: 0; margin-bottom: 1.5rem; }
+.tl-step { flex: 1; padding: 10px 12px; font-size: 12px; color: var(--color-text-secondary); position: relative; }
+.tl-step::after { content: ''; position: absolute; right: 0; top: 50%; transform: translateY(-50%); width: 0; height: 0; border-top: 8px solid transparent; border-bottom: 8px solid transparent; border-left: 8px solid var(--color-border-tertiary); z-index: 1; }
+.tl-step:last-child::after { display: none; }
+.tl-step.active { background: var(--color-background-info); border-radius: var(--border-radius-md); }
+.tl-step .tl-date { font-size: 11px; font-weight: 500; color: var(--color-text-info); }
+.tl-step .tl-text { font-size: 12px; color: var(--color-text-secondary); }
+.hackathon-banner { background: var(--color-background-warning); border: 0.5px solid var(--color-border-warning); border-radius: var(--border-radius-lg); padding: 14px 16px; margin-bottom: 1.5rem; display: flex; align-items: center; gap: 12px; }
+.hackathon-banner .icon { font-size: 22px; }
+.hackathon-banner h3 { font-size: 14px; font-weight: 500; color: var(--color-text-warning); }
+.hackathon-banner p { font-size: 12px; color: var(--color-text-secondary); margin-top: 2px; }
+.at-badge { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; background: var(--color-background-danger); color: var(--color-text-danger); padding: 2px 8px; border-radius: 20px; margin-top: 6px; }
+</style>
+
+<div style="padding: 1rem 0;">
+
+<div class="hackathon-banner">
+  <div class="icon">🏆</div>
+  <div>
+    <h3>Proptech Solutions Hackathon — Deadline April 30th</h3>
+    <p>LEA already covers 60% of the "Rental & Property Management" category. Strategic additions can make it a winner.</p>
+  </div>
+</div>
+
+<div class="stat-grid">
+  <div class="stat"><div class="num" style="color:#1D9E75">8</div><div class="lbl">Features already built</div></div>
+  <div class="stat"><div class="num" style="color:#3B8BD4">7</div><div class="lbl">Buildable by Apr 30</div></div>
+  <div class="stat"><div class="num" style="color:#EF9F27">25</div><div class="lbl">Days remaining</div></div>
+  <div class="stat"><div class="num" style="color:#639922">3</div><div class="lbl">Hackathon categories hit</div></div>
+</div>
+
+<div class="section">
+  <div class="section-title">Already built — demo-ready today</div>
+  <div class="grid">
+    <div class="card done">
+      <span class="tag done">Done</span>
+      <h4>Landlord-tenant messaging</h4>
+      <p>Real-time chat, group community, announcements, emoji reactions, reply threads.</p>
+    </div>
+    <div class="card done">
+      <span class="tag done">Done</span>
+      <h4>M-Pesa rent collection</h4>
+      <p>PayHero STK push, callback auto-logging, PAID/PARTIAL/OVERDUE status per tenant.</p>
+    </div>
+    <div class="card done">
+      <span class="tag done">Done</span>
+      <h4>Lease automation</h4>
+      <p>Digital tenancy agreement with tenant details pre-filled, downloadable PDF.</p>
+    </div>
+    <div class="card done">
+      <span class="tag done">Done</span>
+      <h4>Policy & document hub</h4>
+      <p>Searchable policies, unread tracking, category filters, progress bar.</p>
+    </div>
+    <div class="card done">
+      <span class="tag done">Done</span>
+      <h4>Maintenance requests</h4>
+      <p>Tenant submits, landlord tracks status, real-time updates.</p>
+    </div>
+    <div class="card done">
+      <span class="tag done">Done</span>
+      <h4>Complaints management</h4>
+      <p>Formal complaint submission with status tracking and progress visibility.</p>
+    </div>
+    <div class="card done">
+      <span class="tag done">Done</span>
+      <h4>PWA — works offline</h4>
+      <p>Installable on Android/iOS, push notifications, works without internet.</p>
+    </div>
+    <div class="card done">
+      <span class="tag done">Done</span>
+      <h4>Payment poster</h4>
+      <p>Visual paybill instructions auto-displayed in policy section.</p>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-title">Build before April 30th — high hackathon impact</div>
+  <div class="grid">
+    <div class="card win">
+      <span class="tag win">Priority #1</span>
+      <h4>Africa's Talking SMS alerts</h4>
+      <p>SMS to tenant when rent is received, overdue, or landlord posts announcement. Works without internet.</p>
+      <div class="at-badge">Africa's Talking API required</div>
+      <div class="score-row"><span style="font-size:11px;color:var(--color-text-secondary)">Impact</span><div class="score-bar"><div class="score-fill" style="width:95%;background:#EF9F27"></div></div><span class="score-label">95%</span></div>
+    </div>
+    <div class="card win">
+      <span class="tag win">Priority #2</span>
+      <h4>Africa's Talking USSD</h4>
+      <p>Tenant dials *384*# to check rent balance, payment status, submit maintenance — no smartphone needed.</p>
+      <div class="at-badge">Africa's Talking API required</div>
+      <div class="score-row"><span style="font-size:11px;color:var(--color-text-secondary)">Impact</span><div class="score-bar"><div class="score-fill" style="width:90%;background:#EF9F27"></div></div><span class="score-label">90%</span></div>
+    </div>
+    <div class="card apr">
+      <span class="tag apr">Priority #3</span>
+      <h4>Vacancy & listing page</h4>
+      <p>Public page showing available units, rent, photos. Tenant applies online. No agent needed.</p>
+      <div class="score-row"><span style="font-size:11px;color:var(--color-text-secondary)">Impact</span><div class="score-bar"><div class="score-fill" style="width:85%;background:#3B8BD4"></div></div><span class="score-label">85%</span></div>
+    </div>
+    <div class="card apr">
+      <span class="tag apr">Priority #4</span>
+      <h4>Rent analytics dashboard</h4>
+      <p>Monthly collection charts, occupancy rate, overdue trends. Landlord sees full financial picture.</p>
+      <div class="score-row"><span style="font-size:11px;color:var(--color-text-secondary)">Impact</span><div class="score-bar"><div class="score-fill" style="width:80%;background:#3B8BD4"></div></div><span class="score-label">80%</span></div>
+    </div>
+    <div class="card apr">
+      <span class="tag apr">Priority #5</span>
+      <h4>Move-in inspection checklist</h4>
+      <p>Digital room-by-room checklist with photo upload, tenant + landlord sign-off, PDF export.</p>
+      <div class="score-row"><span style="font-size:11px;color:var(--color-text-secondary)">Impact</span><div class="score-bar"><div class="score-fill" style="width:75%;background:#3B8BD4"></div></div><span class="score-label">75%</span></div>
+    </div>
+    <div class="card apr">
+      <span class="tag apr">Priority #6</span>
+      <h4>Tenant onboarding flow</h4>
+      <p>Guided setup: add phone, view policies, sign lease, receive first SMS. Tracks onboarding completion.</p>
+      <div class="score-row"><span style="font-size:11px;color:var(--color-text-secondary)">Impact</span><div class="score-bar"><div class="score-fill" style="width:70%;background:#3B8BD4"></div></div><span class="score-label">70%</span></div>
+    </div>
+    <div class="card apr">
+      <span class="tag apr">Priority #7</span>
+      <h4>Notice board & voting</h4>
+      <p>Landlord posts notices, tenants vote on community decisions (e.g. cleaning schedule, security hours).</p>
+      <div class="score-row"><span style="font-size:11px;color:var(--color-text-secondary)">Impact</span><div class="score-bar"><div class="score-fill" style="width:60%;background:#3B8BD4"></div></div><span class="score-label">60%</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-title">Post-hackathon — long-term roadmap</div>
+  <div class="grid">
+    <div class="card later"><span class="tag later">V2</span><h4>Multi-property support</h4><p>Landlord manages multiple buildings. Each building has its own tenant list, payments, and policies.</p></div>
+    <div class="card later"><span class="tag later">V2</span><h4>Water & utility metering</h4><p>Log water meter readings monthly, auto-calculate bills, notify tenants of their utility invoice.</p></div>
+    <div class="card later"><span class="tag later">V2</span><h4>Contractor management</h4><p>Assign maintenance tasks to contractors, track job status, approve invoices in-app.</p></div>
+    <div class="card later"><span class="tag later">V3</span><h4>AI rent defaulter predictor</h4><p>ML model flags tenants likely to default based on payment patterns. Early intervention tool.</p></div>
+    <div class="card later"><span class="tag later">V3</span><h4>Fractional investment module</h4><p>Allow investors to buy into property units. REIT-style dashboard with returns tracking.</p></div>
+    <div class="card later"><span class="tag later">V3</span><h4>Land title verification</h4><p>Integration with Kenya Lands Registry API for title deed verification before tenancy.</p></div>
+  </div>
+</div>
+
+<div style="background:var(--color-background-secondary);border-radius:var(--border-radius-lg);padding:16px;margin-top:1rem;">
+  <p style="font-size:13px;font-weight:500;color:var(--color-text-primary);margin-bottom:6px;">Hackathon winning strategy</p>
+  <p style="font-size:12px;color:var(--color-text-secondary);line-height:1.6;">LEA targets the <strong style="color:var(--color-text-primary)">"Rental & Property Management"</strong> category with a complete, production-ready system. The two additions that will win it are <strong style="color:var(--color-text-primary)">Africa's Talking SMS + USSD</strong> — they prove the solution works for tenants without smartphones, which is the core African housing challenge. Everything else is polish.</p>
+</div>
+
+</div>

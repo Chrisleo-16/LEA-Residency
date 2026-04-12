@@ -1,10 +1,17 @@
 import { useEffect, useState, useCallback } from 'react'
+import { createClient } from '@supabase/supabase-js'
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
 
 export function usePushNotifications() {
   const [notificationPermission, setNotificationPermission] =
     useState<NotificationPermission>('default')
   const [isSubscribed, setIsSubscribed] = useState(false)
   const [isSupported, setIsSupported] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
 
   useEffect(() => {
     // ✅ Check support on mount
@@ -46,20 +53,11 @@ export function usePushNotifications() {
       return false
     }
   }, [isSupported])
-   function urlBase64ToUint8Array(base64String: string): ArrayBuffer {
-  const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
-  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')
-  const rawData = window.atob(base64)
-  const buffer = new ArrayBuffer(rawData.length)
-  const view = new Uint8Array(buffer)
-  for (let i = 0; i < rawData.length; i++) {
-    view[i] = rawData.charCodeAt(i)
-  }
-  return buffer  // ✅ returns ArrayBuffer not Uint8Array
-}
+
   const subscribe = useCallback(async (): Promise<boolean> => {
     if (!isSupported) return false
 
+    setIsLoading(true)
     try {
       const granted = notificationPermission === 'granted'
         ? true
@@ -71,7 +69,10 @@ export function usePushNotifications() {
 
       // Check if already subscribed
       const existing = await registration.pushManager.getSubscription()
-      if (existing) { setIsSubscribed(true); return true }
+      if (existing) {
+        setIsSubscribed(true)
+        return true
+      }
 
       // ✅ VAPID key must be set in .env as NEXT_PUBLIC_VAPID_PUBLIC_KEY
       const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
@@ -88,23 +89,58 @@ export function usePushNotifications() {
       })
 
       console.log('[Push] Subscribed:', JSON.stringify(newSub))
-      // TODO: send newSub to your backend to store for server-side push
+
+      // ✅ Send subscription to backend for server-side push
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) {
+        console.warn('[Push] No auth session - subscription not saved to backend')
+        setIsSubscribed(true)
+        return true
+      }
+
+      const response = await fetch('/api/push/subscribe', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify(newSub.toJSON()),
+      })
+
+      if (!response.ok) {
+        const error = await response.text()
+        console.error('[Push] Failed to save subscription:', error)
+        // Still mark as subscribed for local notifications
+      } else {
+        console.log('[Push] Subscription saved to backend')
+      }
+
       setIsSubscribed(true)
       return true
     } catch (error) {
       console.error('[Push] Subscribe error:', error)
       return false
+    } finally {
+      setIsLoading(false)
     }
   }, [isSupported, notificationPermission, requestPermission])
 
   const unsubscribe = useCallback(async (): Promise<boolean> => {
     if (!isSupported) return false
+
+    setIsLoading(true)
     try {
       const reg = await navigator.serviceWorker.ready
       const sub = await reg.pushManager.getSubscription()
-      if (sub) { await sub.unsubscribe(); setIsSubscribed(false); return true }
+      if (sub) {
+        await sub.unsubscribe()
+        setIsSubscribed(false)
+        return true
+      }
     } catch (error) {
       console.error('[Push] Unsubscribe error:', error)
+    } finally {
+      setIsLoading(false)
     }
     return false
   }, [isSupported])
@@ -130,21 +166,41 @@ export function usePushNotifications() {
     })
   }, [isSupported, notificationPermission, requestPermission])
 
+  // ✅ Test notification function
+  const testNotification = useCallback(async (): Promise<boolean> => {
+    if (!isSupported) return false
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) {
+        console.warn('[Push] No auth session for test notification')
+        return false
+      }
+
+      const response = await fetch('/api/push/send', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+      })
+
+      const result = await response.json()
+      return result.success || false
+    } catch (error) {
+      console.error('[Push] Test notification error:', error)
+      return false
+    }
+  }, [isSupported])
+
   return {
     notificationPermission,
     isSubscribed,
     isSupported,
+    isLoading,
     requestPermission,
     subscribe,
     unsubscribe,
     showNotification,
+    testNotification,
   }
-}
-
-// ✅ Required to convert VAPID key from base64 to Uint8Array
-function urlBase64ToUint8Array(base64String: string): Uint8Array {
-  const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
-  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')
-  const rawData = window.atob(base64)
-  return Uint8Array.from([...rawData].map(char => char.charCodeAt(0)))
 }

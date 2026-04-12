@@ -1,0 +1,9 @@
+# Supabase
+.branches
+.temp
+
+# dotenvx
+.env.keys
+.env.local
+.env.*.local
+C:\Users\surfice\Downloads\b_Vm1CO3QhQME-1773605101471\supabase\migrations\20260411085557_remote_schema.sql
