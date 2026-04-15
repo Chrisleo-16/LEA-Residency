@@ -371,16 +371,6 @@ export default function ViewingPage() {
       <nav
         style={{
           position: "sticky",
-          top: 0,
-          zIndex: 50,
-          background: "rgba(10,10,10,.97)",
-          backdropFilter: "blur(16px)",
-          borderBottom: "1px solid rgba(242,237,228,.07)",
-          padding: "0 40px",
-          height: 66,
-          display: "flex",
-          alignItems: "center",
-          gap: 20,
         }}
       >
         <Link
@@ -502,7 +492,7 @@ export default function ViewingPage() {
         style={{
           maxWidth: 1100,
           margin: "0 auto",
-          padding: "48px 40px",
+          padding: "32px 20px",
           display: "grid",
           gridTemplateColumns: "1fr 320px",
           gap: 32,
@@ -566,7 +556,7 @@ export default function ViewingPage() {
                 style={{
                   display: "grid",
                   gridTemplateColumns: "1fr 1fr",
-                  gap: 16,
+                  gap: 12,
                 }}
               >
                 <div>
@@ -619,7 +609,7 @@ export default function ViewingPage() {
                 <div
                   style={{
                     display: "grid",
-                    gridTemplateColumns: "repeat(3,1fr)",
+                    gridTemplateColumns: "repeat(2,1fr)",
                     gap: 10,
                   }}
                 >
@@ -651,7 +641,7 @@ export default function ViewingPage() {
               <div>
                 <label style={labelStyle}>Move-in Urgency *</label>
                 <div
-                  style={{ display: "flex", flexDirection: "column", gap: 10 }}
+                  style={{ display: "flex", flexDirection: "column", gap: 8 }}
                 >
                   {URGENCY_OPTIONS.map((u) => (
                     <button

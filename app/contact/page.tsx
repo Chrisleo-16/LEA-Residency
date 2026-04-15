@@ -102,7 +102,7 @@ export default function ContactPage() {
       `}</style>
 
       {/* ── NAV ─────────────────────────────── */}
-      <nav style={{ position: 'sticky', top: 0, zIndex: 50, background: 'rgba(10,10,10,.97)', backdropFilter: 'blur(16px)', borderBottom: '1px solid rgba(242,237,228,.07)', padding: '0 40px', height: 66, display: 'flex', alignItems: 'center', gap: 20 }}>
+      <nav style={{ position: 'sticky', top: 0, zIndex: 50, background: 'rgba(10,10,10,.97)', backdropFilter: 'blur(16px)', borderBottom: '1px solid rgba(242,237,228,.07)', padding: '0 20px', height: 66, display: 'flex', alignItems: 'center', gap: 20 }}>
         <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none', color: 'rgba(242,237,228,.5)', fontFamily: "'DM Sans', sans-serif", fontSize: 11, letterSpacing: '.1em', textTransform: 'uppercase' }}
           onMouseOver={e => (e.currentTarget.style.color = '#c9a96e')} onMouseOut={e => (e.currentTarget.style.color = 'rgba(242,237,228,.5)')}>
           <ArrowLeft size={13} /> Home
@@ -120,7 +120,7 @@ export default function ContactPage() {
       </nav>
 
       {/* ── PAGE HERO ────────────────────────── */}
-      <div style={{ background: '#0f0f0f', borderBottom: '1px solid rgba(242,237,228,.06)', padding: '48px 40px 40px' }}>
+      <div style={{ background: '#0f0f0f', borderBottom: '1px solid rgba(242,237,228,.06)', padding: '32px 20px 32px' }}>
         <div style={{ maxWidth: 1100, margin: '0 auto' }}>
           <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 10, letterSpacing: '.22em', textTransform: 'uppercase', color: '#c9a96e', marginBottom: 10 }}>Get in Touch</div>
           <h1 style={{ fontSize: 'clamp(32px, 4.5vw, 60px)', fontWeight: 300, lineHeight: 1.05, marginBottom: 16 }}>
@@ -132,7 +132,7 @@ export default function ContactPage() {
         </div>
       </div>
 
-      <div style={{ maxWidth: 1100, margin: '0 auto', padding: '48px 40px' }}>
+      <div style={{ maxWidth: 1100, margin: '0 auto', padding: '32px 20px' }}>
         <div className="two-col" style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 32 }}>
 
           {/* ── FORM ──────────────────────────── */}
@@ -141,7 +141,7 @@ export default function ContactPage() {
             {/* Name */}
             <div>
               <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 10, letterSpacing: '.22em', textTransform: 'uppercase', color: '#c9a96e', marginBottom: 20, paddingBottom: 12, borderBottom: '1px solid rgba(242,237,228,.06)' }}>Personal Information</div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
                 <div>
                   <label style={labelStyle}>First Name *</label>
                   <input style={inputStyle('firstName')} value={form.firstName} onChange={e => set('firstName', e.target.value)} placeholder="Jane" onFocus={() => setFocused('firstName')} onBlur={() => setFocused('')} required />
@@ -166,7 +166,7 @@ export default function ContactPage() {
             {/* Inquiry type */}
             <div>
               <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 10, letterSpacing: '.22em', textTransform: 'uppercase', color: '#c9a96e', marginBottom: 20, paddingBottom: 12, borderBottom: '1px solid rgba(242,237,228,.06)' }}>Inquiry Type *</div>
-              <div className="inq-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>
+              <div className="inq-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 8 }}>
                 {INQUIRY_TYPES.map(t => (
                   <button key={t.value} type="button" className={`inq-pill${form.inquiryType === t.value ? ' active' : ''}`} onClick={() => set('inquiryType', t.value)}>{t.label}</button>
                 ))}

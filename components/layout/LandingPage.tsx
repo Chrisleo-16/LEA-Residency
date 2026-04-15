@@ -807,13 +807,22 @@ export default function Home() {
           .hero-ctas { flex-direction: column !important; }
           .stats-grid { grid-template-columns: repeat(2, 1fr) !important; }
         }
+        @media (max-width: 640px) {
+          .tab-grid { grid-template-columns: 1fr !important; }
+          .stats-grid { grid-template-columns: 1fr !important; }
+          .feat-grid { grid-template-columns: 1fr !important; }
+          .how-grid { grid-template-columns: 1fr !important; }
+          .testi-grid { grid-template-columns: 1fr !important; }
+          .amen-grid { grid-template-columns: 1fr !important; }
+          .footer-grid { grid-template-columns: 1fr !important; }
+        }
       `}</style>
 
       {/* ── NAV ─────────────────────────────────────────────── */}
       <nav style={{
         position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100,
         height: 70, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '0 40px',
+        padding: '0 20px',
         background: scrolled ? 'rgba(10,10,10,.97)' : 'transparent',
         backdropFilter: scrolled ? 'blur(16px)' : 'none',
         borderBottom: scrolled ? '1px solid rgba(242,237,228,.07)' : 'none',
@@ -837,7 +846,7 @@ export default function Home() {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <button className="nav-btn hide-mobile" onClick={() => router.push('/login')}>Tenant Login</button>
+          <button className="nav-btn hide-mobile" onClick={() => router.push('/login')}>Login</button>
           <button className="btn-gold hide-mobile" onClick={() => router.push('/login')} style={{ padding: '10px 20px', fontSize: 10 }}>
             Sign Up <ArrowUpRight size={11} />
           </button>
@@ -866,7 +875,7 @@ export default function Home() {
         {/* Decorative vertical line */}
         <div style={{ position: 'absolute', left: 40, top: 120, bottom: 120, width: 1, background: 'linear-gradient(to bottom, transparent, rgba(201,169,110,.3), transparent)', display: 'none' }} className="hide-mobile" />
 
-        <div style={{ position: 'relative', maxWidth: 860, padding: '120px 40px 100px', zIndex: 1 }}>
+        <div style={{ position: 'relative', maxWidth: 860, padding: '100px 20px 120px', zIndex: 1, marginBottom: '200px', marginTop: '50px' }}>
           <div className="fade-up fade-up-1">
             <div className="sec-label" style={{ marginBottom: 20 }}>Property Management Platform · Nairobi</div>
           </div>
@@ -892,7 +901,7 @@ export default function Home() {
 
           <div className="fade-up fade-up-4 hero-ctas" style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
             <button className="btn-gold" onClick={() => router.push('/login')}>
-              Tenant Portal <ArrowRight size={14} />
+              Get Started <ArrowRight size={14} />
             </button>
             <button className="btn-outline" onClick={() => scrollTo('features')}>
               See All Features
@@ -921,17 +930,17 @@ export default function Home() {
       </section>
 
       {/* ── WHAT'S ON THE DASHBOARD ───────────────────────────── */}
-      <section style={{ background: '#0f0f0f', padding: '80px 40px' }}>
+      <section style={{ background: '#0f0f0f', padding: '60px 20px' }}>
         <div style={{ maxWidth: 1100, margin: '0 auto' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 40, flexWrap: 'wrap', gap: 20 }}>
             <div>
               <div className="sec-label">What You Get</div>
               <div className="gold-line" />
-              <h2 style={{ fontSize: 'clamp(26px, 3vw, 40px)', fontWeight: 300 }}>
+              <h2 style={{ fontSize: 'clamp(24px, 4vw, 36px)', fontWeight: 300 }}>
                 Your Dashboard Has<br /><em style={{ color: '#c9a96e' }}>6 Sections</em>
               </h2>
             </div>
-            <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 14, color: 'rgba(242,237,228,.5)', maxWidth: 340, lineHeight: 1.75 }}>
+            <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 13, color: 'rgba(242,237,228,.5)', maxWidth: 340, lineHeight: 1.75 }}>
               When you log in, this is your navigation. Every section is built specifically for tenants and property managers.
             </p>
           </div>
