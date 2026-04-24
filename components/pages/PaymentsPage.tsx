@@ -20,6 +20,9 @@ import {
   Trash2,
   Search,
   BadgeCheck,
+  Download,
+  Droplets,
+  Wrench,
 } from "lucide-react";
 import PayButton from "../payments/PaymentsButton";
 
@@ -278,12 +281,6 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
     }
   };
 
-  const handleDeletePayment = async (id: string) => {
-    await supabase.from("payments").delete().eq("id", id);
-    showFeedback("Payment record deleted.");
-    fetchData();
-  };
-
   const initiateSTKPush = async () => {
     if (!myRentSetting) {
       showFeedback(
@@ -318,11 +315,18 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
       );
       setShowPayModal(false);
       setPayPhone("");
+
     } catch (err: any) {
       showFeedback(err.message, true);
     } finally {
       setIsPaying(false);
     }
+  };
+
+  const handleDeletePayment = async (id: string) => {
+    await supabase.from("payments").delete().eq("id", id);
+    showFeedback("Payment record deleted.");
+    fetchData();
   };
 
   const formatDate = (s: string) =>
@@ -332,8 +336,87 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
       year: "numeric",
       hour: "2-digit",
       minute: "2-digit",
+      hour12: false,
       timeZone: TZ,
+    }).replace(',', ' ');
+
+  // CSV Export Function
+  const exportToCSV = () => {
+    const monthPayments = payments.filter(p => p.payment_month === activeMonth);
+    
+    if (monthPayments.length === 0) {
+      const monthName = MONTHS.find(m => m.split('|')[1] === activeMonth)?.split('|')[0] || 'Unknown';
+      showFeedback(`No payments found for ${monthName}. Log some payments first!`, true);
+      return;
+    }
+    
+    // Create CSV headers
+    const headers = [
+      'Tenant Name',
+      'Email',
+      'Payment Type',
+      'Amount (KES)',
+      'M-Pesa Code',
+      'Payment Date',
+      'Payment Method',
+      'Status',
+      'Notes'
+    ];
+
+    // Create CSV rows
+    const rows = monthPayments.map(payment => {
+      const tenant = tenants.find(t => t.id === payment.tenant_id);
+      const paymentType = getPaymentTypeFromNotes(payment.notes);
+      
+      return [
+        tenant?.full_name || 'Unknown',
+        tenant?.email || 'Unknown',
+        paymentType,
+        payment.amount.toString(),
+        payment.mpesa_code || 'N/A',
+        formatDate(payment.payment_date),
+        payment.payment_method || 'M-Pesa',
+        payment.status || 'confirmed',
+        payment.notes || ''
+      ];
     });
+
+    // Convert to CSV string
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+    ].join('\n');
+
+    // Create and download file
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    
+    const monthName = MONTHS.find(m => m.split('|')[1] === activeMonth)?.split('|')[0] || 'Unknown';
+    link.setAttribute('href', url);
+    link.setAttribute('download', `payment_ledger_${monthName.replace(' ', '_')}.csv`);
+    link.style.visibility = 'hidden';
+    
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    showFeedback(`Payment ledger for ${monthName} exported successfully!`);
+  };
+
+  // Helper function to determine payment type from notes
+  const getPaymentTypeFromNotes = (notes: string | null) => {
+    if (!notes) return 'Rent';
+    if (notes.toLowerCase().includes('water')) return 'Rent + Water';
+    if (notes.toLowerCase().includes('repair') || notes.toLowerCase().includes('service')) return 'Repairs';
+    if (notes.toLowerCase().includes('plumbing')) return 'Plumbing';
+    if (notes.toLowerCase().includes('electrical')) return 'Electrical';
+    if (notes.toLowerCase().includes('painting')) return 'Painting';
+    if (notes.toLowerCase().includes('carpentry')) return 'Carpentry';
+    if (notes.toLowerCase().includes('security')) return 'Security';
+    if (notes.toLowerCase().includes('delivery')) return 'Delivery';
+    return 'Rent';
+  };
 
   const formatMoney = (n: number) =>
     `KES ${n.toLocaleString("en-KE", { minimumFractionDigits: 0 })}`;
@@ -404,6 +487,14 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
           </div>
           {role === "landlord" && (
             <div className="flex gap-2">
+              <Button
+                onClick={exportToCSV}
+                variant="outline"
+                className="border-border rounded-xl h-10 gap-2 text-sm"
+              >
+                <Download className="w-4 h-4" />
+                <span className="hidden sm:inline">Export CSV</span>
+              </Button>
               <Button
                 onClick={() => setShowSettingsForm(!showSettingsForm)}
                 variant="outline"
@@ -1110,71 +1201,219 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
           </div>
         )}
 
-        {/* ── Payment history ──────────────────────────── */}
-        <div>
-          <div className="flex items-center justify-between mb-3 gap-3">
-            <h3 className="font-semibold text-foreground">
-              {role === "landlord" ? "Payment Records" : "Payment History"}
-            </h3>
-            {role === "landlord" && (
-              <div className="relative flex-1 max-w-xs">
-                <Search className="absolute left-3 top-2.5 w-3.5 h-3.5 text-muted-foreground" />
-                <input
-                  placeholder="Search by name or code..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-8 pr-3 py-2 bg-secondary border border-border rounded-xl text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-accent/40"
-                />
+        {/* ── Enhanced Payment Table ──────────────────────── */}
+        {role === "landlord" && (
+          <div className="bg-card border border-border rounded-2xl overflow-hidden">
+            <div className="p-4 border-b border-border">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-3">
+                  <h3 className="font-semibold text-foreground">Payment Records</h3>
+                  <Button
+                    onClick={exportToCSV}
+                    variant="outline"
+                    size="sm"
+                    className="border-border rounded-xl h-8 gap-2 text-xs"
+                    disabled={filteredPayments.length === 0}
+                  >
+                    <Download className="w-3 h-3" />
+                    Export CSV
+                  </Button>
+                </div>
+                <div className="relative max-w-xs">
+                  <Search className="absolute left-3 top-2.5 w-3.5 h-3.5 text-muted-foreground" />
+                  <input
+                    placeholder="Search by name or code..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full pl-8 pr-3 py-2 bg-secondary border border-border rounded-xl text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-accent/40"
+                  />
+                </div>
+              </div>
+              
+              {/* Summary Stats */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+                <div className="bg-emerald-50 dark:bg-emerald-950/20 rounded-xl p-2">
+                  <p className="text-xs text-emerald-600 font-medium whitespace-nowrap">Rent</p>
+                  <p className="text-sm font-bold text-emerald-700">
+                    {formatMoney(
+                      filteredPayments
+                        .filter(p => !getPaymentTypeFromNotes(p.notes).includes('Water') && !getPaymentTypeFromNotes(p.notes).includes('Repair'))
+                        .reduce((sum, p) => sum + p.amount, 0)
+                    )}
+                  </p>
+                </div>
+                <div className="bg-blue-50 dark:bg-blue-950/20 rounded-xl p-2">
+                  <p className="text-xs text-blue-600 font-medium whitespace-nowrap">Water</p>
+                  <p className="text-sm font-bold text-blue-700">
+                    {formatMoney(
+                      filteredPayments
+                        .filter(p => getPaymentTypeFromNotes(p.notes).includes('Water'))
+                        .reduce((sum, p) => sum + p.amount, 0)
+                    )}
+                  </p>
+                </div>
+                <div className="bg-amber-50 dark:bg-amber-950/20 rounded-xl p-2">
+                  <p className="text-xs text-amber-600 font-medium whitespace-nowrap">Repairs</p>
+                  <p className="text-sm font-bold text-amber-700">
+                    {formatMoney(
+                      filteredPayments
+                        .filter(p => getPaymentTypeFromNotes(p.notes).includes('Repair') || getPaymentTypeFromNotes(p.notes).includes('Plumbing') || getPaymentTypeFromNotes(p.notes).includes('Electrical') || getPaymentTypeFromNotes(p.notes).includes('Painting') || getPaymentTypeFromNotes(p.notes).includes('Carpentry') || getPaymentTypeFromNotes(p.notes).includes('Security') || getPaymentTypeFromNotes(p.notes).includes('Delivery'))
+                        .reduce((sum, p) => sum + p.amount, 0)
+                    )}
+                  </p>
+                </div>
+                <div className="bg-accent/5 rounded-xl p-2">
+                  <p className="text-xs text-accent font-medium whitespace-nowrap">Total</p>
+                  <p className="text-sm font-bold text-accent">
+                    {formatMoney(
+                      filteredPayments.reduce((sum, p) => sum + p.amount, 0)
+                    )}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {filteredPayments.length === 0 ? (
+              <div className="text-center py-16">
+                <div className="w-14 h-14 rounded-2xl bg-secondary flex items-center justify-center mx-auto mb-3">
+                  <Receipt className="w-7 h-7 text-muted-foreground/30" />
+                </div>
+                <p className="font-semibold text-foreground">
+                  No payments this month
+                </p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Log a payment above or wait for M-Pesa callback
+                </p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[800px]">
+                  <thead className="bg-secondary/50 border-b border-border sticky top-0">
+                    <tr>
+                      <th className="text-left p-3 text-xs font-medium text-muted-foreground whitespace-nowrap">Tenant</th>
+                      <th className="text-left p-3 text-xs font-medium text-muted-foreground whitespace-nowrap">Type</th>
+                      <th className="text-right p-3 text-xs font-medium text-muted-foreground whitespace-nowrap">Amount</th>
+                      <th className="text-center p-3 text-xs font-medium text-muted-foreground whitespace-nowrap">M-Pesa Code</th>
+                      <th className="text-left p-3 text-xs font-medium text-muted-foreground whitespace-nowrap">Date</th>
+                      <th className="text-center p-3 text-xs font-medium text-muted-foreground whitespace-nowrap">Method</th>
+                      <th className="text-left p-3 text-xs font-medium text-muted-foreground whitespace-nowrap">Notes</th>
+                      <th className="text-center p-3 text-xs font-medium text-muted-foreground whitespace-nowrap">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {filteredPayments.map((payment) => {
+                      const tenant = tenants.find(t => t.id === payment.tenant_id);
+                      const paymentType = getPaymentTypeFromNotes(payment.notes);
+                      const typeIcon = paymentType.includes('Water') ? <Droplets className="w-3 h-3 text-blue-500" /> : 
+                                     paymentType.includes('Repair') || paymentType.includes('Plumbing') || paymentType.includes('Electrical') || paymentType.includes('Painting') || paymentType.includes('Carpentry') || paymentType.includes('Security') || paymentType.includes('Delivery') ? <Wrench className="w-3 h-3 text-amber-500" /> : 
+                                     <Building2 className="w-3 h-3 text-emerald-500" />;
+                      
+                      return (
+                        <tr key={payment.id} className="hover:bg-secondary/20 transition-colors">
+                          <td className="p-3 whitespace-nowrap">
+                            <div className="flex items-center gap-2 min-w-0">
+                              <div className="w-6 h-6 rounded-full bg-accent/10 flex items-center justify-center text-xs font-bold text-accent flex-shrink-0">
+                                {tenant?.full_name?.charAt(0).toUpperCase() || '?'}
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-sm font-medium text-foreground truncate">{tenant?.full_name || 'Unknown'}</p>
+                                <p className="text-xs text-muted-foreground truncate">{tenant?.email || ''}</p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="p-3 whitespace-nowrap">
+                            <div className="flex items-center gap-1">
+                              {typeIcon}
+                              <span className="text-xs font-medium text-foreground">{paymentType}</span>
+                            </div>
+                          </td>
+                          <td className="p-3 text-right whitespace-nowrap">
+                            <span className="text-sm font-bold text-foreground">{formatMoney(payment.amount)}</span>
+                          </td>
+                          <td className="p-3 text-center whitespace-nowrap">
+                            {payment.mpesa_code ? (
+                              <span className="text-xs font-mono text-accent bg-accent/5 px-2 py-1 rounded">
+                                {payment.mpesa_code}
+                              </span>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">N/A</span>
+                            )}
+                          </td>
+                          <td className="p-3 whitespace-nowrap">
+                            <span className="text-xs text-muted-foreground">{formatDate(payment.payment_date)}</span>
+                          </td>
+                          <td className="p-3 text-center whitespace-nowrap">
+                            <span className="text-xs px-2 py-1 rounded-full bg-green-50 dark:bg-green-950/20 text-green-600 border border-green-200 dark:border-green-800">
+                              {payment.payment_method || 'M-Pesa'}
+                            </span>
+                          </td>
+                          <td className="p-3 whitespace-nowrap">
+                            <span className="text-xs text-muted-foreground max-w-40 truncate block" title={payment.notes || ''}>
+                              {payment.notes || '-'}
+                            </span>
+                          </td>
+                          <td className="p-3 text-center whitespace-nowrap">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDeletePayment(payment.id)}
+                              className="text-destructive hover:text-destructive hover:bg-destructive/10 h-6 w-6 p-0"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </Button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
             )}
           </div>
+        )}
 
-          {filteredPayments.length === 0 ? (
-            <div className="text-center py-16 bg-card border border-border rounded-2xl">
-              <div className="w-14 h-14 rounded-2xl bg-secondary flex items-center justify-center mx-auto mb-3">
-                <Receipt className="w-7 h-7 text-muted-foreground/30" />
-              </div>
-              <p className="font-semibold text-foreground">
-                No payments this month
-              </p>
-              <p className="text-sm text-muted-foreground mt-1">
-                {role === "landlord"
-                  ? "Log a payment above or wait for M-Pesa callback"
-                  : "Pay via M-Pesa Paybill 400200"}
-              </p>
+        {/* ── TENANT: Payment History ───────────────────── */}
+        {role === "tenant" && (
+          <div className="bg-card border border-border rounded-2xl overflow-hidden">
+            <div className="p-4 border-b border-border">
+              <h3 className="font-semibold text-foreground">Payment History</h3>
             </div>
-          ) : (
-            <div className="space-y-2">
-              {filteredPayments.map((payment) => (
-                <div
-                  key={payment.id}
-                  className="bg-card border border-border rounded-2xl p-4 hover:shadow-sm transition-shadow"
-                >
-                  <div className="flex items-start gap-3">
-                    <div
-                      className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 text-lg ${
-                        payment.payment_method === "mpesa"
-                          ? "bg-green-50 dark:bg-green-950/20"
-                          : "bg-blue-50 dark:bg-blue-950/20"
-                      }`}
-                    >
-                      {payment.payment_method === "mpesa"
-                        ? "📱"
-                        : payment.payment_method === "bank"
-                          ? "🏦"
+            
+            {filteredPayments.length === 0 ? (
+              <div className="text-center py-16">
+                <div className="w-14 h-14 rounded-2xl bg-secondary flex items-center justify-center mx-auto mb-3">
+                  <Receipt className="w-7 h-7 text-muted-foreground/30" />
+                </div>
+                <p className="font-semibold text-foreground">
+                  No payments this month
+                </p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Pay via M-Pesa Paybill 400200
+                </p>
+              </div>
+            ) : (
+              <div className="divide-y divide-border">
+                {filteredPayments.map((payment) => (
+                  <div
+                    key={payment.id}
+                    className="bg-card border border-border rounded-2xl p-4 hover:shadow-sm transition-shadow"
+                  >
+                    <div className="flex items-start gap-3">
+                      <div
+                        className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 text-lg ${
+                          payment.payment_method === "mpesa"
+                            ? "bg-green-50 dark:bg-green-950/20"
+                            : "bg-blue-50 dark:bg-blue-950/20"
+                        }`}
+                      >
+                        {payment.payment_method === "mpesa"
+                          ? "📱"
+                          : payment.payment_method === "bank"
+                            ? "🏦"
                           : "💵"}
                     </div>
 
                     <div className="flex-1 min-w-0">
-                      {role === "landlord" && payment.profiles && (
-                        <p className="text-xs text-muted-foreground mb-0.5">
-                          <span className="font-semibold text-foreground">
-                            {payment.profiles.full_name}
-                          </span>
-                          {" · "}
-                          {payment.profiles.email}
-                        </p>
-                      )}
                       <div className="flex items-center gap-2 flex-wrap">
                         <p className="text-base font-bold text-foreground">
                           {formatMoney(Number(payment.amount))}
@@ -1214,15 +1453,6 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
                         <CheckCircle2 className="w-3 h-3" />
                         CONFIRMED
                       </span>
-                      {role === "landlord" && (
-                        <button
-                          onClick={() => handleDeletePayment(payment.id)}
-                          className="p-1.5 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors"
-                          title="Delete record"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      )}
                     </div>
                   </div>
                 </div>
@@ -1230,6 +1460,7 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
             </div>
           )}
         </div>
+        )}
 
         {/* ── TENANT: Paybill info banner ──────────────── */}
         {role === "tenant" && (
