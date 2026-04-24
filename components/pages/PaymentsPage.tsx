@@ -104,6 +104,7 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
   const [payPhone, setPayPhone] = useState("");
   const [isPaying, setIsPaying] = useState(false);
 
+  
   // ── Payment status calculator ─────────────────────────
   const getTenantPaymentStatus = (tenantId: string, month: string) => {
     const rs = rentSettings.find((r) => r.tenant_id === tenantId);
@@ -573,15 +574,14 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
               <>
                 <div className="mt-3 p-3 bg-white/60 dark:bg-black/20 rounded-xl">
                   <p className="text-xs font-semibold text-foreground mb-2">
-                    How to pay:
+                    Enhanced Payment Options:
                   </p>
                   <div className="space-y-1">
                     {[
-                      "📱 Open M-Pesa on your phone",
-                      "🔢 Go to Paybill → Enter 400200",
-                      "🏦 Account Number: 1060544",
-                      `💰 Amount: ${myRentSetting ? formatMoney(myRentSetting.monthly_amount) : "your monthly rent"}`,
-                      "✅ Enter PIN and confirm",
+                      "💰 Rent + Water Bills + Repair Services",
+                      "📱 Choose payment type in the modal",
+                      "🔢 M-Pesa STK Push integration",
+                      "✅ Automatic payment tracking",
                     ].map((s) => (
                       <p key={s} className="text-xs text-muted-foreground">
                         {s}
@@ -594,10 +594,11 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
                     user={user}
                     amount={myRentSetting.monthly_amount}
                     month={activeMonth}
-                    onSuccess={() =>
-                      showFeedback("STK Push sent! Check your phone 📱")
-                    }
-                    onError={(msg) => showFeedback(msg, true)}
+                    onSuccess={() => {
+                      showFeedback("Enhanced payment initiated! Check your phone 📱")
+                      fetchData() // Refresh payment data
+                    }}
+                    onError={(msg: string) => showFeedback(msg, true)}
                   />
                 </div>
               </>

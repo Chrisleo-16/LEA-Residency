@@ -18,7 +18,18 @@ const PAYHERO_API = 'https://backend.payhero.co.ke/api/v2'
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { amount, phone, tenantId, month } = body
+    const { 
+      amount, 
+      phone, 
+      tenantId, 
+      month, 
+      paymentType = 'rent',
+      rentAmount,
+      waterBill,
+      serviceId,
+      serviceDescription,
+      customAmount
+    } = body
 
     if (!amount || !phone || !tenantId || !month) {
       return NextResponse.json(
@@ -51,7 +62,7 @@ export async function POST(req: NextRequest) {
         channel_id: CHANNEL_ID,
         provider: 'm-pesa',
         network_code: '63902',  // Safaricom M-Pesa — do not change
-        external_reference: `RENT-${tenantId}-${month}`,
+        external_reference: `${paymentType.toUpperCase()}-${tenantId}-${month}`,
         callback_url: callbackUrl,
       }),
     })
@@ -70,6 +81,24 @@ export async function POST(req: NextRequest) {
     const { data: landlord } = await supabase
       .from('profiles').select('id').eq('role', 'landlord').limit(1).single()
 
+    // Build payment notes with enhanced details
+    let paymentNotes = `STK sent — ref: ${data.reference || data.id || 'pending'}`
+    
+    if (paymentType === 'rent') {
+      paymentNotes += ` | Rent: KES ${rentAmount || 0}`
+      if (waterBill && waterBill > 0) {
+        paymentNotes += ` | Water: KES ${waterBill}`
+      }
+    } else if (paymentType === 'repairs') {
+      paymentNotes += ` | Service: ${serviceId || 'unknown'}`
+      if (serviceDescription) {
+        paymentNotes += ` | ${serviceDescription}`
+      }
+      if (customAmount && customAmount > 0) {
+        paymentNotes += ` | Custom: KES ${customAmount}`
+      }
+    }
+
     await supabase.from('payments').insert({
       tenant_id: tenantId,
       landlord_id: landlord?.id || null,
@@ -80,7 +109,19 @@ export async function POST(req: NextRequest) {
       payment_method: 'mpesa',
       logged_by: 'system',
       status: 'pending',              // updated to complete/partial on callback
-      notes: `STK sent — ref: ${data.reference || data.id || 'pending'}`,
+      notes: paymentNotes,
+      // Add metadata for enhanced payments
+      ...(paymentType === 'rent' && {
+        payment_category: 'rent',
+        rent_amount: rentAmount || 0,
+        water_bill: waterBill || 0,
+      }),
+      ...(paymentType === 'repairs' && {
+        payment_category: 'repairs',
+        service_id: serviceId || null,
+        service_description: serviceDescription || null,
+        custom_amount: customAmount || 0,
+      }),
     })
 
     return NextResponse.json({
