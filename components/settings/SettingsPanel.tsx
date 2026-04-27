@@ -24,9 +24,11 @@ import {
   Users,
   Shield,
   Fingerprint,
+  TestTube,
 } from "lucide-react";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import NotificationPermission from "@/components/notifications/NotificationPermission";
+import NotificationTest from "@/components/notifications/NotificationTest";
 
 const TZ = "Africa/Nairobi";
 
@@ -574,17 +576,30 @@ export default function SettingsPanel({ user }: SettingsPanelProps) {
                 <Bell className="w-4 h-4 text-accent" />
                 <h3 className="text-sm font-medium text-foreground">Push Notifications</h3>
               </div>
-              <NotificationPermission 
-                onPermissionGranted={() => {
-                  setNotifications(true);
-                  localStorage.setItem("notifications", "true");
-                }}
-                onPermissionDenied={() => {
-                  setNotifications(false);
-                  localStorage.setItem("notifications", "false");
-                }}
-                showInstructions={true}
-              />
+              <div className="space-y-4">
+                <NotificationPermission 
+                  onPermissionGranted={() => {
+                    setNotifications(true);
+                    localStorage.setItem("notifications", "true");
+                  }}
+                  onPermissionDenied={() => {
+                    setNotifications(false);
+                    localStorage.setItem("notifications", "false");
+                  }}
+                  showInstructions={true}
+                />
+                
+                {/* Development Test Component */}
+                {process.env.NODE_ENV === 'development' && (
+                  <div className="border-t pt-4">
+                    <div className="flex items-center gap-2.5 mb-3">
+                      <TestTube className="w-4 h-4 text-blue-600" />
+                      <h4 className="text-sm font-medium text-foreground">Development Test</h4>
+                    </div>
+                    <NotificationTest />
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Dark Mode Toggle */}

@@ -52,7 +52,7 @@ export default function RootLayout({
         {children}
         <Analytics />
         {/* ✅ Only register SW in production — fixes 404 in dev */}
-        {process.env.NODE_ENV === 'production' && (
+        {(process.env.NODE_ENV === 'production' || process.env.NODE_ENV === 'development') && (
           <script
             dangerouslySetInnerHTML={{
               __html: `
