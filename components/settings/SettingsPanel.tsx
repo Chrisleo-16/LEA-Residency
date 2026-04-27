@@ -26,6 +26,7 @@ import {
   Fingerprint,
 } from "lucide-react";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
+import NotificationPermission from "@/components/notifications/NotificationPermission";
 
 const TZ = "Africa/Nairobi";
 
@@ -566,54 +567,54 @@ export default function SettingsPanel({ user }: SettingsPanelProps) {
             icon={<Fingerprint className="w-4 h-4 text-accent" />}
             title="Preferences"
           />
-          <div className="space-y-3">
-            {[
-              {
-                icon: <Bell className="w-4 h-4 text-accent" />,
-                title: "Push Notifications",
-                subtitle: "Get notified about new messages",
-                checked: notifications,
-                onToggle: handleToggleNotifications,
-              },
-              {
-                icon: isDark ? (
-                  <Moon className="w-4 h-4 text-accent" />
-                ) : (
-                  <Sun className="w-4 h-4 text-accent" />
-                ),
-                title: isDark ? "Dark Mode" : "Light Mode",
-                subtitle: "Toggle app appearance",
-                checked: isDark,
-                onToggle: handleToggleTheme,
-              },
-            ].map((item) => (
-              <div
-                key={item.title}
-                className="flex items-center justify-between p-3.5 bg-secondary rounded-xl"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center">
-                    {item.icon}
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-foreground">
-                      {item.title}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {item.subtitle}
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={item.onToggle}
-                  className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${item.checked ? "bg-accent" : "bg-border"}`}
-                >
-                  <span
-                    className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform ${item.checked ? "translate-x-5" : "translate-x-0"}`}
-                  />
-                </button>
+          <div className="space-y-4">
+            {/* Enhanced Notification Permission Component */}
+            <div>
+              <div className="flex items-center gap-2.5 mb-3">
+                <Bell className="w-4 h-4 text-accent" />
+                <h3 className="text-sm font-medium text-foreground">Push Notifications</h3>
               </div>
-            ))}
+              <NotificationPermission 
+                onPermissionGranted={() => {
+                  setNotifications(true);
+                  localStorage.setItem("notifications", "true");
+                }}
+                onPermissionDenied={() => {
+                  setNotifications(false);
+                  localStorage.setItem("notifications", "false");
+                }}
+                showInstructions={true}
+              />
+            </div>
+
+            {/* Dark Mode Toggle */}
+            <div className="flex items-center justify-between p-3.5 bg-secondary rounded-xl">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center">
+                  {isDark ? (
+                    <Moon className="w-4 h-4 text-accent" />
+                  ) : (
+                    <Sun className="w-4 h-4 text-accent" />
+                  )}
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-foreground">
+                    {isDark ? "Dark Mode" : "Light Mode"}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Toggle app appearance
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={handleToggleTheme}
+                className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${isDark ? "bg-accent" : "bg-border"}`}
+              >
+                <span
+                  className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform ${isDark ? "translate-x-5" : "translate-x-0"}`}
+                />
+              </button>
+            </div>
           </div>
         </Section>
 
