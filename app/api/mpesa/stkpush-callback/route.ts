@@ -30,8 +30,8 @@ export async function POST(req: NextRequest) {
         await supabase
           .from('payments')
           .update({ status: 'failed', notes: `Payment ${status}` })
-          .eq('notes', `STK sent — ref: ${reference}`)
           .eq('status', 'pending')
+          .ilike('notes', `%STK sent — ref: ${reference}%`)
       }
       return NextResponse.json({ success: true })
     }
@@ -51,16 +51,18 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Parse tenantId and month from reference ───────
-    // Format: "RENT-{tenantId}-{month}" e.g. "RENT-uuid-2024-03"
+    // Format: "TYPE-{tenantId}-{month}" e.g. "RENT-uuid-2024-03" or "REPAIRS-uuid-2024-03"
     let tenantId: string | null = null
     let paymentMonth: string | null = null
+    let paymentType: string = 'rent'
 
     if (reference) {
-      // RENT-{uuid}-{YYYY-MM}
-      const match = reference.match(/^RENT-(.+)-(\d{4}-\d{2})$/)
+      // TYPE-{uuid}-{YYYY-MM}
+      const match = reference.match(/^(RENT|REPAIRS)-(.+)-(\d{4}-\d{2})$/)
       if (match) {
-        tenantId = match[1]
-        paymentMonth = match[2]
+        paymentType = match[1].toLowerCase()
+        tenantId = match[2]
+        paymentMonth = match[3]
       }
     }
 
@@ -127,9 +129,8 @@ export async function POST(req: NextRequest) {
     const { data: pendingPayment } = await supabase
       .from('payments')
       .select('id')
-      .eq('tenant_id', tenantId)
-      .eq('payment_month', paymentMonth)
       .eq('status', 'pending')
+      .ilike('notes', `%STK sent — ref: ${reference}%`)
       .maybeSingle()
 
     if (pendingPayment) {

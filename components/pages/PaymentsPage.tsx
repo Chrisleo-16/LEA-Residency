@@ -21,6 +21,7 @@ import {
   Search,
   BadgeCheck,
   Download,
+  RefreshCw,
   Droplets,
   Wrench,
 } from "lucide-react";
@@ -404,6 +405,32 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
     showFeedback(`Payment ledger for ${monthName} exported successfully!`);
   };
 
+  // Smart Sync PayHero Transactions Function
+  const smartSyncPayHero = async () => {
+    try {
+      showFeedback('Smart syncing PayHero transactions...', false);
+      
+      const response = await fetch('/api/sync/smart-sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        const stats = result.stats || { updated: 0, created: 0, skipped: 0 };
+        showFeedback(`Smart sync completed: ${stats.updated} updated, ${stats.created} created, ${stats.skipped} skipped`, false);
+        // Refresh data to show updated payments
+        fetchData();
+      } else {
+        showFeedback(`Smart sync failed: ${result.error || 'Unknown error'}`, true);
+      }
+    } catch (error: any) {
+      console.error('Smart sync error:', error);
+      showFeedback('Smart sync failed. Please try again.', true);
+    }
+  };
+
   // Helper function to determine payment type from notes
   const getPaymentTypeFromNotes = (notes: string | null) => {
     if (!notes) return 'Rent';
@@ -490,15 +517,23 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
               <Button
                 onClick={exportToCSV}
                 variant="outline"
-                className="border-border rounded-xl h-10 gap-2 text-sm"
+                className="border-border rounded-xl h-10 gap-2 text-sm hover:text-accent"
               >
                 <Download className="w-4 h-4" />
                 <span className="hidden sm:inline">Export CSV</span>
               </Button>
               <Button
+                onClick={smartSyncPayHero}
+                variant="outline"
+                className="border-border rounded-xl h-10 gap-2 text-sm hover:text-accent"
+              >
+                <RefreshCw className="w-4 h-4" />
+                <span className="hidden sm:inline">Smart Sync</span>
+              </Button>
+              <Button
                 onClick={() => setShowSettingsForm(!showSettingsForm)}
                 variant="outline"
-                className="border-border rounded-xl h-10 gap-2 text-sm"
+                className="border-border rounded-xl h-10 gap-2 text-sm hover:text-accent"
               >
                 <CreditCard className="w-4 h-4" />
                 <span className="hidden sm:inline">Set Rent</span>
@@ -1212,7 +1247,7 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
                     onClick={exportToCSV}
                     variant="outline"
                     size="sm"
-                    className="border-border rounded-xl h-8 gap-2 text-xs"
+                    className="border-border rounded-xl h-8 gap-2 text-xs hover:text-accent"
                     disabled={filteredPayments.length === 0}
                   >
                     <Download className="w-3 h-3" />
@@ -1374,7 +1409,7 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
 
         {/* ── TENANT: Payment History ───────────────────── */}
         {role === "tenant" && (
-          <div className="bg-card border border-border rounded-2xl overflow-hidden">
+          <div className="bg-card border border-border rounded-2xl overflow-hidden p-2">
             <div className="p-4 border-b border-border">
               <h3 className="font-semibold text-foreground">Payment History</h3>
             </div>
@@ -1392,11 +1427,11 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
                 </p>
               </div>
             ) : (
-              <div className="divide-y divide-border">
+              <div className="divide-y divide-border m-2">
                 {filteredPayments.map((payment) => (
                   <div
                     key={payment.id}
-                    className="bg-card border border-border rounded-2xl p-4 hover:shadow-sm transition-shadow"
+                    className="bg-card border border-border rounded-2xl p-4 hover:shadow-sm transition-shadow m-2"
                   >
                     <div className="flex items-start gap-3">
                       <div

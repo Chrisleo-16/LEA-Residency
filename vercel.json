@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/sync/smart-sync",
+      "schedule": "0 */10 * * *"
+    }
+  ]
+}
