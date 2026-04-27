@@ -734,8 +734,8 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
 
         {/* Modal for phone number (STK Push) */}
         {showPayModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-card rounded-2xl p-6 max-w-sm w-full mx-4">
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-card rounded-2xl p-6 max-w-md w-full max-h-[90vh] overflow-y-auto">
               <h3 className="font-bold mb-4">Enter M-Pesa Number</h3>
               <input
                 type="tel"
@@ -878,7 +878,7 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
 
         {/* ── LANDLORD: Log Payment Form ───────────────── */}
         {role === "landlord" && showLogForm && (
-          <div className="bg-card border border-border rounded-2xl p-5 shadow-sm">
+          <div className="bg-card border border-border rounded-2xl p-4 sm:p-5 shadow-sm max-h-[90vh] overflow-y-auto mx-4 sm:mx-0 max-w-lg sm:max-w-none w-full">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-xl bg-accent/10 flex items-center justify-center">
@@ -922,7 +922,7 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
                 </select>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="text-sm font-medium text-foreground block mb-1.5">
                     Amount (KES)
@@ -961,7 +961,7 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
                 <label className="text-sm font-medium text-foreground block mb-2">
                   Payment Method
                 </label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   {[
                     { value: "mpesa", label: "M-Pesa", icon: "📱" },
                     { value: "bank", label: "Bank Transfer", icon: "🏦" },
@@ -1409,7 +1409,7 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
 
         {/* ── TENANT: Payment History ───────────────────── */}
         {role === "tenant" && (
-          <div className="bg-card border border-border rounded-2xl overflow-hidden p-2">
+          <div className="bg-card border border-border rounded-2xl overflow-hidden p-2 max-h-[calc(100vh-120px)]">
             <div className="p-4 border-b border-border">
               <h3 className="font-semibold text-foreground">Payment History</h3>
             </div>
@@ -1427,7 +1427,7 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
                 </p>
               </div>
             ) : (
-              <div className="divide-y divide-border m-2">
+              <div className="divide-y divide-border m-2 max-h-[calc(100vh-200px)] overflow-y-auto">
                 {filteredPayments.map((payment) => (
                   <div
                     key={payment.id}

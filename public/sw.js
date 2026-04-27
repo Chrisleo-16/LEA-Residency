@@ -1,5 +1,5 @@
-// sw-notifications.js
-// Custom service worker that combines next-pwa caching with push notifications
+// sw.js
+// Enhanced service worker with push notifications and caching for LEA Executive Residency
 // Based on: https://medium.com/@vedantsaraswat_44942/configuring-push-notifications-in-a-pwa-part-1-1b8e9fe2954
 
 importScripts('https://storage.googleapis.com/workbox-cdn/releases/6.5.4/workbox-sw.js')
@@ -77,7 +77,7 @@ workbox.routing.registerRoute(
   })
 )
 
-// Push notification event listener
+// Enhanced push notification event listener
 self.addEventListener('push', (event) => {
   console.log('[SW] Push received:', event)
 
@@ -92,8 +92,8 @@ self.addEventListener('push', (event) => {
 
     const options = {
       body: data.body || 'You have a new message',
-      icon: '/icons/icon-192x192.png',
-      badge: '/icons/icon-72x72.png',
+      icon: '/placeholder-logo.png',
+      badge: '/placeholder-logo.png',
       vibrate: [100, 50, 100],
       data: {
         url: data.url || '/dashboard',
@@ -103,10 +103,12 @@ self.addEventListener('push', (event) => {
         { action: 'open', title: 'Open App' },
         { action: 'dismiss', title: 'Dismiss' },
       ],
-      // Add more notification options for better UX
+      // Enhanced notification options
       requireInteraction: false, // Auto-dismiss after a few seconds
       silent: false,
       tag: data.tag || 'lea-notification', // Group similar notifications
+      renotify: true, // Renotify if tag is same
+      timestamp: Date.now(),
     }
 
     event.waitUntil(
@@ -114,18 +116,19 @@ self.addEventListener('push', (event) => {
     )
   } catch (error) {
     console.error('[SW] Error processing push data:', error)
-    // Fallback notification
+    // Fallback notification with error handling
     event.waitUntil(
       self.registration.showNotification('LEA Executive', {
         body: 'You have a new notification',
-        icon: '/icons/icon-192x192.png',
-        badge: '/icons/icon-72x72.png',
+        icon: '/placeholder-logo.png',
+        badge: '/placeholder-logo.png',
+        tag: 'lea-fallback',
       })
     )
   }
 })
 
-// Notification click event listener
+// Enhanced notification click event listener
 self.addEventListener('notificationclick', (event) => {
   console.log('[SW] Notification click:', event)
   event.notification.close()
@@ -156,7 +159,13 @@ self.addEventListener('notificationclick', (event) => {
   )
 })
 
-// Background sync for offline actions (optional enhancement)
+// Notification close event listener (for analytics)
+self.addEventListener('notificationclose', (event) => {
+  console.log('[SW] Notification closed:', event)
+  // You can add analytics here if needed
+})
+
+// Background sync for offline actions
 self.addEventListener('sync', (event) => {
   console.log('[SW] Background sync:', event.tag)
 
@@ -168,11 +177,32 @@ self.addEventListener('sync', (event) => {
   }
 })
 
-// Message event listener for communication with main thread
+// Enhanced message event listener for communication with main thread
 self.addEventListener('message', (event) => {
   console.log('[SW] Message received:', event.data)
 
   if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting()
   }
+  
+  // Handle custom messages
+  if (event.data && event.data.type === 'GET_VERSION') {
+    event.ports[0].postMessage({ version: '1.0.0' })
+  }
+})
+
+// Install event listener
+self.addEventListener('install', (event) => {
+  console.log('[SW] Service Worker installing')
+  event.waitUntil(self.skipWaiting())
+})
+
+// Activate event listener
+self.addEventListener('activate', (event) => {
+  console.log('[SW] Service Worker activating')
+  event.waitUntil(
+    clients.claim().then(() => {
+      console.log('[SW] Clients claimed')
+    })
+  )
 })

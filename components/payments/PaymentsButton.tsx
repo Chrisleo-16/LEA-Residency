@@ -164,7 +164,7 @@ export default function PayButton({
 
       {showModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-background border border-border rounded-2xl w-full max-w-md p-6 shadow-2xl">
+          <div className="bg-background border border-border rounded-2xl w-full max-w-md sm:max-w-lg p-4 sm:p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
             {sent ? (
               <div className="text-center py-4">
                 <div className="w-16 h-16 rounded-full bg-accent/10 flex items-center justify-center mx-auto mb-4">
