@@ -24,19 +24,9 @@ import {
   Users,
   Shield,
   Fingerprint,
-  TestTube,
-  Settings,
-  Smartphone,
-  Bug,
-  Send,
 } from "lucide-react";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import NotificationPermission from "@/components/notifications/NotificationPermission";
-import NotificationTest from "@/components/notifications/NotificationTest";
-import NotificationDebugger from "@/components/notifications/NotificationDebugger";
-import MobileTestHelper from "@/components/notifications/MobileTestHelper";
-import AdvancedDebugger from "@/components/notifications/AdvancedDebugger";
-import PushSimulator from "@/components/notifications/PushSimulator";
 
 const TZ = "Africa/Nairobi";
 
@@ -597,47 +587,7 @@ export default function SettingsPanel({ user }: SettingsPanelProps) {
                   showInstructions={true}
                 />
                 
-                {/* Notification Testing Tools */}
-                <div className="border-t pt-4 space-y-4">
-                  <div className="flex items-center gap-2.5 mb-3">
-                    <TestTube className="w-4 h-4 text-blue-600" />
-                    <h4 className="text-sm font-medium text-foreground">Notification Testing</h4>
-                  </div>
-                  <NotificationTest />
-                  
-                  <div className="border-t pt-4">
-                    <div className="flex items-center gap-2.5 mb-3">
-                      <Settings className="w-4 h-4 text-orange-600" />
-                      <h4 className="text-sm font-medium text-foreground">Notification Debugger</h4>
-                    </div>
-                    <NotificationDebugger />
-                  </div>
-                  
-                  <div className="border-t pt-4">
-                    <div className="flex items-center gap-2.5 mb-3">
-                      <Smartphone className="w-4 h-4 text-purple-600" />
-                      <h4 className="text-sm font-medium text-foreground">Mobile Test Helper</h4>
-                    </div>
-                    <MobileTestHelper />
-                  </div>
-                  
-                  <div className="border-t pt-4">
-                    <div className="flex items-center gap-2.5 mb-3">
-                      <Bug className="w-4 h-4 text-red-600" />
-                      <h4 className="text-sm font-medium text-foreground">Advanced Debugger</h4>
-                    </div>
-                    <AdvancedDebugger />
-                  </div>
-                  
-                  <div className="border-t pt-4">
-                    <div className="flex items-center gap-2.5 mb-3">
-                      <Send className="w-4 h-4 text-green-600" />
-                      <h4 className="text-sm font-medium text-foreground">Push Simulator</h4>
-                    </div>
-                    <PushSimulator />
-                  </div>
-                </div>
-              </div>
+                              </div>
             </div>
 
             {/* Dark Mode Toggle */}
