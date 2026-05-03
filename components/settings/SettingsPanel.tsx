@@ -27,12 +27,14 @@ import {
   TestTube,
   Settings,
   Smartphone,
+  Bug,
 } from "lucide-react";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import NotificationPermission from "@/components/notifications/NotificationPermission";
 import NotificationTest from "@/components/notifications/NotificationTest";
 import NotificationDebugger from "@/components/notifications/NotificationDebugger";
 import MobileTestHelper from "@/components/notifications/MobileTestHelper";
+import AdvancedDebugger from "@/components/notifications/AdvancedDebugger";
 
 const TZ = "Africa/Nairobi";
 
@@ -616,6 +618,14 @@ export default function SettingsPanel({ user }: SettingsPanelProps) {
                         <h4 className="text-sm font-medium text-foreground">Mobile Test Helper</h4>
                       </div>
                       <MobileTestHelper />
+                    </div>
+                    
+                    <div className="border-t pt-4">
+                      <div className="flex items-center gap-2.5 mb-3">
+                        <Bug className="w-4 h-4 text-red-600" />
+                        <h4 className="text-sm font-medium text-foreground">Advanced Debugger</h4>
+                      </div>
+                      <AdvancedDebugger />
                     </div>
                   </div>
                 )}
