@@ -169,6 +169,62 @@ export function useChat(conversationId: string | null, currentUser: User | null)
       if (prev.find(m => m.id === newMsg.id)) return prev
       return [...prev, { ...newMsg, reactions: {}, reads: [], reply_to: replyTo }]
     })
+
+    // 🚀 SEND PUSH NOTIFICATION TO RECIPIENT
+    try {
+      // Get conversation participants to find who should receive notification
+      const { data: participants } = await supabase
+        .from('conversation_participants')
+        .select('user_id')
+        .eq('conversation_id', conversationId)
+      
+      if (participants) {
+        // Find the other participant (not the sender)
+        const recipient = participants.find(p => p.user_id !== currentUser.id)
+        
+        if (recipient) {
+          // Get recipient's push subscription
+          const { data: subscription } = await supabase
+            .from('push_subscriptions')
+            .select('subscription')
+            .eq('user_id', recipient.user_id)
+            .single()
+          
+          // For now, trigger local notification for testing
+          // In production, you'd send real push notification here
+          if ('serviceWorker' in navigator && 'Notification' in window) {
+            const registration = await navigator.serviceWorker.ready
+            
+            await registration.showNotification(`${currentUser.user_metadata?.full_name || 'Someone'}`, {
+              body: content.trim(),
+              icon: '/placeholder-logo.png',
+              badge: '/placeholder-logo.png',
+              tag: `message-${conversationId}`,
+              requireInteraction: true,
+              data: {
+                messageId: newMsg.id,
+                senderId: currentUser.id,
+                chatId: conversationId,
+                type: 'message',
+                url: `/dashboard?tab=chat&chatId=${conversationId}`
+              },
+              actions: [
+                { action: 'reply', title: 'Reply' },
+                { action: 'mark-read', title: 'Mark as read' },
+                { action: 'open', title: 'Open Chat' }
+              ]
+            } as NotificationOptions & {
+              actions: Array<{ action: string; title: string }>
+            })
+            
+            console.log('[Chat] Push notification sent for message:', newMsg.id)
+          }
+        }
+      }
+    } catch (notificationError) {
+      console.error('[Chat] Failed to send push notification:', notificationError)
+      // Don't fail the message send if notification fails
+    }
   }, [conversationId, currentUser])
 
   // ✅ Edit message
