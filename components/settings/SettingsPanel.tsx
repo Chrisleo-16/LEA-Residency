@@ -25,10 +25,12 @@ import {
   Shield,
   Fingerprint,
   TestTube,
+  Settings,
 } from "lucide-react";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import NotificationPermission from "@/components/notifications/NotificationPermission";
 import NotificationTest from "@/components/notifications/NotificationTest";
+import NotificationDebugger from "@/components/notifications/NotificationDebugger";
 
 const TZ = "Africa/Nairobi";
 
@@ -591,12 +593,20 @@ export default function SettingsPanel({ user }: SettingsPanelProps) {
                 
                 {/* Development Test Component */}
                 {process.env.NODE_ENV === 'development' && (
-                  <div className="border-t pt-4">
+                  <div className="border-t pt-4 space-y-4">
                     <div className="flex items-center gap-2.5 mb-3">
                       <TestTube className="w-4 h-4 text-blue-600" />
                       <h4 className="text-sm font-medium text-foreground">Development Test</h4>
                     </div>
                     <NotificationTest />
+                    
+                    <div className="border-t pt-4">
+                      <div className="flex items-center gap-2.5 mb-3">
+                        <Settings className="w-4 h-4 text-orange-600" />
+                        <h4 className="text-sm font-medium text-foreground">Notification Debugger</h4>
+                      </div>
+                      <NotificationDebugger />
+                    </div>
                   </div>
                 )}
               </div>
