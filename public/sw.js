@@ -188,24 +188,22 @@ self.addEventListener('notificationclick', (event) => {
   // Handle mark as read action
   if (event.action === 'mark-read') {
     console.log('[SW] Mark as read action triggered')
-    event.waitUntil(
-      fetch('/api/messages/mark-read', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messageId: data.messageId,
-          chatId: data.chatId
+    
+    // Send message to client to mark as read
+    clients.matchAll().then(clients => {
+      clients.forEach(client => {
+        client.postMessage({
+          type: 'MARK_AS_READ',
+          messageId: notification.data.messageId,
+          chatId: notification.data.chatId
         })
-      }).then(response => {
-        if (response.ok) {
-          console.log('[SW] Message marked as read')
-        } else {
-          console.error('[SW] Failed to mark message as read')
-        }
-      }).catch(error => {
-        console.error('[SW] Error marking message as read:', error)
       })
-    )
+    })
+    
+    // For now, just close the notification and log
+    // The actual mark-read will be handled by the client
+    console.log('[SW] Mark as read action completed (client will handle API)')
+    event.notification.close()
     return
   }
 
