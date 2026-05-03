@@ -373,7 +373,7 @@ export function useChat(conversationId: string | null, currentUser: User | null)
       presenceChannel.unsubscribe()
       presenceChannelRef.current = null
     }
-  }, [conversationId, currentUser?.id])
+  }, [conversationId, currentUser?.id || ''])
 
   // Messages realtime channel
   useEffect(() => {
@@ -504,7 +504,7 @@ export function useChat(conversationId: string | null, currentUser: User | null)
       channel.unsubscribe()
       channelRef.current = null
     }
-  }, [conversationId])
+  }, [conversationId, currentUser?.id, currentUserRef.current])
 
   return {
     messages,

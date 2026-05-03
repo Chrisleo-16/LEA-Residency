@@ -6,14 +6,15 @@ import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
-  User as UserIcon,
-  Lock,
   Bell,
-  Camera,
-  Sun,
   Moon,
-  AlertCircle,
-  CheckCircle,
+  Sun,
+  Lock,
+  LogOut,
+  Mail,
+  Phone,
+  MapPin,
+  CreditCard,
   Eye,
   EyeOff,
   Trash2,
@@ -24,6 +25,10 @@ import {
   Users,
   Shield,
   Fingerprint,
+  AlertCircle,
+  CheckCircle,
+  Camera,
+  User as UserIcon,
 } from "lucide-react";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import NotificationPermission from "@/components/notifications/NotificationPermission";

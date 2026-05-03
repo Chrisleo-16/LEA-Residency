@@ -127,29 +127,57 @@ export default function ChatArea({ user }: ChatAreaProps) {
   }, [user])
 
   const getOrCreateConversation = useCallback(async (userId: string, otherId: string): Promise<string | null> => {
-    const { data: myParts } = await supabase
-      .from('conversation_participants').select('conversation_id').eq('user_id', userId)
+    try {
+      // Check if conversation already exists
+      const { data: myParts, error: myPartsError } = await supabase
+        .from('conversation_participants').select('conversation_id').eq('user_id', userId)
 
-    if (myParts?.length) {
-      const ids = myParts.map(p => p.conversation_id)
-      const { data: shared } = await supabase
-        .from('conversation_participants').select('conversation_id')
-        .eq('user_id', otherId).in('conversation_id', ids).limit(1).maybeSingle()
-      if (shared?.conversation_id) return shared.conversation_id
+      if (myPartsError) {
+        console.error('Error fetching my conversations:', myPartsError)
+        return null
+      }
+
+      if (myParts?.length) {
+        const ids = myParts.map(p => p.conversation_id)
+        const { data: shared, error: sharedError } = await supabase
+          .from('conversation_participants').select('conversation_id')
+          .eq('user_id', otherId).in('conversation_id', ids).limit(1).maybeSingle()
+        
+        if (sharedError) {
+          console.error('Error checking shared conversation:', sharedError)
+        } else if (shared?.conversation_id) {
+          return shared.conversation_id
+        }
+      }
+
+      // Create new conversation
+      const { data: newConv, error: convError } = await supabase
+        .from('conversations').insert({ type: 'direct' }).select().single()
+      
+      if (convError) {
+        console.error('Error creating conversation:', convError)
+        return null
+      }
+
+      if (newConv) {
+        const { error: partError } = await supabase.from('conversation_participants').insert([
+          { conversation_id: newConv.id, user_id: userId },
+          { conversation_id: newConv.id, user_id: otherId },
+        ])
+        
+        if (partError) {
+          console.error('Error adding participants:', partError)
+          return null
+        }
+        
+        console.log('New conversation created:', newConv.id)
+        return newConv.id
+      }
+    } catch (error) {
+      console.error('Unexpected error in getOrCreateConversation:', error)
+      return null
     }
-
-    const { data: newConv, error: convError } = await supabase
-      .from('conversations').insert({ type: 'direct' }).select().single()
-    if (convError) { console.error('Error creating conversation:', convError.message); return null }
-
-    if (newConv) {
-      const { error: partError } = await supabase.from('conversation_participants').insert([
-        { conversation_id: newConv.id, user_id: userId },
-        { conversation_id: newConv.id, user_id: otherId },
-      ])
-      if (partError) { console.error('Error adding participants:', partError.message); return null }
-      return newConv.id
-    }
+    
     return null
   }, [])
 
