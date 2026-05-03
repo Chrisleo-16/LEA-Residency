@@ -26,11 +26,13 @@ import {
   Fingerprint,
   TestTube,
   Settings,
+  Smartphone,
 } from "lucide-react";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import NotificationPermission from "@/components/notifications/NotificationPermission";
 import NotificationTest from "@/components/notifications/NotificationTest";
 import NotificationDebugger from "@/components/notifications/NotificationDebugger";
+import MobileTestHelper from "@/components/notifications/MobileTestHelper";
 
 const TZ = "Africa/Nairobi";
 
@@ -606,6 +608,14 @@ export default function SettingsPanel({ user }: SettingsPanelProps) {
                         <h4 className="text-sm font-medium text-foreground">Notification Debugger</h4>
                       </div>
                       <NotificationDebugger />
+                    </div>
+                    
+                    <div className="border-t pt-4">
+                      <div className="flex items-center gap-2.5 mb-3">
+                        <Smartphone className="w-4 h-4 text-purple-600" />
+                        <h4 className="text-sm font-medium text-foreground">Mobile Test Helper</h4>
+                      </div>
+                      <MobileTestHelper />
                     </div>
                   </div>
                 )}
