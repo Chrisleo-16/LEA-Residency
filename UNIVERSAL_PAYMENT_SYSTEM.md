@@ -405,57 +405,174 @@ class EquityProcessor implements BankProcessor {
 
 ---
 
-## 💰 Monetization Model
+## 💰 The Business: How We Make Money While Solving Problems
 
-### Revenue Streams
+### The "Win-Win-Win" Revenue Model
+**We make money by making Kenyans' lives easier - that's the best kind of business.**
+
+#### Revenue Stream 1: Tiny Transaction Fees (Users Win)
 ```
-1. Transaction Fees (B2C)
-   ┌─────────────────────────────────────────┐
-   │ Transaction Volume: Ksh 10M/month     │
-   │ Your Fee: 0.5%                     │
-   │ Revenue: Ksh 50,000/month           │
-   └─────────────────────────────────────────┘
+For Every Ksh 1,000 Processed:
+┌─────────────────────────────────────────────────────┐
+│ User pays: Ksh 1,000                        │
+│ Bank charges: Ksh 20 (2% fee)               │
+│ Our fee: Ksh 5 (0.5% - much less!)         │
+│ User saves: Ksh 15 compared to bank fees!      │
+│                                                     │
+│ 💡 User gets convenience + saves money            │
+│ 💰 We get small fee for providing the service     │
+└─────────────────────────────────────────────────────────────┘
 
-2. SaaS Platform Fees (B2B)
-   ┌─────────────────────────────────────────┐
-   │ Business Customers: 200               │
-   │ Average Plan: Ksh 5,000/month       │
-   │ Revenue: Ksh 1,000,000/month       │
-   └─────────────────────────────────────────┘
-
-3. Premium Features
-   ┌─────────────────────────────────────────┐
-   │ Advanced Analytics: +Ksh 2,000/month  │
-   │ Priority Support: +Ksh 3,000/month   │
-   │ Custom Branding: +Ksh 5,000/month   │
-   └─────────────────────────────────────────┘
+Monthly Projection (Conservative):
+• 10,000 users × 5 transactions/month × Ksh 5 avg fee
+• = Ksh 250,000/month revenue
+• = Ksh 3,000,000/year revenue
 ```
 
-### Pricing Tiers
-```typescript
-const pricingTiers = {
-  starter: {
-    name: "Starter",
-    monthlyFee: 2500,      // Ksh 2,500
-    transactionFee: 0.8,     // 0.8%
-    volume: 500000,          // Ksh 500K/month
-    features: ["Basic Analytics", "Email Support"]
-  },
-  growth: {
-    name: "Growth", 
-    monthlyFee: 10000,     // Ksh 10,000
-    transactionFee: 0.5,     // 0.5%
-    volume: 5000000,         // Ksh 5M/month
-    features: ["Advanced Analytics", "Priority Support", "API Access"]
-  },
-  enterprise: {
-    name: "Enterprise",
-    monthlyFee: 25000,     // Ksh 25,000
-    transactionFee: 0.3,     // 0.3%
-    volume: null,            // Unlimited
-    features: ["Custom Analytics", "Dedicated Support", "White Label", "SLA"]
-  }
-}
+#### Revenue Stream 2: Business SaaS (Merchants Win)
+```
+For Every Business Using Our "Universal Pay" Button:
+┌─────────────────────────────────────────────────────┐
+│ Business Problem: "Customers abandon checkout"       │
+│ "because they can't find account numbers"          │
+│                                                     │
+│ Our Solution: "Pay with Phone Number" button       │
+│ • 50% higher conversion rates                    │
+│ • 30% fewer abandoned carts                    │
+│ • Instant payments = more sales                   │
+│                                                     │
+│ 💰 Business pays: Ksh 5,000/month             │
+│ 💼 We get recurring revenue                   │
+│ 🎉 Business gets more sales                  │
+└─────────────────────────────────────────────────────────────┘
+
+Monthly Projection (Realistic):
+• 100 businesses × Ksh 5,000/month
+• = Ksh 500,000/month revenue  
+• = Ksh 6,000,000/year revenue
+```
+
+#### Revenue Stream 3: Premium Features (Power Users Win)
+```
+For Users Who Want More Control:
+┌─────────────────────────────────────────────────────┐
+│ Advanced Analytics: "See all your spending"         │
+│ Priority Support: "Get help in 5 minutes"         │
+│ Custom Limits: "Set your own transaction limits"    │
+│ Family Accounts: "Manage payments for dependents"     │
+│                                                     │
+│ Users pay extra for features that make their life     │
+│ even easier                                        │
+└─────────────────────────────────────────────────────────────┘
+
+Monthly Projection:
+• 20% of users upgrade × Ksh 2,000/month avg
+• = Ksh 400,000/month revenue
+• = Ksh 4,800,000/year revenue
+```
+
+### The Total Revenue Picture
+```
+Year 1 Revenue Breakdown:
+┌─────────────────────────────────────────────────────┐
+│ Transaction Fees:     Ksh 3,000,000          │
+│ Business SaaS:       Ksh 6,000,000          │
+│ Premium Features:    Ksh 4,800,000          │
+│                                                     │
+│ TOTAL YEAR 1:        Ksh 13,800,000         │
+│ ≈ $100,000 USD/year                          │
+└─────────────────────────────────────────────────────────────┘
+
+Year 3 Projection (With Growth):
+• 50,000 users × 500 businesses
+• = Ksh 50,000,000/year ($360,000 USD)
+```
+
+---
+
+## 🏆 Why We Win Against Everyone Else
+
+### The Competitive Landscape - What Others Do Wrong
+```
+❌ Traditional Banks:
+┌─────────────────────────────────────────────────────┐
+│ "Use our app! Enter 16-digit numbers!"           │
+│ • Still requires remembering account numbers         │
+│ • Only works for that bank's customers          │
+│ • Complicated login processes                   │
+│ • Poor user experience                        │
+└─────────────────────────────────────────────────────────────┘
+
+❌ M-Pesa Only Solutions:
+┌─────────────────────────────────────────────────────┐
+│ "Just use M-Pesa for everything!"               │
+│ • Users can't access bank money                  │
+│ • High transaction fees                        │
+│ • No bank integration                        │
+│ • Limited to Safaricom network                 │
+└─────────────────────────────────────────────────────────────┘
+
+❌ Other Fintech Apps:
+┌─────────────────────────────────────────────────────┐
+│ "Connect all your accounts manually!"             │
+│ • Users still enter account numbers              │
+│ • Complex setup process                      │
+│ • Security concerns about sharing details         │
+│ • Doesn't solve the root problem             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Our Universal Advantage - What We Do Right
+```
+✅ The Universal Number Solution:
+┌─────────────────────────────────────────────────────┐
+│ "One phone number = ALL your accounts"           │
+│                                                     │
+│ 🎯 NO account numbers required                 │
+│ 🚀 Instant access to ALL banks                 │
+│ 📱 Works on ANY phone, ANY network            │
+│ 🔒 Bank-level security                      │
+│ 💰 Lower fees than banks                    │
+│ 🎨 Beautiful, simple interface               │
+└─────────────────────────────────────────────────────────────┘
+
+The Kenya-Specific Magic:
+┌─────────────────────────────────────────────────────┐
+│ 🇰🇪 Built for Kenyans, by Kenyans              │
+│ • Understands local banking habits               │
+│ • Works with ALL major Kenyan banks            │
+│ • Supports USSD for feature phones            │
+│ • Local language support (Swahili, English)   │
+│ • 24/7 Kenyan customer support            │
+│ • CBK compliant from day 1                  │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### The "Why This Can't Fail" Factors
+```
+🔒 Market Protection:
+┌─────────────────────────────────────────────────────┐
+│ • First-mover advantage in universal payments      │
+│ • Network effects (more users = more valuable)   │
+│ • High switching costs once users adopt          │
+│ • Regulatory barriers for new entrants           │
+└─────────────────────────────────────────────────────────────┘
+
+🎯 User Lock-in:
+┌─────────────────────────────────────────────────────┐
+│ • Once users experience convenience,            │
+│   they'll NEVER go back to account numbers     │
+│ • Switching costs become too high              │
+│ • We become essential financial infrastructure    │
+└─────────────────────────────────────────────────────────────┘
+
+💰 Economic Moat:
+┌─────────────────────────────────────────────────────┐
+│ • Transaction fees scale with usage               │
+│ • SaaS revenue is recurring                   │
+│ • Margins improve as we grow                   │
+│ • Multiple revenue streams reduce risk             │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 ---
