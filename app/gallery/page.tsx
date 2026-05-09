@@ -9,7 +9,7 @@ import {
   SlidersHorizontal, X, Building2
 } from 'lucide-react'
 import Link from 'next/link'
-
+ 
 const GOLD = '#c9a96e'
 
 const sampleProperties = [
