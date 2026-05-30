@@ -32,14 +32,14 @@ export async function middleware(request: NextRequest) {
     // Check if user has completed onboarding
     const { data: profile } = await supabase
       .from('profiles')
-      .select('onboarding_completed')
+      .select('onboarding_completed, role')
       .eq('id', user.id)
       .single()
 
-    if (!profile?.onboarding_completed) {
+    if (profile?.role === 'landlord' && !profile?.onboarding_completed) {
       return NextResponse.redirect(new URL('/onboarding', request.url))
     }
-
+    
     return NextResponse.redirect(new URL('/dashboard', request.url))
   }
 
@@ -47,11 +47,11 @@ export async function middleware(request: NextRequest) {
   if (isProtectedRoute && user && !isOnboardingPage) {
     const { data: profile } = await supabase
       .from('profiles')
-      .select('onboarding_completed')
+      .select('onboarding_completed, role')
       .eq('id', user.id)
       .single()
 
-    if (!profile?.onboarding_completed) {
+    if (profile?.role === 'landlord' && !profile?.onboarding_completed) {
       return NextResponse.redirect(new URL('/onboarding', request.url))
     }
   }

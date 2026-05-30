@@ -140,7 +140,9 @@ export default function ChatArea({ user }: ChatAreaProps) {
 
     const result: TenantConversation[] = await Promise.all(
       allTenants.map(async (tenant) => {
-        const existingConv = otherParticipants?.find((p: any) => p.user_id === tenant.id)
+        const existingConv = otherParticipants
+          ?.filter((p: any) => p.user_id === tenant.id)
+          .find((p: any) => directConvIds.includes(p.conversation_id))
         const convId = existingConv?.conversation_id || ''
         let lastMessage = 'No messages yet'
         let lastMessageTime = ''
@@ -279,45 +281,89 @@ export default function ChatArea({ user }: ChatAreaProps) {
     return null
   }, [])
 
-  const fetchTenantConversation = useCallback(async () => {
-    if (!user) return null
+ const fetchTenantConversation = useCallback(async () => {
+  if (!user) return null
 
-    const { data: myParts, error: myPartsError } = await supabase
-      .from('conversation_participants')
-      .select('conversation_id')
-      .eq('user_id', user.id)
+  console.log('=== fetchTenantConversation DEBUG ===')
+  console.log('tenant user.id:', user.id)
 
-    if (myPartsError || !myParts?.length) return null
+  // Step 1: Find tenant's slot
+  const { data: tenantSlot, error: slotError } = await supabase
+    .from('tenant_slots')
+    .select('landlord_block_id, tenant_id')
+    .eq('tenant_id', user.id)
+    .maybeSingle()
 
-    const convoIds = myParts.map((p) => p.conversation_id)
-    const { data: otherParts, error: otherPartsError } = await supabase
-      .from('conversation_participants')
-      .select('conversation_id, user_id')
-      .in('conversation_id', convoIds)
-      .neq('user_id', user.id)
+  console.log('tenantSlot:', tenantSlot, 'slotError:', slotError)
 
-    if (otherPartsError || !otherParts?.length) return null
+  if (!tenantSlot?.landlord_block_id) {
+    console.log('NO SLOT FOUND — tenant_slots has no row for this user')
+    return null
+  }
 
-    const otherUserIds = Array.from(new Set(otherParts.map((p) => p.user_id)))
-    const { data: otherProfiles } = await supabase
-      .from('profiles')
-      .select('id, full_name, avatar_url, role')
-      .in('id', otherUserIds)
+  // Step 2: Find landlord block
+  const { data: landlordBlock, error: blockError } = await supabase
+    .from('landlord_blocks')
+    .select('landlord_id, id')
+    .eq('id', tenantSlot.landlord_block_id)
+    .single()
 
-    if (!otherProfiles?.length) return null
+  console.log('landlordBlock:', landlordBlock, 'blockError:', blockError)
 
-    const landlordProfile = otherProfiles.find((p) => p.role === 'landlord') || otherProfiles[0]
-    if (!landlordProfile) return null
+  if (!landlordBlock?.landlord_id) {
+    console.log('NO LANDLORD BLOCK FOUND')
+    return null
+  }
 
-    const conversation = otherParts.find((p) => p.user_id === landlordProfile.id)
+  // Step 3: Get landlord profile
+  const { data: landlordProfile, error: profileError } = await supabase
+    .from('profiles')
+    .select('id, full_name, avatar_url, role')
+    .eq('id', landlordBlock.landlord_id)
+    .single()
 
+  console.log('landlordProfile:', landlordProfile, 'profileError:', profileError)
+
+  if (!landlordProfile) return null
+
+  // Step 4: Get tenant's conversations
+  const { data: myParts } = await supabase
+    .from('conversation_participants')
+    .select('conversation_id')
+    .eq('user_id', user.id)
+
+  console.log('tenant conversation_ids:', myParts?.map((p: any) => p.conversation_id))
+
+  const myConvIds = (myParts || []).map((p: any) => p.conversation_id)
+
+  if (!myConvIds.length) {
     return {
-      conversationId: conversation?.conversation_id || null,
+      conversationId: null,
       otherPersonId: landlordProfile.id,
-      otherPersonName: landlordProfile.full_name || 'Landlord',
+      otherPersonName: landlordProfile.full_name || 'Your Landlord',
       otherPersonAvatar: landlordProfile.avatar_url || null,
     }
-  }, [user])
+  }
+
+  // Step 5: Find shared conversation with this landlord
+  const { data: sharedConv, error: sharedError } = await supabase
+    .from('conversation_participants')
+    .select('conversation_id')
+    .eq('user_id', landlordBlock.landlord_id)
+    .in('conversation_id', myConvIds)
+    .limit(1)
+    .maybeSingle()
+
+  console.log('sharedConv:', sharedConv, 'sharedError:', sharedError)
+  console.log('=== END DEBUG ===')
+
+  return {
+    conversationId: sharedConv?.conversation_id || null,
+    otherPersonId: landlordProfile.id,
+    otherPersonName: landlordProfile.full_name || 'Your Landlord',
+    otherPersonAvatar: landlordProfile.avatar_url || null,
+  }
+}, [user])
 
   useEffect(() => {
     if (!user) return
