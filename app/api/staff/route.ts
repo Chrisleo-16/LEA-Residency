@@ -1,11 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createClient } from '@/lib/supabase/server'
 
-// Initialize Supabase client
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
+// Use request-scoped server client inside handlers
 
 interface StaffData {
   first_name: string
@@ -26,16 +22,35 @@ interface StaffData {
  */
 export async function GET(request: NextRequest) {
   try {
+    const supabase = await createClient()
+    const { data: authData, error: authError } = await supabase.auth.getUser()
+    if (authError || !authData?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const user = authData.user
+    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
+
     const { searchParams } = new URL(request.url)
     const specialty = searchParams.get('specialty')
     const availability = searchParams.get('availability')
     const isActive = searchParams.get('is_active')
 
-    let query = supabase
-      .from('staff')
-      .select('*')
-      .eq('is_active', isActive !== 'false')
-      .order('created_at', { ascending: false })
+    let query = supabase.from('staff').select('*').eq('is_active', isActive !== 'false').order('created_at', { ascending: false })
+
+    // Apply scoping by role
+    if (profile?.role === 'landlord') {
+      // Landlords only see staff they created
+      query = query.eq('created_by', user.id)
+    } else if (profile?.role === 'tenant') {
+      // Tenants see staff assigned to them via staff_assignments
+      const { data: assignments } = await supabase.from('staff_assignments').select('staff_id').eq('tenant_id', user.id)
+      const staffIds = (assignments || []).map((a: any) => a.staff_id)
+      if (staffIds.length === 0) {
+        return NextResponse.json({ success: true, staff: [] })
+      }
+      query = query.in('id', staffIds)
+    }
 
     // Apply filters
     if (specialty) {
@@ -75,6 +90,17 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
+    const supabase = await createClient()
+    const { data: authData, error: authError } = await supabase.auth.getUser()
+    if (authError || !authData?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    const user = authData.user
+    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
+    if (!profile || (profile.role !== 'landlord' && profile.role !== 'admin')) {
+      return NextResponse.json({ error: 'Only landlords or admins can add staff' }, { status: 403 })
+    }
+
     const body: StaffData = await request.json()
 
     // Validate required fields
@@ -98,11 +124,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if email already exists
-    const { data: existingStaff } = await supabase
-      .from('staff')
-      .select('id')
-      .eq('email', body.email)
-      .single()
+    const { data: existingStaff } = await supabase.from('staff').select('id').eq('email', body.email).single()
 
     if (existingStaff) {
       return NextResponse.json(
@@ -111,7 +133,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Create staff member
+    // Create staff member, set created_by for landlord scoping
     const { data, error } = await supabase
       .from('staff')
       .insert({
@@ -126,6 +148,7 @@ export async function POST(request: NextRequest) {
         availability: body.availability || 'available',
         notes: body.notes || null,
         is_active: true,
+        created_by: user.id,
         created_at: new Date().toISOString()
       })
       .select()
@@ -162,6 +185,14 @@ export async function POST(request: NextRequest) {
  */
 export async function PUT(request: NextRequest) {
   try {
+    const supabase = await createClient()
+    const { data: authData, error: authError } = await supabase.auth.getUser()
+    if (authError || !authData?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    const user = authData.user
+    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
+
     const body = await request.json()
     const { staffId, ...updateData } = body
 
@@ -181,6 +212,13 @@ export async function PUT(request: NextRequest) {
           { status: 400 }
         )
       }
+    }
+
+    // Ensure the updater is the creator or an admin
+    const { data: existing } = await supabase.from('staff').select('id, created_by').eq('id', staffId).maybeSingle()
+    if (!existing) return NextResponse.json({ error: 'Staff not found' }, { status: 404 })
+    if (existing.created_by !== user.id && profile?.role !== 'admin') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
     // Update staff member
@@ -225,6 +263,14 @@ export async function PUT(request: NextRequest) {
  */
 export async function DELETE(request: NextRequest) {
   try {
+    const supabase = await createClient()
+    const { data: authData, error: authError } = await supabase.auth.getUser()
+    if (authError || !authData?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    const user = authData.user
+    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
+
     const { searchParams } = new URL(request.url)
     const staffId = searchParams.get('staffId')
 
@@ -233,6 +279,13 @@ export async function DELETE(request: NextRequest) {
         { error: 'Staff ID is required' },
         { status: 400 }
       )
+    }
+
+    // Ensure the deleter is the creator or an admin
+    const { data: existing } = await supabase.from('staff').select('id, created_by').eq('id', staffId).maybeSingle()
+    if (!existing) return NextResponse.json({ error: 'Staff not found' }, { status: 404 })
+    if (existing.created_by !== user.id && profile?.role !== 'admin') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
     // Soft delete by setting is_active to false

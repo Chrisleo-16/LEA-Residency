@@ -29,6 +29,9 @@ import {
   CheckCircle,
   Camera,
   User as UserIcon,
+  Link2,
+  Copy,
+  QrCode,
 } from "lucide-react";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import NotificationPermission from "@/components/notifications/NotificationPermission";
@@ -68,13 +71,19 @@ export default function SettingsPanel({ user }: SettingsPanelProps) {
   const [isSubmittingDelete, setIsSubmittingDelete] = useState(false);
   const [myDeletionRequest, setMyDeletionRequest] =
     useState<DeletionRequest | null>(null);
-  const [allDeletionRequests, setAllDeletionRequests] = useState<
-    DeletionRequest[]
-  >([]);
+  const [allDeletionRequests, setAllDeletionRequests] = useState<DeletionRequest[]>([]);
   const [showConfirmDelete, setShowConfirmDelete] = useState<string | null>(
     null,
   );
   const [phoneNumber, setPhoneNumber] = useState("");
+
+  // Invite link state
+  const [inviteLink, setInviteLink] = useState("");
+  const [landlordBlockId, setLandlordBlockId] = useState<string | null>(null);
+  const [businessName, setBusinessName] = useState("");
+  const [copied, setCopied] = useState(false);
+  const [showQR, setShowQR] = useState(false);
+  const [isGeneratingLink, setIsGeneratingLink] = useState(false);
 
   const fileRef = useRef<HTMLInputElement>(null);
   const { subscribe, unsubscribe } = usePushNotifications();
@@ -101,7 +110,6 @@ export default function SettingsPanel({ user }: SettingsPanelProps) {
     }
     setNotifications(localStorage.getItem("notifications") === "true");
 
-    // ✅ Hot reload — profile changes + deletion requests
     const channel = supabase
       .channel("settings-realtime")
       .on(
@@ -112,9 +120,7 @@ export default function SettingsPanel({ user }: SettingsPanelProps) {
           table: "profiles",
           filter: `id=eq.${user.id}`,
         },
-        () => {
-          fetchProfile();
-        },
+        () => fetchProfile(),
       )
       .on(
         "postgres_changes",
@@ -123,9 +129,7 @@ export default function SettingsPanel({ user }: SettingsPanelProps) {
           schema: "public",
           table: "account_deletion_requests",
         },
-        () => {
-          fetchProfile();
-        },
+        () => fetchProfile(),
       )
       .subscribe();
 
@@ -138,7 +142,7 @@ export default function SettingsPanel({ user }: SettingsPanelProps) {
     setIsLoading(true);
     const { data: profile } = await supabase
       .from("profiles")
-      .select("full_name, email, role, avatar_url, phone_number")
+      .select("full_name, email, role, avatar_url, phone_number, landlord_block_id, business_name, invite_link")
       .eq("id", user!.id)
       .single();
 
@@ -148,25 +152,67 @@ export default function SettingsPanel({ user }: SettingsPanelProps) {
       setRole(profile.role || "");
       setAvatarUrl(profile.avatar_url || null);
       setPhoneNumber(profile.phone_number || "");
-      setAvatarUrl(profile.avatar_url || null);
+      setLandlordBlockId(profile.landlord_block_id || null);
+      setBusinessName(profile.business_name || "");
 
+      // Load invite link — only relevant for landlords
       if (profile.role === "landlord") {
-        const { data } = await supabase
-          .from("account_deletion_requests")
-          .select("*, profiles(full_name, email)")
-          .eq("status", "pending")
-          .order("created_at", { ascending: false });
-        setAllDeletionRequests(data || []);
+        if (profile.invite_link) {
+          setInviteLink(profile.invite_link);
+        } else {
+          await generateAndSaveInviteLink(profile.landlord_block_id);
+        }
+      }
+
+      const response = await fetch("/api/account-deletion-requests");
+      const payload = await response.json();
+      if (response.ok) {
+        if (profile.role === "landlord") {
+          setAllDeletionRequests(payload.requests || []);
+          setMyDeletionRequest(null);
+        } else {
+          setMyDeletionRequest(payload.request || null);
+          setAllDeletionRequests([]);
+        }
       } else {
-        const { data } = await supabase
-          .from("account_deletion_requests")
-          .select("*")
-          .eq("user_id", user!.id)
-          .maybeSingle();
-        setMyDeletionRequest(data || null);
+        setError(payload.error || "Failed to load deletion requests");
       }
     }
     setIsLoading(false);
+  };
+
+  const generateAndSaveInviteLink = async (blockId: string | null) => {
+    if (!user) return;
+    setIsGeneratingLink(true);
+    try {
+      const baseUrl = window.location.origin;
+      const ref = blockId || user.id;
+      const link = `${baseUrl}/join?ref=${ref}`;
+
+      const { error } = await supabase
+        .from("profiles")
+        .update({ invite_link: link })
+        .eq("id", user.id);
+
+      if (!error) {
+        setInviteLink(link);
+      } else {
+        console.error("Failed to save invite link:", error);
+      }
+    } finally {
+      setIsGeneratingLink(false);
+    }
+  };
+
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(inviteLink);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleWhatsAppShare = () => {
+    const message = `Hi! Join ${businessName || "our property"} on LEA — the easiest way to manage your tenancy, pay rent, and stay connected. Sign up here: ${inviteLink}`;
+    window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, "_blank");
   };
 
   const showFeedback = (msg: string, isError = false) => {
@@ -261,14 +307,14 @@ export default function SettingsPanel({ user }: SettingsPanelProps) {
   const handleRequestDeletion = async () => {
     setIsSubmittingDelete(true);
     try {
-      const { error } = await supabase
-        .from("account_deletion_requests")
-        .insert({
-          user_id: user!.id,
-          reason: deleteReason.trim(),
-          status: "pending",
-        });
-      if (error) throw error;
+      const response = await fetch("/api/account-deletion-requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason: deleteReason.trim() }),
+      });
+      const payload = await response.json();
+      if (!response.ok)
+        throw new Error(payload.error || "Failed to submit deletion request");
       setShowDeleteModal(false);
       setDeleteReason("");
       showFeedback("Deletion request submitted. Your landlord will review it.");
@@ -282,12 +328,19 @@ export default function SettingsPanel({ user }: SettingsPanelProps) {
 
   const handleCancelRequest = async () => {
     if (!myDeletionRequest) return;
-    await supabase
-      .from("account_deletion_requests")
-      .delete()
-      .eq("id", myDeletionRequest.id);
-    setMyDeletionRequest(null);
-    showFeedback("Deletion request cancelled.");
+    try {
+      const response = await fetch(
+        `/api/account-deletion-requests?requestId=${encodeURIComponent(myDeletionRequest.id)}`,
+        { method: "DELETE" },
+      );
+      const payload = await response.json();
+      if (!response.ok)
+        throw new Error(payload.error || "Failed to cancel deletion request");
+      setMyDeletionRequest(null);
+      showFeedback("Deletion request cancelled.");
+    } catch (err: any) {
+      showFeedback(err.message, true);
+    }
   };
 
   const handleApproveAndDelete = async (
@@ -295,31 +348,16 @@ export default function SettingsPanel({ user }: SettingsPanelProps) {
     targetUserId: string,
   ) => {
     try {
-      await supabase
-        .from("account_deletion_requests")
-        .update({
-          status: "approved",
-          reviewed_at: new Date().toISOString(),
-          reviewed_by: user!.id,
-        })
-        .eq("id", requestId);
-      await supabase.from("message_reads").delete().eq("user_id", targetUserId);
-      await supabase
-        .from("message_reactions")
-        .delete()
-        .eq("user_id", targetUserId);
-      await supabase.from("messages").delete().eq("sender_id", targetUserId);
-      await supabase
-        .from("conversation_participants")
-        .delete()
-        .eq("user_id", targetUserId);
-      await supabase.from("complaints").delete().eq("tenant_id", targetUserId);
-      await supabase.from("requests").delete().eq("tenant_id", targetUserId);
-      await supabase
-        .from("account_deletion_requests")
-        .delete()
-        .eq("user_id", targetUserId);
-      await supabase.from("profiles").delete().eq("id", targetUserId);
+      const response = await fetch("/api/account-deletion-requests", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ requestId, action: "approve", targetUserId }),
+      });
+      const payload = await response.json();
+      if (!response.ok)
+        throw new Error(
+          payload.error || "Failed to approve deletion request",
+        );
       setShowConfirmDelete(null);
       showFeedback("Tenant account and all data removed successfully.");
       fetchProfile();
@@ -329,16 +367,20 @@ export default function SettingsPanel({ user }: SettingsPanelProps) {
   };
 
   const handleRejectRequest = async (requestId: string) => {
-    await supabase
-      .from("account_deletion_requests")
-      .update({
-        status: "rejected",
-        reviewed_at: new Date().toISOString(),
-        reviewed_by: user!.id,
-      })
-      .eq("id", requestId);
-    showFeedback("Request rejected.");
-    fetchProfile();
+    try {
+      const response = await fetch("/api/account-deletion-requests", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ requestId, action: "reject" }),
+      });
+      const payload = await response.json();
+      if (!response.ok)
+        throw new Error(payload.error || "Failed to reject deletion request");
+      showFeedback("Request rejected.");
+      fetchProfile();
+    } catch (err: any) {
+      showFeedback(err.message, true);
+    }
   };
 
   const getStatusConfig = (status: string) => {
@@ -409,6 +451,7 @@ export default function SettingsPanel({ user }: SettingsPanelProps) {
   return (
     <div className="flex flex-col h-full overflow-y-auto bg-background">
       <div className="p-5 sm:p-8 space-y-4 max-w-2xl mx-auto w-full">
+
         {/* Header */}
         <div>
           <h2 className="text-2xl font-bold text-foreground">Settings</h2>
@@ -433,7 +476,7 @@ export default function SettingsPanel({ user }: SettingsPanelProps) {
           </div>
         )}
 
-        {/* Profile card — avatar + name + role */}
+        {/* Profile card */}
         <Section>
           <div className="flex items-center gap-4">
             <div className="relative shrink-0">
@@ -480,19 +523,39 @@ export default function SettingsPanel({ user }: SettingsPanelProps) {
           </p>
         </Section>
 
-        {/* Update name */}
+        {/* Update name + phone */}
         <Section>
           <SectionHeader
             icon={<UserIcon className="w-4 h-4 text-accent" />}
-            title="Update Full Name"
+            title="Update Profile"
           />
           <div className="space-y-3">
-            <Input
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-              placeholder="Your full name"
-              className="bg-secondary border-border text-foreground rounded-xl h-11"
-            />
+            <div>
+              <label className="text-sm font-medium text-foreground block mb-1.5">
+                Full Name
+              </label>
+              <Input
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                placeholder="Your full name"
+                className="bg-secondary border-border text-foreground rounded-xl h-11"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-medium text-foreground block mb-1.5">
+                M-Pesa Phone Number
+              </label>
+              <Input
+                type="tel"
+                value={phoneNumber}
+                onChange={(e) => setPhoneNumber(e.target.value)}
+                placeholder="e.g. 0712345678"
+                className="bg-secondary border-border text-foreground rounded-xl h-11"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Must match the phone you use to pay M-Pesa rent
+              </p>
+            </div>
             <Button
               onClick={handleUpdateProfile}
               disabled={isSavingProfile}
@@ -500,22 +563,6 @@ export default function SettingsPanel({ user }: SettingsPanelProps) {
             >
               {isSavingProfile ? "Saving..." : "Save Changes"}
             </Button>
-          </div>
-          {/* Phone Number */}
-          <div>
-            <label className="text-sm font-medium text-foreground block mb-1.5">
-              M-Pesa Phone Number
-            </label>
-            <Input
-              type="tel"
-              value={phoneNumber}
-              onChange={(e) => setPhoneNumber(e.target.value)}
-              placeholder="e.g. 0712345678"
-              className="bg-secondary border-border text-foreground rounded-xl h-11"
-            />
-            <p className="text-xs text-muted-foreground mt-1">
-              Must match the phone you use to pay M-Pesa rent
-            </p>
           </div>
         </Section>
 
@@ -573,29 +620,27 @@ export default function SettingsPanel({ user }: SettingsPanelProps) {
             title="Preferences"
           />
           <div className="space-y-4">
-            {/* Enhanced Notification Permission Component */}
             <div>
               <div className="flex items-center gap-2.5 mb-3">
                 <Bell className="w-4 h-4 text-accent" />
-                <h3 className="text-sm font-medium text-foreground">Push Notifications</h3>
+                <h3 className="text-sm font-medium text-foreground">
+                  Push Notifications
+                </h3>
               </div>
-              <div className="space-y-4">
-                <NotificationPermission 
-                  onPermissionGranted={() => {
-                    setNotifications(true);
-                    localStorage.setItem("notifications", "true");
-                  }}
-                  onPermissionDenied={() => {
-                    setNotifications(false);
-                    localStorage.setItem("notifications", "false");
-                  }}
-                  showInstructions={true}
-                />
-                
-                              </div>
+              <NotificationPermission
+                onPermissionGranted={() => {
+                  setNotifications(true);
+                  localStorage.setItem("notifications", "true");
+                }}
+                onPermissionDenied={() => {
+                  setNotifications(false);
+                  localStorage.setItem("notifications", "false");
+                }}
+                showInstructions={true}
+              />
             </div>
 
-            {/* Dark Mode Toggle */}
+            {/* Dark mode */}
             <div className="flex items-center justify-between p-3.5 bg-secondary rounded-xl">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-lg bg-accent/10 flex items-center justify-center">
@@ -626,6 +671,160 @@ export default function SettingsPanel({ user }: SettingsPanelProps) {
           </div>
         </Section>
 
+        {/* ── LANDLORD ONLY: Invite Tenants ── */}
+        {role === "landlord" && (
+          <div>
+            <SectionHeader
+              icon={<Link2 className="w-4 h-4 text-accent" />}
+              title="Invite Tenants"
+            />
+
+            {isGeneratingLink ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="animate-spin rounded-full h-6 w-6 border-2 border-accent border-t-transparent" />
+                <p className="text-sm text-muted-foreground ml-3">
+                  Generating your invite link...
+                </p>
+              </div>
+            ) : inviteLink ? (
+              <div className="space-y-4">
+
+                {/* Link input + copy */}
+                <div>
+                  <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide block mb-2">
+                    Your Invite Link
+                  </label>
+                  <div className="flex gap-2">
+                    <Input
+                      value={inviteLink}
+                      readOnly
+                      className="bg-secondary border-border text-foreground text-xs h-11 rounded-xl font-mono"
+                    />
+                    <Button
+                      onClick={handleCopyLink}
+                      variant="outline"
+                      className="shrink-0 h-11 px-4 rounded-xl border-border gap-2"
+                    >
+                      {copied ? (
+                        <>
+                          <CheckCircle className="w-4 h-4 text-emerald-500" />
+                          <span className="text-xs text-emerald-600">Copied!</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-4 h-4" />
+                          <span className="text-xs">Copy</span>
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Tenants who sign up using this link are automatically linked to your property — no manual setup needed.
+                  </p>
+                </div>
+
+                {/* WhatsApp share */}
+                <Button
+                  onClick={handleWhatsAppShare}
+                  className="w-full bg-green-600 hover:bg-green-700 text-white h-11 rounded-xl gap-2 shadow-sm shadow-green-600/20"
+                >
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+                  </svg>
+                  Share via WhatsApp
+                </Button>
+
+                {/* QR Code toggle */}
+                <button
+                  onClick={() => setShowQR(!showQR)}
+                  className="w-full flex items-center justify-between p-3.5 bg-secondary rounded-xl hover:bg-secondary/80 transition-colors"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <QrCode className="w-4 h-4 text-accent" />
+                    <span className="text-sm font-medium text-foreground">
+                      Show QR Code
+                    </span>
+                  </div>
+                  <span className="text-xs text-muted-foreground">
+                    {showQR ? "Hide" : "Print for notice board"}
+                  </span>
+                </button>
+
+                {showQR && (
+                  <div className="p-4 bg-accent/5 border border-accent/20 rounded-xl text-center space-y-3">
+                    <p className="text-xs text-muted-foreground">
+                      Print and post this on your notice board so tenants can scan to join
+                    </p>
+                    <img
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(inviteLink)}`}
+                      alt="Invite QR Code"
+                      className="mx-auto rounded-xl border border-border"
+                    />
+                    <a
+                      href={`https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(inviteLink)}`}
+                      download="lea-invite-qr.png"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-xs text-accent underline underline-offset-2"
+                    >
+                      Download high-res QR
+                    </a>
+                  </div>
+                )}
+
+                {/* How it works */}
+                <div className="p-4 bg-accent/5 border border-accent/20 rounded-xl space-y-2">
+                  <p className="text-xs font-semibold text-foreground">How it works</p>
+                  <ul className="text-xs text-muted-foreground space-y-1.5">
+                    <li className="flex items-start gap-2">
+                      <span className="w-4 h-4 rounded-full bg-accent/20 text-accent text-[10px] flex items-center justify-center shrink-0 mt-0.5 font-bold">1</span>
+                      Share the link or QR code with your tenant via WhatsApp, SMS, or notice board
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="w-4 h-4 rounded-full bg-accent/20 text-accent text-[10px] flex items-center justify-center shrink-0 mt-0.5 font-bold">2</span>
+                      Tenant clicks the link and signs up for LEA
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="w-4 h-4 rounded-full bg-accent/20 text-accent text-[10px] flex items-center justify-center shrink-0 mt-0.5 font-bold">3</span>
+                      They are automatically assigned to your property — no manual linking needed
+                    </li>
+                    <li className="flex items-start gap-2">
+                      <span className="w-4 h-4 rounded-full bg-accent/20 text-accent text-[10px] flex items-center justify-center shrink-0 mt-0.5 font-bold">4</span>
+                      They appear instantly in your tenant dashboard
+                    </li>
+                  </ul>
+                </div>
+
+                {/* Regenerate */}
+                <button
+                  onClick={() => generateAndSaveInviteLink(landlordBlockId)}
+                  className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground transition-colors"
+                >
+                  Regenerate invite link
+                </button>
+              </div>
+            ) : (
+              <div className="text-center py-8 space-y-3">
+                <div className="w-12 h-12 rounded-2xl bg-accent/10 flex items-center justify-center mx-auto">
+                  <Link2 className="w-5 h-5 text-accent" />
+                </div>
+                <p className="text-sm font-semibold text-foreground">
+                  No invite link yet
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Generate a unique link to start inviting tenants to your property
+                </p>
+                <Button
+                  onClick={() => generateAndSaveInviteLink(landlordBlockId)}
+                  className="bg-accent hover:bg-accent/90 text-white rounded-xl h-11 px-6 shadow-sm shadow-accent/20"
+                >
+                  Generate Invite Link
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* LANDLORD: Deletion requests */}
         {role === "landlord" && allDeletionRequests.length > 0 && (
           <div className="bg-card border border-destructive/30 rounded-2xl p-5">
@@ -650,8 +849,7 @@ export default function SettingsPanel({ user }: SettingsPanelProps) {
                     <div className="flex items-center gap-2.5">
                       <div className="w-9 h-9 rounded-full bg-accent/10 flex items-center justify-center shrink-0 border border-accent/20">
                         <span className="text-sm font-bold text-accent">
-                          {req.profiles?.full_name?.charAt(0).toUpperCase() ||
-                            "?"}
+                          {req.profiles?.full_name?.charAt(0).toUpperCase() || "?"}
                         </span>
                       </div>
                       <div>
@@ -676,9 +874,7 @@ export default function SettingsPanel({ user }: SettingsPanelProps) {
                   {req.reason && (
                     <div className="bg-background rounded-lg p-3 border border-border">
                       <p className="text-xs text-muted-foreground">
-                        <span className="font-semibold text-foreground">
-                          Reason:{" "}
-                        </span>
+                        <span className="font-semibold text-foreground">Reason: </span>
                         {req.reason}
                       </p>
                     </div>
@@ -712,14 +908,11 @@ export default function SettingsPanel({ user }: SettingsPanelProps) {
                         <span className="font-semibold text-foreground">
                           {req.profiles?.full_name}
                         </span>{" "}
-                        will be permanently deleted including messages,
-                        complaints, requests and profile.
+                        will be permanently deleted including messages, complaints, requests and profile.
                       </p>
                       <div className="flex gap-2">
                         <Button
-                          onClick={() =>
-                            handleApproveAndDelete(req.id, req.user_id)
-                          }
+                          onClick={() => handleApproveAndDelete(req.id, req.user_id)}
                           className="flex-1 bg-destructive hover:bg-destructive/90 text-white h-9 text-xs rounded-xl"
                         >
                           Yes, Delete Everything
@@ -753,8 +946,7 @@ export default function SettingsPanel({ user }: SettingsPanelProps) {
             {!myDeletionRequest ? (
               <>
                 <p className="text-sm text-muted-foreground mb-4 leading-relaxed">
-                  Request your landlord to permanently delete your account and
-                  all associated data.
+                  Request your landlord to permanently delete your account and all associated data.
                 </p>
                 <Button
                   onClick={() => setShowDeleteModal(true)}
@@ -780,8 +972,7 @@ export default function SettingsPanel({ user }: SettingsPanelProps) {
                 )}
                 {myDeletionRequest.status === "rejected" && (
                   <p className="text-xs text-muted-foreground">
-                    Your deletion request was rejected. Contact your landlord
-                    for more information.
+                    Your deletion request was rejected. Contact your landlord for more information.
                   </p>
                 )}
                 {myDeletionRequest.reason && (
@@ -806,7 +997,7 @@ export default function SettingsPanel({ user }: SettingsPanelProps) {
 
         <div className="h-4" />
       </div>
-
+  
       {/* Delete request modal */}
       {showDeleteModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -827,17 +1018,14 @@ export default function SettingsPanel({ user }: SettingsPanelProps) {
             </div>
 
             <p className="text-sm text-muted-foreground mb-5 leading-relaxed">
-              This request will be sent to your landlord. Once approved, all
-              your data will be permanently deleted.
+              This request will be sent to your landlord. Once approved, all your data will be permanently deleted.
             </p>
 
             <div className="space-y-4">
               <div>
                 <label className="text-sm font-medium text-foreground block mb-1.5">
                   Reason{" "}
-                  <span className="text-muted-foreground font-normal">
-                    (optional)
-                  </span>
+                  <span className="text-muted-foreground font-normal">(optional)</span>
                 </label>
                 <textarea
                   value={deleteReason}

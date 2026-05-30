@@ -4,17 +4,9 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { AlertCircle, Eye, EyeOff, ArrowRight, Home, Building2, Users, Hash } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
-import Link from 'next/link'
-
-// Blockchain-based landlord code generator
-const generateLandlordCode = (name: string, email: string) => {
-  const timestamp = Date.now().toString(36)
-  const nameHash = name.substring(0, 3).toUpperCase()
-  const emailHash = email.substring(0, 3).toUpperCase()
-  return `LEA-${nameHash}${emailHash}-${timestamp}`.toUpperCase()
-}
+import { AlertCircle, Eye, EyeOff, ArrowRight, Home } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
+import Link from 'next/link' 
 
 export default function LoginPage() {
   const router = useRouter()
@@ -26,154 +18,147 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
-  
-  // Property setup states for landlords
-  const [propertyName, setPropertyName] = useState('')
-  const [totalUnits, setTotalUnits] = useState('')
-  const [propertyAddress, setPropertyAddress] = useState('')
-  const [landlordCode, setLandlordCode] = useState('')
-  const [showPropertySetup, setShowPropertySetup] = useState(false)
-  const [generatedCode, setGeneratedCode] = useState('')
+  const supabase = createClient()
 
-  const handleLogin = async () => {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) throw error
-    if (data) {
-      // Check if user is landlord and has property setup
-      const { data: profile } = await supabase
+  // Redirect if already authenticated and profile setup is complete
+  useEffect(() => {
+    const checkSession = async () => {
+      const { data: { session }, error } = await supabase.auth.getSession()
+      if (error || !session) return
+
+      const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .select('role, property_setup_complete')
-        .eq('id', data.user.id)
-        .single()
-      
-      if (profile?.role === 'landlord' && !profile.property_setup_complete) {
-        setShowPropertySetup(true)
-        const code = generateLandlordCode(name || email.split('@')[0], email)
-        setGeneratedCode(code)
+        .select('role, kyc_verified, landlord_code, landlord_block_id, property_setup_complete')
+        .eq('id', session.user.id)
+        .maybeSingle()
+
+      if (profileError) {
+        console.error('Profile error:', profileError)
         return
       }
-      
-      router.push('/dashboard')
+
+      if (profile?.role === 'developer') {
+        router.push('/developer-dashboard')
+        return
+      }
+
+      const needsCompletion =
+        profile?.role === 'landlord' &&
+        (!profile.landlord_code ||
+          !profile.landlord_block_id ||
+          !profile.property_setup_complete)
+
+      if (needsCompletion) {
+        router.push('/complete-setup')
+      } else {
+        router.push('/dashboard')
+      }
+    }
+
+    checkSession()
+  }, [router])
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+    setIsLoading(true)
+
+    try {
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
+
+      if (signInError) throw signInError
+      if (!data.user) throw new Error('Login failed')
+
+      // Get user role and profile completion state
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role, kyc_verified, landlord_code, landlord_block_id, property_setup_complete')
+        .eq('id', data.user.id)
+        .maybeSingle()
+
+      if (profile?.role === 'developer') {
+        router.push('/developer-dashboard')
+      } else if (
+        profile?.role === 'landlord' &&
+        (!profile.landlord_code ||
+          !profile.landlord_block_id ||
+          !profile.property_setup_complete)
+      ) {
+        router.push('/complete-setup')
+      } else {
+        router.push('/dashboard')
+      }
+    } catch (err: any) {
+      setError(err.message || 'Login failed. Please try again.')
+    } finally {
+      setIsLoading(false)
     }
   }
 
-  const handleSignup = async () => {
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: { data: { full_name: name, role } },
-    })
-    if (error) throw error
-    
-    if (data.user && role === 'landlord') {
-      // Create profile entry for landlord
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .insert({
-          id: data.user.id,
-          email: email,
-          full_name: name,
-          role: role,
-          property_setup_complete: false,
-          landlord_code: generateLandlordCode(name, email)
-        })
-      
-      if (profileError) throw profileError
-      
-      // Show property setup for new landlords
-      setShowPropertySetup(true)
-      const code = generateLandlordCode(name, email)
-      setGeneratedCode(code)
-      return
-    }
-    
-    if (data.session) {
-      router.push('/dashboard')
-    } else {
-      throw new Error('Please check your email to confirm your account!')
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
+    setIsLoading(true)
+
+    try {
+      const response = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email,
+          password,
+          name,
+          role,
+          propertyName: role === 'landlord' ? name + "'s Property" : undefined,
+          propertyAddress: role === 'landlord' ? 'To be updated' : undefined,
+          totalUnits: role === 'landlord' ? '1' : undefined,
+        }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Registration failed')
+      }
+
+      // Sign in after successful registration
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
+
+      if (signInError) throw signInError
+      if (!signInData.user) throw new Error('Login after registration failed')
+
+      // Redirect based on role and profile completion
+      if (role === 'developer') {
+        router.push('/developer-dashboard')
+      } else if (role === 'landlord') {
+        router.push('/complete-setup')
+      } else {
+        router.push('/dashboard')
+      }
+    } catch (err: any) {
+      setError(err.message || 'Registration failed. Please try again.')
+    } finally {
+      setIsLoading(false)
     }
   }
 
   const handleGoogleSignIn = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: `${window.location.origin}/dashboard`,
-        queryParams: { access_type: 'offline', prompt: 'consent' },
-      },
-    })
-    if (error) setError(error.message)
-  }
-
-  const handlePropertySetup = async () => {
-    if (!propertyName || !totalUnits || !propertyAddress) {
-      setError('Please fill in all property details')
-      return
-    }
-    
-    setIsLoading(true)
     try {
-      // Get current user
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) throw new Error('User not found')
-      
-      // Create property record
-      const { error: propertyError } = await supabase
-        .from('properties')
-        .insert({
-          landlord_id: user.id,
-          name: propertyName,
-          address: propertyAddress,
-          total_units: parseInt(totalUnits),
-          available_units: parseInt(totalUnits),
-          landlord_code: generatedCode,
-          blockchain_hash: generateLandlordCode(propertyName, user.id)
-        })
-      
-      if (propertyError) throw propertyError
-      
-      // Update profile to mark setup complete
-      const { error: updateError } = await supabase
-        .from('profiles')
-        .update({ property_setup_complete: true })
-        .eq('id', user.id)
-      
-      if (updateError) throw updateError
-      
-      // Create tenant slots based on total units
-      const tenantSlots = Array.from({ length: parseInt(totalUnits) }, (_, i) => ({
-        property_id: propertyName,
-        unit_number: i + 1,
-        landlord_code: generatedCode,
-        is_occupied: false,
-        created_at: new Date().toISOString()
-      }))
-      
-      const { error: slotsError } = await supabase
-        .from('tenant_slots')
-        .insert(tenantSlots)
-      
-      if (slotsError) throw slotsError
-      
-      router.push('/dashboard')
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/dashboard`,
+        },
+      })
+      if (error) setError(error.message)
     } catch (err: any) {
-      setError(err.message || 'Failed to setup property')
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
-    setIsLoading(true)
-    try {
-      if (isLogin) await handleLogin()
-      else await handleSignup()
-    } catch (err: any) {
-      setError(err.message || 'An error occurred. Please try again.')
-    } finally {
-      setIsLoading(false)
+      setError(err.message || 'Google sign-in failed')
     }
   }
 
@@ -275,7 +260,7 @@ export default function LoginPage() {
           )}
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={isLogin ? handleLogin : handleRegister} className="space-y-4">
 
             {/* Full name — signup only */}
             {!isLogin && (
@@ -434,112 +419,7 @@ export default function LoginPage() {
         </div>
       </div>
 
-      {/* Property Setup Modal */}
-      {showPropertySetup && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-background rounded-2xl max-w-md w-full p-6 border border-border">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center">
-                <Building2 className="w-5 h-5 text-accent" />
-              </div>
-              <div>
-                <h3 className="text-xl font-semibold text-foreground">Setup Your Property</h3>
-                <p className="text-sm text-muted-foreground">Register your property details</p>
-              </div>
-            </div>
-
-            {/* Generated Code Display */}
-            <div className="mb-6 p-4 bg-accent/5 border border-accent/20 rounded-xl">
-              <div className="flex items-center gap-2 mb-2">
-                <Hash className="w-4 h-4 text-accent" />
-                <span className="text-sm font-medium text-accent">Your Unique Landlord Code</span>
-              </div>
-              <div className="bg-background border border-border rounded-lg px-3 py-2 font-mono text-sm text-foreground">
-                {generatedCode}
-              </div>
-              <p className="text-xs text-muted-foreground mt-2">
-                Share this code with tenants to connect them to your property
-              </p>
-            </div>
-
-            {/* Property Setup Form */}
-            <div className="space-y-4">
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium text-foreground">Property Name</label>
-                <Input
-                  type="text"
-                  placeholder="Sunset Apartments"
-                  value={propertyName}
-                  onChange={(e) => setPropertyName(e.target.value)}
-                  disabled={isLoading}
-                  className="h-11 bg-secondary/50 border-border text-foreground rounded-xl"
-                />
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium text-foreground">Total Units/Rentals</label>
-                <Input
-                  type="number"
-                  placeholder="12"
-                  value={totalUnits}
-                  onChange={(e) => setTotalUnits(e.target.value)}
-                  disabled={isLoading}
-                  min="1"
-                  className="h-11 bg-secondary/50 border-border text-foreground rounded-xl"
-                />
-                <p className="text-xs text-muted-foreground">
-                  This will create tenant slots for each unit
-                </p>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-sm font-medium text-foreground">Property Address</label>
-                <Input
-                  type="text"
-                  placeholder="123 Main St, Nairobi, Kenya"
-                  value={propertyAddress}
-                  onChange={(e) => setPropertyAddress(e.target.value)}
-                  disabled={isLoading}
-                  className="h-11 bg-secondary/50 border-border text-foreground rounded-xl"
-                />
-              </div>
-
-              {/* Error */}
-              {error && (
-                <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-xl flex items-start gap-3">
-                  <AlertCircle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
-                  <p className="text-sm text-destructive">{error}</p>
-                </div>
-              )}
-
-              {/* Submit Buttons */}
-              <div className="flex gap-3 pt-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setShowPropertySetup(false)}
-                  disabled={isLoading}
-                  className="flex-1 h-11 rounded-xl"
-                >
-                  Cancel
-                </Button>
-                <Button
-                  type="button"
-                  onClick={handlePropertySetup}
-                  disabled={isLoading}
-                  className="flex-1 h-11 bg-accent hover:bg-accent/90 text-accent-foreground font-semibold rounded-xl"
-                >
-                  {isLoading ? (
-                    <div className="w-4 h-4 border-2 border-accent-foreground/30 border-t-accent-foreground rounded-full animate-spin mx-auto" />
-                  ) : (
-                    'Complete Setup'
-                  )}
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Property Setup removed; registration endpoint handles property setup for landlords. */}
     </div>
   )
 }

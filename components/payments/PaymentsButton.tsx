@@ -65,6 +65,12 @@ export default function PayButton({
   const [selectedService, setSelectedService] = useState('')
   const [customServiceAmount, setCustomServiceAmount] = useState('')
   const [serviceDescription, setServiceDescription] = useState('')
+  
+  // Multi-channel states
+  const [landlordChannels, setLandlordChannels] = useState<any[]>([])
+  const [selectedMethod, setSelectedMethod] = useState<'mpesa' | 'bank'>('mpesa')
+  const [selectedChannel, setSelectedChannel] = useState<any>(null)
+  const [isLoadingChannels, setIsLoadingChannels] = useState(false)
 
   const formatMoney = (n: number) => `KES ${n.toLocaleString('en-KE')}`
 
@@ -80,15 +86,22 @@ export default function PayButton({
   }
 
   const handlePay = async () => {
-    if (!phone || phone.length < 9) {
-      onError('Enter a valid M-Pesa phone number')
-      return
-    }
-
     const totalAmount = getTotalAmount()
     if (totalAmount <= 0) {
       onError('Payment amount must be greater than 0')
       return
+    }
+
+    if (selectedMethod === 'mpesa') {
+      if (!phone || phone.length < 9) {
+        onError('Enter a valid M-Pesa phone number')
+        return
+      }
+    } else {
+      if (!selectedChannel) {
+        onError('Please select a bank account to pay to.')
+        return
+      }
     }
 
     setIsSending(true)
@@ -99,21 +112,28 @@ export default function PayButton({
         tenantId: user?.id,
         month,
         paymentType,
+        channelId: selectedChannel?.payhero_channel_id,
+        reference: `${paymentType.toUpperCase()}-${user?.id}-${month}`,
         ...(paymentType === 'rent' && { rentAmount, waterBill }),
         ...(paymentType === 'repairs' && { 
           serviceId: selectedService,
           serviceDescription,
           customAmount: parseFloat(customServiceAmount) || 0
+        }),
+        ...(selectedMethod === 'bank' && {
+          bankAccount: selectedChannel.bank_account_number,
+          bankCode: selectedChannel.bank_shortcode
         })
       }
 
-      const res = await fetch('/api/mpesa/stkpush', {
+      const endpoint = selectedMethod === 'mpesa' ? '/api/mpesa/stkpush' : '/api/payments/pesalink'
+      const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(paymentData),
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'STK push failed')
+      if (!res.ok) throw new Error(data.error || 'Payment failed')
 
       setSent(true)
       onSuccess()
@@ -121,7 +141,6 @@ export default function PayButton({
         setShowModal(false)
         setSent(false)
         setPhone('')
-        // Reset enhanced payment states
         setPaymentType('rent')
         setRentAmount(amount)
         setWaterBill(0)
@@ -138,15 +157,62 @@ export default function PayButton({
 
   const openModal = async () => {
     if (disabled) return
-    if (user) {
-      const { data } = await supabase
-        .from('profiles')
-        .select('phone_number')
-        .eq('id', user.id)
-        .single()
-      if (data?.phone_number) setPhone(data.phone_number)
-    }
     setShowModal(true)
+    setIsLoadingChannels(true)
+    
+    try {
+      // 1. Get tenant's personal phone
+      if (user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('phone_number')
+          .eq('id', user.id)
+          .single()
+        if (profile?.phone_number) setPhone(profile.phone_number)
+      }
+
+      // 2. Find landlord's channels
+      // First find which landlord this tenant belongs to
+      const { data: slot } = await supabase
+        .from('tenant_slots')
+        .select('landlord_block_id')
+        .eq('tenant_id', user?.id)
+        .maybeSingle()
+
+      if (slot?.landlord_block_id) {
+        const { data: landlord } = await supabase
+          .from('profiles')
+          .select('id')
+          .eq('landlord_block_id', slot.landlord_block_id)
+          .eq('role', 'landlord')
+          .maybeSingle()
+
+        if (landlord?.id) {
+          const { data: channels } = await supabase
+            .from('landlord_payment_settings')
+            .select('*')
+            .eq('landlord_id', landlord.id)
+            .eq('verified', true)
+          
+          if (channels && channels.length > 0) {
+            setLandlordChannels(channels)
+            // Default to first M-Pesa one
+            const mpesa = channels.find(c => c.payment_type === 'paybill' || c.payment_type === 'till')
+            if (mpesa) {
+              setSelectedChannel(mpesa)
+              setSelectedMethod('mpesa')
+            } else {
+              setSelectedChannel(channels[0])
+              setSelectedMethod(channels[0].payment_type === 'bank' ? 'bank' : 'mpesa')
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Error fetching landlord channels:', err)
+    } finally {
+      setIsLoadingChannels(false)
+    }
   }
 
   return (
@@ -159,7 +225,7 @@ export default function PayButton({
         }`}
       >
         <Smartphone className="w-4 h-4" />
-        Pay {formatMoney(amount)} via M-Pesa
+        Complete Payment
       </Button>
 
       {showModal && (
@@ -319,53 +385,131 @@ export default function PayButton({
                   )}
                 </div>
 
+                {/* Payment Method Selector */}
+                <div className="mb-5">
+                  <Label className="text-sm font-medium text-foreground block mb-3">
+                    Choose Payment Method
+                  </Label>
+                  <div className="space-y-2">
+                    {isLoadingChannels ? (
+                      <div className="flex items-center justify-center py-4">
+                        <Loader2 className="w-5 h-5 animate-spin text-accent" />
+                      </div>
+                    ) : landlordChannels.length > 0 ? (
+                      landlordChannels.map((channel) => (
+                        <Card 
+                          key={channel.id} 
+                          onClick={() => {
+                            setSelectedChannel(channel);
+                            setSelectedMethod(channel.payment_type === 'bank' ? 'bank' : 'mpesa');
+                          }}
+                          className={`cursor-pointer transition-all border-2 ${
+                            selectedChannel?.id === channel.id 
+                              ? 'border-accent bg-accent/5' 
+                              : 'border-border hover:border-accent/30'
+                          }`}
+                        >
+                          <CardContent className="p-3 flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                                channel.payment_type === 'bank' ? 'bg-blue-100' : 'bg-green-100'
+                              }`}>
+                                {channel.payment_type === 'bank' ? (
+                                  <Building2 className={`w-5 h-5 ${channel.payment_type === 'bank' ? 'text-blue-600' : 'text-green-600'}`} />
+                                ) : (
+                                  <Smartphone className="w-5 h-5 text-green-600" />
+                                )}
+                              </div>
+                              <div>
+                                <p className="text-sm font-bold text-foreground leading-none">{channel.account_name}</p>
+                                <p className="text-[10px] text-muted-foreground mt-1 uppercase font-medium">
+                                  {channel.payment_type === 'bank' ? 'PesaLink Bank Transfer' : `M-Pesa ${channel.payment_type}`}
+                                </p>
+                              </div>
+                            </div>
+                            {selectedChannel?.id === channel.id && (
+                              <CheckCircle2 className="w-5 h-5 text-accent" />
+                            )}
+                          </CardContent>
+                        </Card>
+                      ))
+                    ) : (
+                      <div className="p-4 bg-amber-50 border border-amber-100 rounded-xl text-center">
+                        <p className="text-xs text-amber-800">Your landlord hasn't configured payment details yet.</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
                 {/* Payment Summary */}
-                <div className="bg-accent/5 border border-accent/20 rounded-xl p-3 mb-5">
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs text-muted-foreground">Total Amount</span>
-                    <span className="text-lg font-bold text-accent">
+                <div className="bg-accent/5 border border-accent/20 rounded-xl p-4 mb-5">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-sm text-muted-foreground">Total to Pay</span>
+                    <span className="text-xl font-bold text-accent">
                       {formatMoney(getTotalAmount())}
                     </span>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Paybill: 400200 · Account: 1060544
-                  </p>
+                  {selectedChannel && (
+                    <div className="pt-2 border-t border-accent/10">
+                      <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Target Destination</p>
+                      <p className="text-xs font-medium text-foreground mt-1">
+                        {selectedChannel.payment_type === 'bank' 
+                          ? `${selectedChannel.bank_name} · Acc: ${selectedChannel.bank_account_number}`
+                          : `${selectedChannel.payment_type.toUpperCase()}: ${selectedChannel.paybill_number} · Acc: ${selectedChannel.account_name}`
+                        }
+                      </p>
+                    </div>
+                  )}
                 </div>
 
-                <div className="mb-4">
-                  <label className="text-sm font-medium text-foreground block mb-1.5">
-                    M-Pesa Phone Number
-                  </label>
-                  <Input
-                    type="tel"
-                    placeholder="e.g. 0712345678"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    className="bg-background border-border text-foreground rounded-xl h-12 text-base focus:ring-2 focus:ring-accent/50"
-                    autoFocus
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Must be the M-Pesa number you want to pay from
-                  </p>
-                </div>
+                {selectedMethod === 'mpesa' ? (
+                  <div className="mb-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    <label className="text-sm font-medium text-foreground block mb-1.5">
+                      Confirm M-Pesa Number
+                    </label>
+                    <Input
+                      type="tel"
+                      placeholder="e.g. 0712345678"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      className="bg-background border-border text-foreground rounded-xl h-12 text-base focus:ring-2 focus:ring-accent/50"
+                    />
+                    <p className="text-[10px] text-muted-foreground mt-2 px-1">
+                      An STK Push prompt will be sent to this number.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="mb-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    <div className="p-4 bg-blue-50 border border-blue-100 rounded-xl">
+                      <p className="text-xs text-blue-800 leading-relaxed font-medium">
+                        You selected Bank Transfer. Once you click "Initiate Transfer", we will use PesaLink to link your account to the landlord's {selectedChannel?.bank_name} account.
+                      </p>
+                    </div>
+                  </div>
+                )}
 
-                <div className="bg-muted/50 rounded-xl p-3 mb-5 space-y-1 text-sm">
-                  <p className="text-xs font-medium text-muted-foreground mb-1">
-                    How it works:
+                <div className="bg-muted/50 rounded-xl p-4 mb-6 space-y-1.5">
+                  <p className="text-xs font-bold text-muted-foreground mb-1 uppercase tracking-wider">
+                    {selectedMethod === 'mpesa' ? 'How M-Pesa STK works:' : 'How PesaLink works:'}
                   </p>
-                  {[
+                  {(selectedMethod === 'mpesa' ? [
                     '1. Click "Send STK Push" below',
                     '2. M-Pesa prompt appears on your phone',
                     '3. Enter your M-Pesa PIN',
                     '4. Payment confirmed automatically ✅',
-                  ].map((step) => (
-                    <p key={step} className="text-xs text-muted-foreground">
+                  ] : [
+                    '1. Click "Initiate Transfer" below',
+                    '2. Follow instructions on the next screen',
+                    '3. Securely authorize through your bank app',
+                    '4. Instant interbank settlement ✅',
+                  ]).map((step) => (
+                    <p key={step} className="text-xs text-muted-foreground font-medium">
                       {step}
                     </p>
                   ))}
                 </div>
 
-                <div className="flex flex-col-reverse sm:flex-row gap-2">
+                <div className="flex flex-col-reverse sm:flex-row gap-3">
                   <Button
                     type="button"
                     variant="outline"
@@ -373,24 +517,24 @@ export default function PayButton({
                       setShowModal(false)
                       setPhone('')
                     }}
-                    className="flex-1 rounded-xl border-border h-12 hover:text-accent"
+                    className="flex-1 rounded-xl border-border h-12 font-bold hover:text-accent"
                   >
                     Cancel
                   </Button>
                   <Button
                     onClick={handlePay}
-                    disabled={isSending || !phone || getTotalAmount() <= 0 || (paymentType === 'repairs' && !selectedService)}
-                    className="flex-1 bg-accent hover:bg-accent/90 text-accent-foreground rounded-xl h-12 gap-2 shadow-sm shadow-accent/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={isSending || !selectedChannel || (selectedMethod === 'mpesa' && !phone) || getTotalAmount() <= 0 || (paymentType === 'repairs' && !selectedService)}
+                    className="flex-1 bg-accent hover:bg-accent/90 text-accent-foreground rounded-xl h-12 gap-2 font-bold shadow-lg shadow-accent/20 disabled:opacity-50"
                   >
                     {isSending ? (
                       <>
                         <Loader2 className="w-4 h-4 animate-spin" />
-                        Sending...
+                        Processing...
                       </>
                     ) : (
                       <>
-                        <Smartphone className="w-4 h-4" />
-                        Send STK Push
+                        {selectedMethod === 'mpesa' ? <Smartphone className="w-4 h-4" /> : <Building2 className="w-4 h-4" />}
+                        {selectedMethod === 'mpesa' ? 'Send STK Push' : 'Initiate Transfer'}
                       </>
                     )}
                   </Button>

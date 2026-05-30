@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { User } from '@supabase/supabase-js'
 import { Menu, Building2 } from 'lucide-react'
 import Sidebar from '@/components/layout/Sidebar'
@@ -14,6 +14,8 @@ import StaffManagementPage from '@/components/pages/StaffManagementPage'
 import PolicyPage from '@/components/pages/PolicyPage'
 import CommunityPage from '@/components/pages/CommunityPage'
 import PaymentsPage from '@/components/pages/PaymentsPage'
+import { createClient } from '@/lib/supabase/client'
+// import DeveloperDashboardContent from '../developer/DeveloperDashboardContent'
 
 interface DashboardLayoutProps {
   user: User | null
@@ -22,6 +24,34 @@ interface DashboardLayoutProps {
 export default function DashboardLayout({ user }: DashboardLayoutProps) {
   const [activeTab, setActiveTab] = useState('chat')
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [userRole, setUserRole] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (user) {
+      const fetchRole = async () => {
+        try {
+          const supabase = createClient()
+          const { data, error } = await supabase
+            .from('profiles')
+            .select('role')
+            .eq('id', user.id)
+            .maybeSingle()
+
+          if (error) {
+            console.error('Error fetching role:', error)
+            setUserRole(null)
+          } else {
+            setUserRole(data?.role || null)
+          }
+        } catch (err: any) {
+          console.error('Unexpected error fetching role:', err)
+          setUserRole(null)
+        }
+      }
+
+      fetchRole()
+    }
+  }, [user])
 
   const handleTabChange = (tab: string) => {
     setActiveTab(tab)
@@ -37,7 +67,7 @@ export default function DashboardLayout({ user }: DashboardLayoutProps) {
       policy: 'Policy & Docs',
       payments: 'Payments',
       settings: 'Settings',
-      staff:"Staff Management"
+      staff:"Staff Management",
     }
     return titles[activeTab] || 'LEA Executive'
   }
@@ -53,6 +83,7 @@ export default function DashboardLayout({ user }: DashboardLayoutProps) {
       settings: 'Account & preferences',
       maintenance: 'Maintenance requests and tracking',
       staff: 'Staff management and information',
+      // 'developer-dashboard': 'System monitoring & analytics'
     }
     return subtitles[activeTab] || ''
   }
@@ -68,6 +99,7 @@ export default function DashboardLayout({ user }: DashboardLayoutProps) {
       case 'policy':     return <PolicyPage user={user} />
       case 'payments':   return <PaymentsPage user={user} />
       case 'settings':   return <SettingsPanel user={user} />
+      // case 'developer-dashboard': return <DeveloperDashboardContent />
       default:           return <ChatArea user={user} />
     }
   }

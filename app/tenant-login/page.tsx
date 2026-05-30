@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useEffect, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { AlertCircle, Users, Building2, ArrowRight, Home } from 'lucide-react'
@@ -9,7 +9,8 @@ import Link from 'next/link'
 
 export default function TenantLoginPage() {
   const router = useRouter()
-  const [tenantCode, setTenantCode] = useState('')
+  const searchParams = useSearchParams()
+  const [landlordCode, setLandlordCode] = useState('')
   const [tenantEmail, setTenantEmail] = useState('')
   const [tenantName, setTenantName] = useState('')
   const [tenantPhone, setTenantPhone] = useState('')
@@ -21,8 +22,15 @@ export default function TenantLoginPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [landlordInfo, setLandlordInfo] = useState<any>(null)
 
+  useEffect(() => {
+    const code = searchParams.get('landlordCode')
+    if (code) {
+      setLandlordCode(code.toUpperCase())
+    }
+  }, [searchParams])
+
   const handleTenantLogin = async () => {
-    if (!tenantCode || !tenantEmail || !tenantName) {
+    if (!landlordCode || !tenantEmail || !tenantName) {
       setError('Please fill in all required fields')
       return
     }
@@ -31,22 +39,18 @@ export default function TenantLoginPage() {
     setError('')
 
     try {
-      const leaseInfo = showLeaseInfo ? {
-        leaseStartDate,
-        leaseEndDate,
-        monthlyRent: parseFloat(monthlyRent)
-      } : undefined
-
-      const response = await fetch('/api/blockchain/multi-landlord/tenant-login', {
+      const response = await fetch('/api/landlord/tenant-login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          tenantCode: tenantCode.toUpperCase(),
-          tenantEmail,
+          landlordCode: landlordCode.toUpperCase(),
           tenantName,
+          tenantEmail,
           tenantPhone,
-          leaseInfo
-        })
+          leaseStartDate: leaseStartDate || null,
+          leaseEndDate: leaseEndDate || null,
+          monthlyRent: monthlyRent ? Number(monthlyRent) : null,
+        }),
       })
 
       const result = await response.json()
@@ -55,35 +59,28 @@ export default function TenantLoginPage() {
         throw new Error(result.error || 'Login failed')
       }
 
-      // Store session and redirect
-      localStorage.setItem('tenantSession', JSON.stringify(result.session))
       localStorage.setItem('landlordInfo', JSON.stringify(result.landlord))
       localStorage.setItem('tenantSlot', JSON.stringify(result.tenantSlot))
+      localStorage.setItem('tenantReferral', JSON.stringify({ landlordCode: result.landlord.code }))
 
       setLandlordInfo(result.landlord)
-      
-      // Show success and redirect after a delay
+
       setTimeout(() => {
         router.push('/tenant-dashboard')
-      }, 2000)
-
+      }, 1000)
     } catch (err: any) {
-      setError(err.message || 'Login failed. Please check your tenant code.')
+      setError(err.message || 'Login failed. Please check your referral code.')
     } finally {
       setIsLoading(false)
     }
   }
 
-  const formatTenantCode = (value: string) => {
-    // Auto-format to LEA-XXX-TENANT-X pattern
-    const formatted = value.toUpperCase().replace(/[^A-Z0-9-]/g, '')
-    return formatted
+  const formatLandlordCode = (value: string) => {
+    return value.toUpperCase().replace(/[^A-Z0-9-]/g, '')
   }
 
   return (
     <div className="min-h-screen flex">
-      
-      {/* Left Panel */}
       <div className="hidden lg:flex lg:w-[52%] relative overflow-hidden">
         <div
           className="absolute inset-0 bg-cover bg-center"
@@ -91,7 +88,6 @@ export default function TenantLoginPage() {
         />
         <div className="absolute inset-0 bg-linear-to-br from-black/80 via-black/60 to-black/40" />
         <div className="absolute bottom-0 left-0 right-0 h-1 bg-accent" />
-        
         <div className="relative z-10 flex flex-col justify-between p-12 w-full">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-lg bg-accent flex items-center justify-center">
@@ -99,9 +95,7 @@ export default function TenantLoginPage() {
                 <Home className="w-5 h-5 text-accent-foreground" />
               </Link>
             </div>
-            <span className="text-white font-bold text-lg tracking-wide">
-              LEA Executive
-            </span>
+            <span className="text-white font-bold text-lg tracking-wide">LEA Executive</span>
           </div>
 
           <div>
@@ -112,33 +106,27 @@ export default function TenantLoginPage() {
               Managed Digitally
             </h1>
             <p className="text-white/60 text-base max-w-sm leading-relaxed">
-              Enter your tenant code to connect with your landlord and access your property management portal.
+              Use the landlord referral code or invite link your landlord shared with you.
             </p>
           </div>
 
           <div className="flex flex-wrap gap-3">
-            {[
-              'Blockchain Secured',
-              'Instant Communication',
-              'Digital Payments',
-              'Maintenance Requests'
-            ].map((item) => (
-              <span
-                key={item}
-                className="px-4 py-2 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 text-white/80 text-xs font-medium"
-              >
-                {item}
-              </span>
-            ))}
+            {['Blockchain Secured', 'Instant Communication', 'Digital Payments', 'Maintenance Requests'].map(
+              (item) => (
+                <span
+                  key={item}
+                  className="px-4 py-2 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 text-white/80 text-xs font-medium"
+                >
+                  {item}
+                </span>
+              )
+            )}
           </div>
         </div>
       </div>
 
-      {/* Right Panel */}
       <div className="flex-1 flex items-center justify-center bg-background px-6 py-12 lg:px-16">
         <div className="w-full max-w-md">
-
-          {/* Mobile logo */}
           <div className="flex items-center gap-3 mb-10 lg:hidden">
             <div className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center">
               <Home className="w-4 h-4 text-accent-foreground" />
@@ -146,17 +134,13 @@ export default function TenantLoginPage() {
             <span className="font-bold text-foreground text-base">LEA Executive</span>
           </div>
 
-          {/* Heading */}
           <div className="mb-8">
-            <h2 className="text-3xl font-bold text-foreground mb-2">
-              Tenant Portal
-            </h2>
+            <h2 className="text-3xl font-bold text-foreground mb-2">Tenant Portal</h2>
             <p className="text-muted-foreground text-sm">
-              Enter your tenant code to access your property dashboard
+              Enter your landlord referral code to access your property dashboard.
             </p>
           </div>
 
-          {/* Success Message */}
           {landlordInfo && (
             <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-xl">
               <div className="flex items-center gap-2 mb-2">
@@ -165,13 +149,10 @@ export default function TenantLoginPage() {
                   Connected to {landlordInfo.name}
                 </span>
               </div>
-              <p className="text-xs text-green-600">
-                Redirecting to your dashboard...
-              </p>
+              <p className="text-xs text-green-600">Redirecting to your dashboard...</p>
             </div>
           )}
 
-          {/* Error */}
           {error && (
             <div className="mb-5 p-3.5 bg-destructive/10 border border-destructive/20 rounded-xl flex items-start gap-3">
               <AlertCircle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
@@ -179,27 +160,23 @@ export default function TenantLoginPage() {
             </div>
           )}
 
-          {/* Form */}
           <form onSubmit={(e) => { e.preventDefault(); handleTenantLogin(); }} className="space-y-4">
-            
-            {/* Tenant Code */}
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">Tenant Code</label>
+              <label className="text-sm font-medium text-foreground">Landlord Referral Code</label>
               <Input
                 type="text"
-                placeholder="LEA-ABC123-TENANT-5"
-                value={tenantCode}
-                onChange={(e) => setTenantCode(formatTenantCode(e.target.value))}
+                placeholder="LEA-ABC123-ABC"
+                value={landlordCode}
+                onChange={(e) => setLandlordCode(formatLandlordCode(e.target.value))}
                 disabled={isLoading}
                 required
                 className="h-11 bg-secondary/50 border-border text-foreground rounded-xl font-mono"
               />
               <p className="text-xs text-muted-foreground">
-                Format: LEA-{'{LANDLORD_CODE}'}-TENANT-{'{SLOT_NUMBER}'}
+                Your landlord shares this code so your account connects to the right landlord only.
               </p>
             </div>
 
-            {/* Email */}
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-foreground">Email Address</label>
               <Input
@@ -213,7 +190,6 @@ export default function TenantLoginPage() {
               />
             </div>
 
-            {/* Full Name */}
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-foreground">Full Name</label>
               <Input
@@ -227,7 +203,6 @@ export default function TenantLoginPage() {
               />
             </div>
 
-            {/* Phone Number */}
             <div className="space-y-1.5">
               <label className="text-sm font-medium text-foreground">Phone Number (Optional)</label>
               <Input
@@ -240,7 +215,6 @@ export default function TenantLoginPage() {
               />
             </div>
 
-            {/* Lease Information Toggle */}
             <div className="pt-2">
               <button
                 type="button"
@@ -251,7 +225,6 @@ export default function TenantLoginPage() {
               </button>
             </div>
 
-            {/* Lease Information */}
             {showLeaseInfo && (
               <div className="space-y-4 p-4 bg-secondary/30 rounded-xl">
                 <div className="space-y-1.5">
@@ -261,7 +234,7 @@ export default function TenantLoginPage() {
                     value={leaseStartDate}
                     onChange={(e) => setLeaseStartDate(e.target.value)}
                     disabled={isLoading}
-                    className="h-11 bg-background border-border text-foreground rounded-xl"
+                    className="h-11 bg-secondary/50 border-border text-foreground rounded-xl"
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -271,52 +244,44 @@ export default function TenantLoginPage() {
                     value={leaseEndDate}
                     onChange={(e) => setLeaseEndDate(e.target.value)}
                     disabled={isLoading}
-                    className="h-11 bg-background border-border text-foreground rounded-xl"
+                    className="h-11 bg-secondary/50 border-border text-foreground rounded-xl"
                   />
                 </div>
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium text-foreground">Monthly Rent</label>
+                  <label className="text-sm font-medium text-foreground">Monthly Rent (Optional)</label>
                   <Input
                     type="number"
-                    placeholder="50000"
+                    min={0}
+                    step={100}
+                    placeholder="KES 0"
                     value={monthlyRent}
                     onChange={(e) => setMonthlyRent(e.target.value)}
                     disabled={isLoading}
-                    className="h-11 bg-background border-border text-foreground rounded-xl"
+                    className="h-11 bg-secondary/50 border-border text-foreground rounded-xl"
                   />
                 </div>
               </div>
             )}
 
-            {/* Submit Button */}
-            <Button
-              type="submit"
-              disabled={isLoading || !!landlordInfo}
-              className="w-full h-11 bg-accent hover:bg-accent/90 text-accent-foreground font-semibold rounded-xl flex items-center justify-center gap-2 mt-2"
-            >
-              {isLoading ? (
-                <div className="w-4 h-4 border-2 border-accent-foreground/30 border-t-accent-foreground rounded-full animate-spin" />
-              ) : (
-                <>
-                  <Users className="w-4 h-4" />
-                  Access Tenant Portal
-                  <ArrowRight className="w-4 h-4" />
-                </>
-              )}
-            </Button>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm text-muted-foreground">
+                The referral code connects you directly with your landlord and keeps your tenancy isolated.
+              </p>
+              <Button type="submit" disabled={isLoading} className="h-12 rounded-xl">
+                {isLoading ? 'Connecting…' : 'Connect to landlord'}
+              </Button>
+            </div>
           </form>
 
-          {/* Footer */}
           <div className="text-center mt-8">
             <p className="text-sm text-muted-foreground">
-              Don't have a tenant code?{' '}
+              Don't have a referral code?{' '}
               <Link href="/" className="text-accent hover:underline">
                 Contact your landlord
               </Link>
             </p>
           </div>
 
-          {/* Back to Home */}
           <div className="text-center mt-4">
             <Link href="/" className="text-xs text-muted-foreground hover:text-foreground">
               <ArrowRight className="w-3 h-3 inline mr-1 rotate-180" />

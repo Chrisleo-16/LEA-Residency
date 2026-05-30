@@ -1,12 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createClient } from '@/lib/supabase/server'
 import { sendViewingConfirmationSMS, sendViewingNotificationSMS, validatePhoneNumber, formatPhoneNumber } from '@/lib/sms'
-
-// Initialize Supabase client
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
 
 interface ViewingFormData {
   firstName: string
@@ -76,6 +70,8 @@ export async function POST(request: NextRequest) {
                      request.headers.get('x-real-ip') || 
                      'unknown'
     const userAgent = request.headers.get('user-agent') || 'unknown'
+
+    const supabase = await createClient()
 
     // Create viewing request record
     const { data, error } = await supabase

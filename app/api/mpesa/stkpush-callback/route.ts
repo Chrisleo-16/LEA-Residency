@@ -121,9 +121,18 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // ── Get landlord ──────────────────────────────────
-    const { data: landlord } = await supabase
-      .from('profiles').select('id').eq('role', 'landlord').limit(1).single()
+    // ── Determine landlord for this tenant if available ─────────
+    let landlordId: string | null = null
+    if (tenantId) {
+      const { data: existingPayment } = await supabase
+        .from('payments')
+        .select('landlord_id')
+        .eq('tenant_id', tenantId)
+        .neq('landlord_id', null)
+        .limit(1)
+        .maybeSingle()
+      landlordId = existingPayment?.landlord_id || null
+    }
 
     // ── Check if pending payment exists to update ─────
     const { data: pendingPayment } = await supabase
@@ -152,7 +161,7 @@ export async function POST(req: NextRequest) {
       // ── Insert new payment record ─────────────────
       await supabase.from('payments').insert({
         tenant_id: tenantId,
-        landlord_id: landlord?.id || null,
+        landlord_id: landlordId,
         amount: paidAmount,
         phone_number: phone_number,
         mpesa_code: receipt_number || null,

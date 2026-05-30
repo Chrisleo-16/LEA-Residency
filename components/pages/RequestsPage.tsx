@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import { User } from '@supabase/supabase-js'
-import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -49,60 +48,60 @@ export default function RequestsPage({ user }: RequestsPageProps) {
   const [activeCount, setActiveCount] = useState(0)
 
   useEffect(() => {
-  if (!user) return
-  fetchData()
-
-  const channel = supabase
-    .channel('requests-realtime')
-    .on('postgres_changes', {
-      event: '*',
-      schema: 'public',
-      table: 'requests',
-    }, () => {
-      fetchData()
-    })
-    .subscribe()
-
-  return () => { channel.unsubscribe() }
-}, [user])
+    if (!user) return
+    fetchData()
+  }, [user])
 
   const fetchData = async () => {
     setIsLoading(true)
-    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user!.id).single()
-    setRole(profile?.role)
-
-    if (profile?.role === 'landlord') {
-      const { data } = await supabase.from('requests')
-        .select('*, profiles(full_name, email)').order('created_at', { ascending: false })
-      setRequests(data || [])
-    } else {
-      const { data } = await supabase.from('requests').select('*')
-        .eq('tenant_id', user!.id).order('created_at', { ascending: false })
-      setRequests(data || [])
-      setActiveCount((data || []).filter(r => r.status !== 'resolved').length)
+    try {
+      const res = await fetch('/api/requests')
+      const payload = await res.json()
+      if (!res.ok) throw new Error(payload.error || 'Failed to load requests')
+      setRole(payload.role ?? null)
+      setRequests(payload.requests || [])
+      setActiveCount((payload.requests || []).filter((r: Request) => r.status !== 'resolved').length)
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setIsLoading(false)
     }
-    setIsLoading(false)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(''); setSuccess(''); setIsSubmitting(true)
     try {
-      const { count } = await supabase.from('requests')
-        .select('*', { count: 'exact', head: true })
-        .eq('tenant_id', user!.id).in('status', ['pending', 'in_progress'])
-      if (count !== null && count >= 5) throw new Error('You have 5 active requests. Please wait for at least one to be resolved.')
-      const { error } = await supabase.from('requests').insert({ tenant_id: user!.id, title, description, category, status: 'pending' })
-      if (error) throw error
+      const res = await fetch('/api/requests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, description, category }),
+      })
+      const payload = await res.json()
+      if (!res.ok) throw new Error(payload.error || 'Failed to submit request')
       setSuccess('Request submitted successfully!')
-      setTitle(''); setDescription(''); setCategory(CATEGORIES[0].value); setShowForm(false); fetchData()
-    } catch (err: any) { setError(err.message) }
-    finally { setIsSubmitting(false) }
+      setTitle(''); setDescription(''); setCategory(CATEGORIES[0].value); setShowForm(false)
+      fetchData()
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   const updateStatus = async (id: string, newStatus: 'pending' | 'in_progress' | 'resolved') => {
-    await supabase.from('requests').update({ status: newStatus }).eq('id', id)
-    fetchData()
+    try {
+      const res = await fetch('/api/requests', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requestId: id, status: newStatus }),
+      })
+      const payload = await res.json()
+      if (!res.ok) throw new Error(payload.error || 'Failed to update request')
+      fetchData()
+    } catch (err: any) {
+      setError(err.message)
+    }
   }
 
   const getCategoryConfig = (value: string) => CATEGORIES.find(c => c.value === value) || CATEGORIES[0]

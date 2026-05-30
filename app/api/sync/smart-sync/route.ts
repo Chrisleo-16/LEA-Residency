@@ -64,14 +64,6 @@ export async function POST(req: NextRequest) {
     
     console.log(`[Smart Sync] Retrieved ${transactions.length} transactions`)
 
-    // 3. Handle landlord lookup safely (Avoid .single() crash)
-    const { data: landlord, error: landlordErr } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('role', 'landlord')
-      .limit(1)
-      .maybeSingle() // This returns null instead of crashing if not found
-
     let updatedCount = 0
     let createdCount = 0
     let skippedCount = 0
@@ -171,10 +163,22 @@ export async function POST(req: NextRequest) {
             paymentMonth = `${txDate.getFullYear()}-${String(txDate.getMonth() + 1).padStart(2, '0')}`
           }
 
+          let landlordId: string | null = null
+          if (tenantId) {
+            const { data: existingPayment } = await supabase
+              .from('payments')
+              .select('landlord_id')
+              .eq('tenant_id', tenantId)
+              .neq('landlord_id', null)
+              .limit(1)
+              .maybeSingle()
+            landlordId = existingPayment?.landlord_id || null
+          }
+
           // Create new payment record with validation
           const paymentData = {
             tenant_id: tenantId,
-            landlord_id: landlord?.id || null,
+            landlord_id: landlordId,
             amount: amount,
             phone_number: tx.phone_number,
             mpesa_code: mpesaCode,

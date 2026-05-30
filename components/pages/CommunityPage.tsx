@@ -1,164 +1,370 @@
-'use client'
+"use client";
 
-import { useState, useEffect, useRef } from 'react'
-import { User } from '@supabase/supabase-js'
-import { supabase } from '@/lib/supabase'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Send, Megaphone, MessageSquare, X, Users, ChevronDown, ChevronUp } from 'lucide-react'
-import { useChat, Message } from '@/hooks/useChat'
-import MessageBubble from '@/components/chat/MessageBubble'
+import { useState, useEffect, useRef } from "react";
+import { User } from "@supabase/supabase-js";
+import { supabase } from "@/lib/supabase";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Send,
+  Megaphone,
+  MessageSquare,
+  X,
+  Users,
+  ChevronDown,
+  ChevronUp,
+} from "lucide-react";
+import { useChat, Message } from "@/hooks/useChat";
+import MessageBubble from "@/components/chat/MessageBubble";
 
-const TZ = 'Africa/Nairobi'
+const TZ = "Africa/Nairobi";
 
 interface CommunityPageProps {
-  user: User | null
+  user: User | null;
 }
 
 interface Announcement {
-  id: string
-  title: string
-  content: string
-  created_at: string
+  id: string;
+  title: string;
+  content: string;
+  created_at: string;
 }
 
 export default function CommunityPage({ user }: CommunityPageProps) {
-  const [role, setRole] = useState<string | null>(null)
-  const [activeTab, setActiveTab] = useState<'chat' | 'announcements'>('chat')
-  const [communityConvId, setCommunityConvId] = useState<string | null>(null)
-  const [initLoading, setInitLoading] = useState(true)
-  const [newMessage, setNewMessage] = useState('')
-  const [replyingTo, setReplyingTo] = useState<Message | null>(null)
-  const [announcements, setAnnouncements] = useState<Announcement[]>([])
-  const [annTitle, setAnnTitle] = useState('')
-  const [annContent, setAnnContent] = useState('')
-  const [newComment, setNewComment] = useState<Record<string, string>>({})
-  const [expandedAnn, setExpandedAnn] = useState<string | null>(null)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [showPostForm, setShowPostForm] = useState(false)
-  const bottomRef = useRef<HTMLDivElement>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
+  const [role, setRole] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"chat" | "announcements">("chat");
+  const [communityConvId, setCommunityConvId] = useState<string | null>(null);
+  const [blockId, setBlockId] = useState<string | null>(null);
+  const [initLoading, setInitLoading] = useState(true);
+  const [newMessage, setNewMessage] = useState("");
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null);
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
+  const [annTitle, setAnnTitle] = useState("");
+  const [annContent, setAnnContent] = useState("");
+  const [newComment, setNewComment] = useState<Record<string, string>>({});
+  const [expandedAnn, setExpandedAnn] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showPostForm, setShowPostForm] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState<{
+    show: boolean;
+    messageId: string;
+  }>({ show: false, messageId: "" });
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  const { messages, isLoading, sendMessage, editMessage, toggleReaction, markAsSeen } =
-    useChat(communityConvId, user)
+  const {
+    messages,
+    isLoading,
+    sendMessage,
+    editMessage,
+    toggleReaction,
+    markAsSeen,
+    deleteMessage,
+  } = useChat(communityConvId, user);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
   useEffect(() => {
-    if (!messages.length || !user) return
+    if (!messages.length || !user) return;
     const unseenIds = messages
-      .filter(m => m.sender_id !== user.id && !m.reads.find(r => r.user_id === user.id))
-      .map(m => m.id)
-    if (unseenIds.length) markAsSeen(unseenIds)
-  }, [messages, user])
+      .filter(
+        (m) =>
+          m.sender_id !== user.id &&
+          !m.reads.find((r) => r.user_id === user.id),
+      )
+      .map((m) => m.id);
+    if (unseenIds.length) markAsSeen(unseenIds);
+  }, [messages, user]);
+
+  const reactToMessage = (messageId: string, emoji: string) => {
+    toggleReaction(messageId, emoji);
+  };
+
+  const handleDeleteMessage = (messageId: string) => {
+    setDeleteConfirm({ show: true, messageId });
+  };
+
+  const confirmDelete = () => {
+    if (deleteConfirm.messageId) {
+      deleteMessage(deleteConfirm.messageId);
+    }
+    setDeleteConfirm({ show: false, messageId: "" });
+  };
+
+  const cancelDelete = () => {
+    setDeleteConfirm({ show: false, messageId: "" });
+  };
 
   useEffect(() => {
-  if (!user) return
-  initCommunity()
-  fetchAnnouncements()
+    if (!user) return;
+    initCommunity();
+    fetchAnnouncements();
 
-  // ✅ Hot reload announcements
-  const channel = supabase
-    .channel('announcements-realtime')
-    .on('postgres_changes', {
-      event: '*',
-      schema: 'public',
-      table: 'policies',
-      filter: `category=eq.announcement`,
-    }, () => {
-      fetchAnnouncements()
-    })
-    .subscribe()
+    // ✅ Hot reload announcements
+    const channel = supabase
+      .channel("announcements-realtime")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "policies",
+          filter: `category=eq.announcement`,
+        },
+        () => {
+          fetchAnnouncements();
+        },
+      )
+      .subscribe();
 
-  return () => { channel.unsubscribe() }
-}, [user])
+    return () => {
+      channel.unsubscribe();
+    };
+  }, [user]);
+
+  const findOrCreateBlockGroupConversation = async (
+    blockId: string,
+    blockUserIds: string[],
+    currentUserId: string,
+  ) => {
+    const blockUserIdSet = new Set(blockUserIds);
+
+    const { data: myParticipations } = await supabase
+      .from("conversation_participants")
+      .select("conversation_id")
+      .eq("user_id", currentUserId);
+
+    const myConvIds =
+      myParticipations?.map((p: any) => p.conversation_id) || [];
+
+    if (myConvIds.length) {
+      const { data: groupConversations } = await supabase
+        .from("conversations")
+        .select("id")
+        .in("id", myConvIds)
+        .eq("type", "group");
+
+      const groupConvIds = (groupConversations || []).map((c: any) => c.id);
+
+      if (groupConvIds.length) {
+        const { data: participants } = await supabase
+          .from("conversation_participants")
+          .select("conversation_id, user_id")
+          .in("conversation_id", groupConvIds);
+
+        if (participants?.length) {
+          for (const convId of groupConvIds) {
+            const participantIds = participants
+              .filter((p: any) => p.conversation_id === convId)
+              .map((p: any) => p.user_id);
+
+            const allSameBlock = participantIds.every((id) =>
+              blockUserIdSet.has(id),
+            );
+            if (allSameBlock) {
+              return convId;
+            }
+          }
+        }
+      }
+    }
+
+    const { data: newConv, error: convError } = await supabase
+      .from("conversations")
+      .insert({ type: "group", landlord_id: blockId })
+      .select()
+      .single();
+
+    if (convError || !newConv) {
+      console.error("Failed to create block group conversation:", convError);
+      return null;
+    }
+
+    const participantPayload = blockUserIds.map((id) => ({
+      conversation_id: newConv.id,
+      user_id: id,
+    }));
+
+    const { error: participantsError } = await supabase
+      .from("conversation_participants")
+      .insert(participantPayload);
+
+    if (participantsError) {
+      console.error(
+        "Failed to add block group participants:",
+        participantsError,
+      );
+      return null;
+    }
+
+    return newConv.id;
+  };
 
   const initCommunity = async () => {
-    setInitLoading(true)
-    const { data: profile } = await supabase
-      .from('profiles').select('role').eq('id', user!.id).single()
-    setRole(profile?.role || null)
+  if (!user) return;
+  setInitLoading(true);
 
-    const { data: existing } = await supabase
-      .from('conversations').select('id').eq('type', 'group').limit(1).maybeSingle()
-    const convId = existing?.id ?? null
+  const userId = user.id;
 
-    if (!convId) {
-      console.error('Group conversation not found — please create it in Supabase')
-      setInitLoading(false)
-      return
+  try {
+    // 1. Fetch profile — we need role AND landlord_block_id for everyone
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('role, landlord_block_id')
+      .eq('id', userId)
+      .maybeSingle();
+
+    if (profileError || !profile) {
+      console.error('[Community] Failed to fetch profile:', profileError);
+      setInitLoading(false);
+      return;
     }
 
-    const { data: participant } = await supabase
-      .from('conversation_participants').select('id')
-      .eq('conversation_id', convId).eq('user_id', user!.id).maybeSingle()
+    const userRole = (profile.role || 'tenant').toLowerCase();
+    setRole(userRole);
 
-    if (!participant) {
-      await supabase.from('conversation_participants')
-        .insert({ conversation_id: convId, user_id: user!.id })
+    // 2. CRITICAL FIX: Both landlords and tenants use landlord_block_id
+    //    as the room isolation key — this is the UUID stored in conversations.landlord_id
+    const targetLandlordBlockId = profile.landlord_block_id;
+
+    if (!targetLandlordBlockId) {
+      console.error('[Community] No landlord_block_id found for user:', userId);
+      setInitLoading(false);
+      return;
     }
 
-    setCommunityConvId(convId)
-    setInitLoading(false)
+    // 3. Find the ONE canonical group conversation for this block
+    const { data: groupConversations, error: convError } = await supabase
+      .from('conversations')
+      .select('id')
+      .eq('type', 'group')
+      .eq('landlord_id', targetLandlordBlockId)
+      .order('created_at', { ascending: true })
+      .limit(1);
+
+    if (convError) throw convError;
+
+    let convId: string | null = null;
+
+    if (groupConversations && groupConversations.length > 0) {
+      convId = groupConversations[0].id;
+      console.log('[Community] Found existing room:', convId);
+    } else {
+      // 4. Only create if truly none exists
+      const { data: newConv, error: createError } = await supabase
+        .from('conversations')
+        .insert({ type: 'group', landlord_id: targetLandlordBlockId })
+        .select()
+        .single();
+
+      if (createError || !newConv) {
+        console.error('[Community] Failed to create group conversation:', createError);
+        setInitLoading(false);
+        return;
+      }
+      convId = newConv.id;
+      console.log('[Community] Created new room:', convId);
+    }
+
+    // 5. Ensure this user is a participant
+    const { data: participation } = await supabase
+      .from('conversation_participants')
+      .select('id')
+      .eq('conversation_id', convId)
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (!participation) {
+      await supabase
+        .from('conversation_participants')
+        .insert({ conversation_id: convId, user_id: userId });
+    }
+
+    setCommunityConvId(convId);
+
+  } catch (err) {
+    console.error('[Community] Unexpected error:', err);
+  } finally {
+    setInitLoading(false);
   }
+};
 
   const fetchAnnouncements = async () => {
-    const { data } = await supabase
-      .from('policies').select('*').eq('category', 'announcement')
-      .order('created_at', { ascending: false })
-    setAnnouncements(data || [])
-  }
+    try {
+      const response = await fetch("/api/community/announcements");
+      const result = await response.json();
+      if (!response.ok) {
+        console.error("Failed to fetch announcements", result.error);
+        setAnnouncements([]);
+        return;
+      }
+      setAnnouncements(result.announcements || []);
+    } catch (err) {
+      console.error("Failed to fetch announcements", err);
+      setAnnouncements([]);
+    }
+  };
 
   const handleSend = async () => {
-    if (!newMessage.trim()) return
-    const content = newMessage
-    const replyId = replyingTo?.id
-    setNewMessage('')
-    setReplyingTo(null)
-    inputRef.current?.focus()
-    await sendMessage(content, replyId)
-  }
+    if (!newMessage.trim()) return;
+    const content = newMessage;
+    const replyId = replyingTo?.id;
+    setNewMessage("");
+    setReplyingTo(null);
+    inputRef.current?.focus();
+    await sendMessage(content, replyId);
+  };
 
   const handlePostAnnouncement = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setIsSubmitting(true)
-    await supabase.from('policies').insert({
-      title: annTitle, content: annContent,
-      category: 'announcement', created_by: user!.id,
-    })
-    setAnnTitle('')
-    setAnnContent('')
-    setIsSubmitting(false)
-    setShowPostForm(false)
-    fetchAnnouncements()
-  }
+    e.preventDefault();
+    setIsSubmitting(true);
+    try {
+      const response = await fetch("/api/community/announcements", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: annTitle, content: annContent }),
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        console.error("Failed to create announcement", result.error);
+      }
+    } catch (err) {
+      console.error("Failed to create announcement", err);
+    }
+    setAnnTitle("");
+    setAnnContent("");
+    setIsSubmitting(false);
+    setShowPostForm(false);
+    fetchAnnouncements();
+  };
 
   const formatDate = (dateStr: string) =>
     new Date(dateStr).toLocaleDateString(undefined, {
-      day: 'numeric', month: 'short', year: 'numeric', timeZone: TZ,
-    })
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+      timeZone: TZ,
+    });
 
   if (initLoading) {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="animate-spin rounded-full h-7 w-7 border-2 border-accent border-t-transparent" />
       </div>
-    )
+    );
   }
-
   return (
     <div className="flex flex-col h-full overflow-hidden bg-background">
-
       {/* ── Tabs ─────────────────────────────────────── */}
       <div className="flex border-b border-border bg-card shrink-0">
         {[
-          { id: 'chat',          label: 'Group Chat',     icon: MessageSquare },
-          { id: 'announcements', label: 'Announcements',  icon: Megaphone     },
-        ].map(tab => {
-          const Icon = tab.icon
-          const isActive = activeTab === tab.id
+          { id: "chat", label: "Group Chat", icon: MessageSquare },
+          { id: "announcements", label: "Announcements", icon: Megaphone },
+        ].map((tab) => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.id;
           return (
             <button
               key={tab.id}
@@ -166,7 +372,7 @@ export default function CommunityPage({ user }: CommunityPageProps) {
               className={`
                 flex-1 py-3.5 px-4 flex items-center justify-center gap-2
                 text-sm font-medium transition-all relative
-                ${isActive ? 'text-accent' : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'}
+                ${isActive ? "text-accent" : "text-muted-foreground hover:text-foreground hover:bg-secondary/50"}
               `}
             >
               <Icon className="w-4 h-4 shrink-0" />
@@ -175,12 +381,12 @@ export default function CommunityPage({ user }: CommunityPageProps) {
                 <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-accent rounded-full" />
               )}
             </button>
-          )
+          );
         })}
       </div>
 
       {/* ── Group Chat ───────────────────────────────── */}
-      {activeTab === 'chat' && (
+      {activeTab === "chat" && (
         <div className="flex flex-col flex-1 overflow-hidden">
           {/* Chat subheader */}
           <div className="px-5 py-3 border-b border-border bg-card shrink-0 flex items-center gap-3">
@@ -188,10 +394,18 @@ export default function CommunityPage({ user }: CommunityPageProps) {
               <Users className="w-4 h-4 text-accent" />
             </div>
             <div>
-              <p className="font-semibold text-foreground text-sm">LEA Community Chat</p>
-              <p className="text-xs text-muted-foreground">
-                {messages.length} message{messages.length !== 1 ? 's' : ''} · All residents
+              <p className="font-semibold text-foreground text-sm">
+                LEA Community Chat
               </p>
+              <p className="text-xs text-muted-foreground">
+                {messages.length} message{messages.length !== 1 ? "s" : ""} ·
+                All residents
+              </p>
+              {/* {blockId && (
+                <p className="text-[10px] text-muted-foreground/60 mt-0.5">
+                  Landlord ID: {blockId.slice(0, 8)}...
+                </p>
+              )} */}
             </div>
           </div>
 
@@ -200,9 +414,9 @@ export default function CommunityPage({ user }: CommunityPageProps) {
             className="flex-1 overflow-y-auto px-4 sm:px-6 py-5 space-y-3"
             style={{
               backgroundImage: `url('/images/best.jpg')`,
-              backgroundSize: 'cover',
-              backgroundPosition: 'center',
-              backgroundAttachment: 'local',
+              backgroundSize: "cover",
+              backgroundPosition: "center",
+              backgroundAttachment: "local",
             }}
           >
             {isLoading ? (
@@ -219,16 +433,16 @@ export default function CommunityPage({ user }: CommunityPageProps) {
                 </p>
               </div>
             ) : (
-              messages.map(msg => (
+              messages.map((msg) => (
                 <MessageBubble
                   key={msg.id}
                   message={msg}
                   isMe={msg.sender_id === user?.id}
-                  currentUserId={user?.id || ''}
-                  onReact={toggleReaction}
+                  currentUserId={user?.id || ""}
+                  onReact={reactToMessage}
                   onReply={setReplyingTo}
                   onEdit={editMessage}
-                  showAvatar={true}
+                  onDelete={handleDeleteMessage}
                 />
               ))
             )}
@@ -241,9 +455,11 @@ export default function CommunityPage({ user }: CommunityPageProps) {
               <div className="w-0.5 h-9 bg-accent rounded-full shrink-0" />
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-semibold text-accent">
-                  Replying to {replyingTo.profiles?.full_name || 'Unknown'}
+                  Replying to {replyingTo.profiles?.full_name || "Unknown"}
                 </p>
-                <p className="text-xs text-muted-foreground truncate mt-0.5">{replyingTo.content}</p>
+                <p className="text-xs text-muted-foreground truncate mt-0.5">
+                  {replyingTo.content}
+                </p>
               </div>
               <button
                 onClick={() => setReplyingTo(null)}
@@ -262,9 +478,9 @@ export default function CommunityPage({ user }: CommunityPageProps) {
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault()
-                  handleSend()
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSend();
                 }
               }}
               className="flex-1 bg-secondary border-border text-foreground h-11 text-sm rounded-xl"
@@ -281,19 +497,21 @@ export default function CommunityPage({ user }: CommunityPageProps) {
       )}
 
       {/* ── Announcements ────────────────────────────── */}
-      {activeTab === 'announcements' && (
+      {activeTab === "announcements" && (
         <div className="flex-1 overflow-y-auto bg-background">
           <div className="p-5 sm:p-8 space-y-4 max-w-2xl mx-auto">
-
             {/* Header */}
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="font-bold text-foreground text-lg">Announcements</h3>
+                <h3 className="font-bold text-foreground text-lg">
+                  Announcements
+                </h3>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  {announcements.length} announcement{announcements.length !== 1 ? 's' : ''}
+                  {announcements.length} announcement
+                  {announcements.length !== 1 ? "s" : ""}
                 </p>
               </div>
-              {role === 'landlord' && (
+              {role === "landlord" && (
                 <Button
                   onClick={() => setShowPostForm(!showPostForm)}
                   className="bg-accent hover:bg-accent/90 text-white gap-2 rounded-xl shadow-md shadow-accent/20"
@@ -305,14 +523,16 @@ export default function CommunityPage({ user }: CommunityPageProps) {
             </div>
 
             {/* Post form — landlord only */}
-            {role === 'landlord' && showPostForm && (
+            {role === "landlord" && showPostForm && (
               <div className="bg-card border border-border rounded-2xl p-5 shadow-sm">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
                     <div className="w-8 h-8 rounded-xl bg-accent/10 flex items-center justify-center">
                       <Megaphone className="w-4 h-4 text-accent" />
                     </div>
-                    <h4 className="font-semibold text-foreground">New Announcement</h4>
+                    <h4 className="font-semibold text-foreground">
+                      New Announcement
+                    </h4>
                   </div>
                   <button
                     onClick={() => setShowPostForm(false)}
@@ -338,11 +558,20 @@ export default function CommunityPage({ user }: CommunityPageProps) {
                     className="w-full rounded-xl border border-border bg-secondary text-foreground placeholder:text-muted-foreground p-3 text-sm focus:outline-none focus:ring-2 focus:ring-accent/40 resize-none"
                   />
                   <div className="flex gap-2">
-                    <Button type="button" variant="outline" onClick={() => setShowPostForm(false)} className="flex-1 rounded-xl border-border">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setShowPostForm(false)}
+                      className="flex-1 rounded-xl border-border"
+                    >
                       Cancel
                     </Button>
-                    <Button type="submit" disabled={isSubmitting} className="flex-1 bg-accent hover:bg-accent/90 text-white rounded-xl shadow-sm shadow-accent/20">
-                      {isSubmitting ? 'Posting...' : 'Post Announcement'}
+                    <Button
+                      type="submit"
+                      disabled={isSubmitting}
+                      className="flex-1 bg-accent hover:bg-accent/90 text-white rounded-xl shadow-sm shadow-accent/20"
+                    >
+                      {isSubmitting ? "Posting..." : "Post Announcement"}
                     </Button>
                   </div>
                 </form>
@@ -355,28 +584,41 @@ export default function CommunityPage({ user }: CommunityPageProps) {
                 <div className="w-16 h-16 rounded-2xl bg-secondary flex items-center justify-center mx-auto mb-4">
                   <Megaphone className="w-8 h-8 text-muted-foreground/30" />
                 </div>
-                <p className="font-semibold text-foreground">No announcements yet</p>
+                <p className="font-semibold text-foreground">
+                  No announcements yet
+                </p>
                 <p className="text-sm text-muted-foreground mt-1">
-                  {role === 'landlord' ? 'Tap "Post" to create one' : 'Check back later for updates'}
+                  {role === "landlord"
+                    ? 'Tap "Post" to create one'
+                    : "Check back later for updates"}
                 </p>
               </div>
             ) : (
               <div className="space-y-3">
                 {announcements.map((ann, index) => {
-                  const isExpanded = expandedAnn === ann.id
+                  const isExpanded = expandedAnn === ann.id;
                   return (
-                    <div key={ann.id} className="bg-card border border-border rounded-2xl overflow-hidden hover:shadow-sm transition-shadow">
+                    <div
+                      key={ann.id}
+                      className="bg-card border border-border rounded-2xl overflow-hidden hover:shadow-sm transition-shadow"
+                    >
                       {/* Announcement header — always visible, clickable */}
                       <div
                         className="p-5 cursor-pointer"
-                        onClick={() => setExpandedAnn(isExpanded ? null : ann.id)}
+                        onClick={() =>
+                          setExpandedAnn(isExpanded ? null : ann.id)
+                        }
                       >
                         <div className="flex items-start gap-3">
-                          <div className={`
+                          <div
+                            className={`
                             w-9 h-9 rounded-xl flex items-center justify-center shrink-0 mt-0.5
-                            ${index === 0 ? 'bg-accent/10' : 'bg-secondary'}
-                          `}>
-                            <Megaphone className={`w-4 h-4 ${index === 0 ? 'text-accent' : 'text-muted-foreground'}`} />
+                            ${index === 0 ? "bg-accent/10" : "bg-secondary"}
+                          `}
+                          >
+                            <Megaphone
+                              className={`w-4 h-4 ${index === 0 ? "text-accent" : "text-muted-foreground"}`}
+                            />
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-start justify-between gap-2">
@@ -389,10 +631,11 @@ export default function CommunityPage({ user }: CommunityPageProps) {
                                     NEW
                                   </span>
                                 )}
-                                {isExpanded
-                                  ? <ChevronUp className="w-4 h-4 text-muted-foreground" />
-                                  : <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                                }
+                                {isExpanded ? (
+                                  <ChevronUp className="w-4 h-4 text-muted-foreground" />
+                                ) : (
+                                  <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                                )}
                               </div>
                             </div>
                             <p className="text-xs text-muted-foreground mt-1">
@@ -426,10 +669,16 @@ export default function CommunityPage({ user }: CommunityPageProps) {
                             <div className="flex gap-2">
                               <Input
                                 placeholder="Write a comment..."
-                                value={newComment[ann.id] || ''}
-                                onChange={(e) => setNewComment(prev => ({ ...prev, [ann.id]: e.target.value }))}
+                                value={newComment[ann.id] || ""}
+                                onChange={(e) =>
+                                  setNewComment((prev) => ({
+                                    ...prev,
+                                    [ann.id]: e.target.value,
+                                  }))
+                                }
                                 onKeyDown={(e) => {
-                                  if (e.key === 'Enter' && !e.shiftKey) e.preventDefault()
+                                  if (e.key === "Enter" && !e.shiftKey)
+                                    e.preventDefault();
                                 }}
                                 className="flex-1 bg-card border-border text-foreground text-sm h-10 rounded-xl"
                               />
@@ -444,13 +693,43 @@ export default function CommunityPage({ user }: CommunityPageProps) {
                         </div>
                       )}
                     </div>
-                  )
+                  );
                 })}
               </div>
             )}
           </div>
         </div>
       )}
+
+      {/* Delete confirmation modal */}
+      {deleteConfirm.show && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-card rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+            <h3 className="text-lg font-bold text-foreground mb-2">
+              Delete Message
+            </h3>
+            <p className="text-sm text-muted-foreground mb-6">
+              Are you sure you want to delete this message? This action cannot
+              be undone.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <Button
+                onClick={cancelDelete}
+                variant="outline"
+                className="rounded-xl"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={confirmDelete}
+                className="bg-red-500 hover:bg-red-600 text-white rounded-xl"
+              >
+                Delete
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
-  )
+  );
 }

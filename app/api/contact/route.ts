@@ -1,12 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createClient } from '@/lib/supabase/server'
 import { sendContactConfirmationSMS, sendContactNotificationSMS, validatePhoneNumber, formatPhoneNumber } from '@/lib/sms'
 
-// Initialize Supabase client
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
+// We'll use a request-scoped server client inside the handler
 
 interface ContactFormData {
   firstName: string
@@ -61,6 +57,8 @@ export async function POST(request: NextRequest) {
                      request.headers.get('x-real-ip') || 
                      'unknown'
     const userAgent = request.headers.get('user-agent') || 'unknown'
+
+    const supabase = await createClient()
 
     // Create contact submission record
     const { data, error } = await supabase

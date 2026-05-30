@@ -50,6 +50,8 @@ export async function POST(req: NextRequest) {
     // ── PayHero STK Push ──────────────────────────────
     console.log(`[PayHero STK] Sending KES ${amount} to ${formattedPhone}`)
 
+    const targetChannelId = body.channelId || CHANNEL_ID
+
     const response = await fetch(`${PAYHERO_API}/payments`, {
       method: 'POST',
       headers: {
@@ -59,7 +61,7 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify({
         amount: Number(amount),
         phone_number: formattedPhone,
-        channel_id: CHANNEL_ID,
+        channel_id: targetChannelId,
         provider: 'm-pesa',
         network_code: '63902',  // Safaricom M-Pesa — do not change
         external_reference: `${paymentType.toUpperCase()}-${tenantId}-${month}`,
@@ -77,9 +79,18 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // ── Save pending payment to track it ─────────────
-    const { data: landlord } = await supabase
-      .from('profiles').select('id').eq('role', 'landlord').limit(1).single()
+    // ── Determine landlord for this tenant if available ─────────
+    let landlordId: string | null = null
+    if (tenantId) {
+      const { data: existingPayment } = await supabase
+        .from('payments')
+        .select('landlord_id')
+        .eq('tenant_id', tenantId)
+        .neq('landlord_id', null)
+        .limit(1)
+        .maybeSingle()
+      landlordId = existingPayment?.landlord_id || null
+    }
 
     // Build payment notes with enhanced details
     let paymentNotes = `STK sent — ref: ${data.reference || data.id || 'pending'}`
@@ -101,7 +112,7 @@ export async function POST(req: NextRequest) {
 
     await supabase.from('payments').insert({
       tenant_id: tenantId,
-      landlord_id: landlord?.id || null,
+      landlord_id: landlordId,
       amount: Number(amount),
       phone_number: formattedPhone,
       mpesa_code: null,               // filled in when callback arrives

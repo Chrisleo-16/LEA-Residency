@@ -36,15 +36,31 @@ export default function ChatArea({ user }: ChatAreaProps) {
   const [showTenantList, setShowTenantList] = useState(false)
   const [replyingTo, setReplyingTo] = useState<Message | null>(null)
   const [tenantSearch, setTenantSearch] = useState('')
+  const [deleteConfirm, setDeleteConfirm] = useState<{ show: boolean; messageId: string }>({ show: false, messageId: '' })
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   const {
     messages, isLoading, sendMessage, editMessage, toggleReaction,
-    markAsSeen, sendTyping, typingUsers, onlineUsers,
+    markAsSeen, sendTyping, typingUsers, onlineUsers,deleteMessage
   } = useChat(conversationId, user)
 
   const isOtherPersonOnline = onlineUsers.some(u => u.userId === otherPersonId)
+
+  const handleDeleteMessage = (messageId: string) => {
+    setDeleteConfirm({ show: true, messageId })
+  }
+
+  const confirmDelete = () => {
+    if (deleteConfirm.messageId) {
+      deleteMessage(deleteConfirm.messageId)
+    }
+    setDeleteConfirm({ show: false, messageId: '' })
+  }
+
+  const cancelDelete = () => {
+    setDeleteConfirm({ show: false, messageId: '' })
+  }
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -60,25 +76,71 @@ export default function ChatArea({ user }: ChatAreaProps) {
 
   const fetchTenantConversations = useCallback(async () => {
     if (!user) return
+
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('role, landlord_block_id')
+      .eq('id', user.id)
+      .single()
+
+    if (profileError || profile?.role !== 'landlord') {
+      setTenantConversations([])
+      return
+    }
+
+    const { data: slotRows } = await supabase
+      .from('tenant_slots')
+      .select('tenant_id')
+      .eq('landlord_block_id', profile.landlord_block_id)
+      .not('tenant_id', 'is', null)
+
+    const tenantIds = (slotRows || [])
+      .map((slot: any) => slot.tenant_id)
+      .filter(Boolean)
+
+    if (!tenantIds.length) {
+      setTenantConversations([])
+      return
+    }
+
     const { data: allTenants } = await supabase
-      .from('profiles').select('id, full_name, avatar_url').eq('role', 'tenant')
-    if (!allTenants?.length) return
+      .from('profiles')
+      .select('id, full_name, avatar_url')
+      .in('id', tenantIds)
+      .eq('role', 'tenant')
+
+    if (!allTenants?.length) {
+      setTenantConversations([])
+      return
+    }
 
     const { data: myParticipations } = await supabase
-      .from('conversation_participants').select('conversation_id').eq('user_id', user.id)
-    const myConvIds = myParticipations?.map(p => p.conversation_id) || []
+      .from('conversation_participants')
+      .select('conversation_id')
+      .eq('user_id', user.id)
+    const myConvIds = myParticipations?.map((p: any) => p.conversation_id) || []
 
-    const { data: otherParticipants } = myConvIds.length
+    const { data: directConversations } = myConvIds.length
+      ? await supabase
+          .from('conversations')
+          .select('id')
+          .in('id', myConvIds)
+          .eq('type', 'direct')
+      : { data: [] }
+
+    const directConvIds = (directConversations || []).map((c: any) => c.id)
+
+    const { data: otherParticipants } = directConvIds.length
       ? await supabase
           .from('conversation_participants')
           .select('conversation_id, user_id')
-          .in('conversation_id', myConvIds)
+          .in('conversation_id', directConvIds)
           .neq('user_id', user.id)
       : { data: [] }
 
     const result: TenantConversation[] = await Promise.all(
       allTenants.map(async (tenant) => {
-        const existingConv = otherParticipants?.find(p => p.user_id === tenant.id)
+        const existingConv = otherParticipants?.find((p: any) => p.user_id === tenant.id)
         const convId = existingConv?.conversation_id || ''
         let lastMessage = 'No messages yet'
         let lastMessageTime = ''
@@ -86,22 +148,33 @@ export default function ChatArea({ user }: ChatAreaProps) {
 
         if (convId) {
           const { data: lastMsg } = await supabase
-            .from('messages').select('content, created_at')
+            .from('messages')
+            .select('content, created_at')
             .eq('conversation_id', convId)
-            .order('created_at', { ascending: false }).limit(1).maybeSingle()
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle()
           lastMessage = lastMsg?.content || 'No messages yet'
           lastMessageTime = lastMsg?.created_at || ''
 
           const { data: readIds } = await supabase
-            .from('message_reads').select('message_id').eq('user_id', user.id)
-          const readMessageIds = readIds?.map(r => r.message_id) || []
+            .from('message_reads')
+            .select('message_id')
+            .eq('user_id', user.id)
+          const readMessageIds = readIds?.map((r: any) => r.message_id) || []
 
           const { count } = await supabase
-            .from('messages').select('*', { count: 'exact', head: true })
-            .eq('conversation_id', convId).neq('sender_id', user.id)
-            .not('id', 'in', readMessageIds.length
-              ? `(${readMessageIds.join(',')})`
-              : '(00000000-0000-0000-0000-000000000000)')
+            .from('messages')
+            .select('*', { count: 'exact', head: true })
+            .eq('conversation_id', convId)
+            .neq('sender_id', user.id)
+            .not(
+              'id',
+              'in',
+              readMessageIds.length
+                ? `(${readMessageIds.join(',')})`
+                : '(00000000-0000-0000-0000-000000000000)'
+            )
           unreadCount = count || 0
         }
 
@@ -128,6 +201,31 @@ export default function ChatArea({ user }: ChatAreaProps) {
 
   const getOrCreateConversation = useCallback(async (userId: string, otherId: string): Promise<string | null> => {
     try {
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('role, landlord_block_id')
+        .eq('id', userId)
+        .single()
+
+      if (profileError) {
+        console.error('Error fetching profile for conversation security:', profileError)
+        return null
+      }
+
+      if (profileData?.role === 'landlord') {
+        const { data: slot } = await supabase
+          .from('tenant_slots')
+          .select('tenant_id')
+          .eq('tenant_id', otherId)
+          .eq('landlord_block_id', profileData.landlord_block_id)
+          .maybeSingle()
+
+        if (!slot) {
+          console.warn('Attempted conversation with tenant outside landlord block')
+          return null
+        }
+      }
+
       // Check if conversation already exists
       const { data: myParts, error: myPartsError } = await supabase
         .from('conversation_participants').select('conversation_id').eq('user_id', userId)
@@ -181,6 +279,46 @@ export default function ChatArea({ user }: ChatAreaProps) {
     return null
   }, [])
 
+  const fetchTenantConversation = useCallback(async () => {
+    if (!user) return null
+
+    const { data: myParts, error: myPartsError } = await supabase
+      .from('conversation_participants')
+      .select('conversation_id')
+      .eq('user_id', user.id)
+
+    if (myPartsError || !myParts?.length) return null
+
+    const convoIds = myParts.map((p) => p.conversation_id)
+    const { data: otherParts, error: otherPartsError } = await supabase
+      .from('conversation_participants')
+      .select('conversation_id, user_id')
+      .in('conversation_id', convoIds)
+      .neq('user_id', user.id)
+
+    if (otherPartsError || !otherParts?.length) return null
+
+    const otherUserIds = Array.from(new Set(otherParts.map((p) => p.user_id)))
+    const { data: otherProfiles } = await supabase
+      .from('profiles')
+      .select('id, full_name, avatar_url, role')
+      .in('id', otherUserIds)
+
+    if (!otherProfiles?.length) return null
+
+    const landlordProfile = otherProfiles.find((p) => p.role === 'landlord') || otherProfiles[0]
+    if (!landlordProfile) return null
+
+    const conversation = otherParts.find((p) => p.user_id === landlordProfile.id)
+
+    return {
+      conversationId: conversation?.conversation_id || null,
+      otherPersonId: landlordProfile.id,
+      otherPersonName: landlordProfile.full_name || 'Landlord',
+      otherPersonAvatar: landlordProfile.avatar_url || null,
+    }
+  }, [user])
+
   useEffect(() => {
     if (!user) return
     const init = async () => {
@@ -193,23 +331,21 @@ export default function ChatArea({ user }: ChatAreaProps) {
       setUserRole(role)
 
       if (role === 'tenant') {
-        const { data: landlord } = await supabase
-          .from('profiles').select('id, full_name, avatar_url')
-          .eq('role', 'landlord').limit(1).maybeSingle()
-        if (!landlord) { setInitLoading(false); return }
-        setOtherPersonName(landlord.full_name || 'Landlord')
-        setOtherPersonAvatar(landlord.avatar_url || null)
-        setOtherPersonRole('Landlord')
-        setOtherPersonId(landlord.id)
-        const convId = await getOrCreateConversation(user.id, landlord.id)
-        setConversationId(convId)
+        const tenantConversation = await fetchTenantConversation()
+        if (tenantConversation) {
+          setOtherPersonName(tenantConversation.otherPersonName)
+          setOtherPersonAvatar(tenantConversation.otherPersonAvatar)
+          setOtherPersonRole('Landlord')
+          setOtherPersonId(tenantConversation.otherPersonId)
+          setConversationId(tenantConversation.conversationId)
+        }
       } else if (role === 'landlord') {
         await fetchTenantConversations()
       }
       setInitLoading(false)
     }
     init()
-  }, [user, fetchTenantConversations, getOrCreateConversation])
+  }, [user, fetchTenantConversations, fetchTenantConversation, getOrCreateConversation])
 
   useEffect(() => {
     if (userRole !== 'landlord' || !user) return
@@ -527,6 +663,7 @@ const formatTime = (dateStr: string) => {
                     onReact={toggleReaction}
                     onReply={setReplyingTo}
                     onEdit={editMessage}
+                    onDelete={handleDeleteMessage}
                     showAvatar={false}
                   />
                 ))
@@ -595,6 +732,33 @@ const formatTime = (dateStr: string) => {
           </>
         )}
       </div>
+
+      {/* Delete confirmation modal */}
+      {deleteConfirm.show && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-card rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+            <h3 className="text-lg font-bold text-foreground mb-2">Delete Message</h3>
+            <p className="text-sm text-muted-foreground mb-6">
+              Are you sure you want to delete this message? This action cannot be undone.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <Button
+                onClick={cancelDelete}
+                variant="outline"
+                className="rounded-xl"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={confirmDelete}
+                className="bg-red-500 hover:bg-red-600 text-white rounded-xl"
+              >
+                Delete
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

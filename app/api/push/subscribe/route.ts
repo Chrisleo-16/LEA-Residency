@@ -1,11 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-
-// Initialize Supabase client with service role key for backend operations
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
+import { createClient } from '@/lib/supabase/server'
 
 // TypeScript type for push subscription from browser
 interface PushSubscription {
@@ -37,34 +31,21 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Get the authorization header to identify the user
-    const authHeader = request.headers.get('Authorization')
-    if (!authHeader) {
-      return NextResponse.json(
-        { error: 'Unauthorized - no auth header' },
-        { status: 401 }
-      )
+    const supabase = await createClient()
+    let userId: string | null = null
+    const { data: authData, error: authError } = await supabase.auth.getUser()
+    if (authData?.user) {
+      userId = authData.user.id
+    } else {
+      // Fallback: support Bearer token
+      const authHeader = request.headers.get('Authorization')
+      if (!authHeader) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      const token = authHeader.split(' ')[1]
+      if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      const { data, error: bearerError } = await supabase.auth.getUser(token)
+      if (bearerError || !data?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      userId = data.user.id
     }
-
-    // Extract token from "Bearer {token}"
-    const token = authHeader.split(' ')[1]
-    if (!token) {
-      return NextResponse.json(
-        { error: 'Unauthorized - invalid token format' },
-        { status: 401 }
-      )
-    }
-
-    // Verify the JWT token and get user
-    const { data, error: authError } = await supabase.auth.getUser(token)
-    if (authError || !data.user) {
-      return NextResponse.json(
-        { error: 'Unauthorized - invalid token' },
-        { status: 401 }
-      )
-    }
-
-    const userId = data.user.id
     const userAgent = request.headers.get('user-agent') || 'unknown'
     const ipAddress = request.headers.get('x-forwarded-for') || 'unknown'
 

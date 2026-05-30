@@ -141,16 +141,59 @@ export function useChat(conversationId: string | null, currentUser: User | null)
       isTypingRef.current = false
     }
 
-    const { data: newMsg, error } = await supabase
+    // Get the conversation's landlord_id to ensure proper isolation
+    let landlordId = null
+    try {
+      const { data: conversation } = await supabase
+        .from('conversations')
+        .select('landlord_id')
+        .eq('id', conversationId)
+        .single()
+      landlordId = conversation?.landlord_id
+    } catch (err) {
+      // landlord_id column might not exist yet (migration not run)
+      console.warn('[Chat] landlord_id column not found in conversations')
+    }
+
+    const insertData: any = {
+      conversation_id: conversationId,
+      sender_id: currentUser.id,
+      content: content.trim(),
+      reply_to_id: replyToId || null,
+    }
+
+    // Only add landlord_id if the column exists (after migration)
+    if (landlordId) {
+      insertData.landlord_id = landlordId
+    }
+
+    let { data: newMsg, error } = await supabase
       .from('messages')
-      .insert({
-        conversation_id: conversationId,
-        sender_id: currentUser.id,
-        content: content.trim(),
-        reply_to_id: replyToId || null,
-      })
+      .insert(insertData)
       .select('*, profiles(id, full_name, avatar_url)')
       .single()
+
+    // If RLS policy prevents insert (migration not run), try without landlord_id
+    if (error && error.message?.includes('row-level security')) {
+      console.warn('[Chat] RLS policy violation, trying without landlord_id')
+      const { data: fallbackMsg, error: fallbackError } = await supabase
+        .from('messages')
+        .insert({
+          conversation_id: conversationId,
+          sender_id: currentUser.id,
+          content: content.trim(),
+          reply_to_id: replyToId || null,
+        })
+        .select('*, profiles(id, full_name, avatar_url)')
+        .single()
+
+      if (fallbackError) {
+        console.error('Send error:', fallbackError.message)
+        return
+      }
+      newMsg = fallbackMsg
+      error = null
+    }
 
     if (error) { console.error('Send error:', error.message); return }
 
@@ -308,7 +351,21 @@ export function useChat(conversationId: string | null, currentUser: User | null)
       )
     )
   }
+  const deleteMessage = async (messageId: string) => {
+    // 1. Snappy optimistic UI update - remove it instantly locally
+    setMessages((prev) => prev.filter((msg) => msg.id !== messageId));
 
+    // 2. Clear it out from the Supabase database
+    const { error } = await supabase
+      .from('messages')
+      .delete()
+      .eq('id', messageId);
+
+    if (error) {
+      console.error("Failed to delete message from database:", error);
+      // Optional: re-fetch messages here if you want to roll back on database error
+    }
+  };
   // Presence channel
   useEffect(() => {
     if (!conversationId || !currentUser) return
@@ -517,5 +574,7 @@ export function useChat(conversationId: string | null, currentUser: User | null)
     sendTyping,
     typingUsers,
     onlineUsers,
+    setMessages,
+    deleteMessage
   }
 }

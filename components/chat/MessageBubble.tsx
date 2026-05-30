@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { Message } from '@/hooks/useChat'
-import { Reply, Pencil, Check, X, SmilePlus } from 'lucide-react'
+import { Reply, Pencil, Trash2, Check, X, SmilePlus } from 'lucide-react' // <-- Added Trash2
 
 const ALL_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🔥']
 const TZ = 'Africa/Nairobi'
@@ -14,11 +14,12 @@ interface MessageBubbleProps {
   onReact: (messageId: string, emoji: string) => void
   onReply: (message: Message) => void
   onEdit: (messageId: string, newContent: string) => void
+  onDelete: (messageId: string) => void // <-- Added onDelete prop
   showAvatar?: boolean
 }
 
 export default function MessageBubble({
-  message, isMe, currentUserId, onReact, onReply, onEdit, showAvatar = true,
+  message, isMe, currentUserId, onReact, onReply, onEdit, onDelete, showAvatar = true,
 }: MessageBubbleProps) {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const [hoveredReaction, setHoveredReaction] = useState<string | null>(null)
@@ -45,22 +46,15 @@ export default function MessageBubble({
   const readsExcludingMe = message.reads.filter(r => r.user_id !== currentUserId)
   const seenCount = readsExcludingMe.length
 
-  /// ✅ Force UTC parsing — append 'Z' if missing so JS treats it as UTC
-const toUTC = (dateStr: string) => {
-  if (!dateStr) return new Date()
-  // Supabase returns "2024-01-15T10:30:00" without Z — force UTC
-  return new Date(dateStr.endsWith('Z') ? dateStr : dateStr + 'Z')
-}
+  const toUTC = (dateStr: string) => {
+    if (!dateStr) return new Date()
+    return new Date(dateStr.endsWith('Z') ? dateStr : dateStr + 'Z')
+  }
 
-const formatTime = (dateStr: string) =>
-  toUTC(dateStr).toLocaleTimeString([], {
-    hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nairobi',
-  })
-
-const formatDate = (dateStr: string) =>
-  toUTC(dateStr).toLocaleDateString(undefined, {
-    day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Africa/Nairobi',
-  })
+  const formatTime = (dateStr: string) =>
+    toUTC(dateStr).toLocaleTimeString([], {
+      hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nairobi',
+    })
 
   const handleEditSave = () => {
     if (editContent.trim() && editContent !== message.content)
@@ -71,6 +65,13 @@ const formatDate = (dateStr: string) =>
   const handleEditCancel = () => {
     setEditContent(message.content)
     setIsEditing(false)
+  }
+
+  // <-- Added Confirm Delete Handler
+  const handleDelete = () => {
+    if (window.confirm('Are you sure you want to delete this message?')) {
+      onDelete(message.id)
+    }
   }
 
   return (
@@ -114,68 +115,78 @@ const formatDate = (dateStr: string) =>
         {/* Bubble row */}
         <div className={`relative flex items-end gap-1.5 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
 
-          {/* Hover action buttons */}
-          {/* Action buttons — always visible on mobile, hover on desktop */}
-<div className={`
-  flex items-center gap-0.5 mb-1.5
-  opacity-100 md:opacity-0 md:group-hover:opacity-100
-  transition-all duration-150
-  ${isMe ? 'flex-row-reverse' : 'flex-row'}
-`}>
-  {/* Reply */}
-  <button
-    onClick={() => onReply(message)}
-    className="w-7 h-7 rounded-full bg-card/90 backdrop-blur border border-border shadow-sm flex items-center justify-center hover:bg-accent/10 hover:border-accent/30 active:scale-95 transition-all"
-    title="Reply"
-  >
-    <Reply className="w-3 h-3 text-muted-foreground" />
-  </button>
+          {/* Action buttons */}
+          <div className={`
+            flex items-center gap-0.5 mb-1.5
+            opacity-100 md:opacity-0 md:group-hover:opacity-100
+            transition-all duration-150
+            ${isMe ? 'flex-row-reverse' : 'flex-row'}
+          `}>
+            
+            {/* Reply */}
+            <button
+              onClick={() => onReply(message)}
+              className="w-7 h-7 rounded-full bg-card/90 backdrop-blur border border-border shadow-sm flex items-center justify-center hover:bg-accent/10 hover:border-accent/30 active:scale-95 transition-all"
+              title="Reply"
+            >
+              <Reply className="w-3 h-3 text-muted-foreground" />
+            </button>
 
-  {/* Edit — own messages only */}
-  {isMe && (
-    <button
-      onClick={() => { setIsEditing(true); setEditContent(message.content) }}
-      className="w-7 h-7 rounded-full bg-card/90 backdrop-blur border border-border shadow-sm flex items-center justify-center hover:bg-accent/10 hover:border-accent/30 active:scale-95 transition-all"
-      title="Edit"
-    >
-      <Pencil className="w-3 h-3 text-muted-foreground" />
-    </button>
-  )}
+            {/* Edit & Delete — own messages only */}
+            {isMe && (
+              <>
+                <button
+                  onClick={() => { setIsEditing(true); setEditContent(message.content) }}
+                  className="w-7 h-7 rounded-full bg-card/90 backdrop-blur border border-border shadow-sm flex items-center justify-center hover:bg-accent/10 hover:border-accent/30 active:scale-95 transition-all"
+                  title="Edit"
+                >
+                  <Pencil className="w-3 h-3 text-muted-foreground" />
+                </button>
+                
+                {/* Delete Button */}
+                <button
+                  onClick={handleDelete}
+                  className="w-7 h-7 rounded-full bg-card/90 backdrop-blur border border-border shadow-sm flex items-center justify-center hover:bg-red-500/10 hover:border-red-500/30 active:scale-95 transition-all group/delete"
+                  title="Delete"
+                >
+                  <Trash2 className="w-3 h-3 text-muted-foreground group-hover/delete:text-red-500 transition-colors" />
+                </button>
+              </>
+            )}
 
-  {/* React */}
-  <div className="relative" ref={pickerRef}>
-    <button
-      onClick={() => setShowEmojiPicker(v => !v)}
-      className="w-7 h-7 rounded-full bg-card/90 backdrop-blur border border-border shadow-sm flex items-center justify-center hover:bg-accent/10 hover:border-accent/30 active:scale-95 transition-all"
-      title="React"
-    >
-      <SmilePlus className="w-3 h-3 text-muted-foreground" />
-    </button>
+            {/* React */}
+            <div className="relative" ref={pickerRef}>
+              <button
+                onClick={() => setShowEmojiPicker(v => !v)}
+                className="w-7 h-7 rounded-full bg-card/90 backdrop-blur border border-border shadow-sm flex items-center justify-center hover:bg-accent/10 hover:border-accent/30 active:scale-95 transition-all"
+                title="React"
+              >
+                <SmilePlus className="w-3 h-3 text-muted-foreground" />
+              </button>
 
-    {showEmojiPicker && (
-      <div className={`
-        absolute bottom-9 z-50 bg-card border border-border
-        rounded-2xl shadow-2xl p-2 flex gap-0.5
-        ${isMe ? 'right-0' : 'left-0'}
-      `}>
-        {ALL_EMOJIS.map(emoji => (
-          <button
-            key={emoji}
-            onClick={() => { onReact(message.id, emoji); setShowEmojiPicker(false) }}
-            className={`
-              text-lg p-1.5 rounded-xl transition-all
-              hover:scale-125 active:scale-95
-              ${message.reactions[emoji]?.reactedByMe ? 'bg-accent/15 ring-1 ring-accent' : 'hover:bg-secondary'}
-            `}
-          >
-            {emoji}
-          </button>
-        ))}
-      </div>
-    )}
-  </div>
-</div>
-
+              {showEmojiPicker && (
+                <div className={`
+                  absolute bottom-9 z-50 bg-card border border-border
+                  rounded-2xl shadow-2xl p-2 flex gap-0.5
+                  ${isMe ? 'right-0' : 'left-0'}
+                `}>
+                  {ALL_EMOJIS.map(emoji => (
+                    <button
+                      key={emoji}
+                      onClick={() => { onReact(message.id, emoji); setShowEmojiPicker(false) }}
+                      className={`
+                        text-lg p-1.5 rounded-xl transition-all
+                        hover:scale-125 active:scale-95
+                        ${message.reactions[emoji]?.reactedByMe ? 'bg-accent/15 ring-1 ring-accent' : 'hover:bg-secondary'}
+                      `}
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
 
           {/* Message bubble */}
           <div className={`
@@ -214,7 +225,6 @@ const formatDate = (dateStr: string) =>
                   edited
                 </span>
               )}
-              {/* ✅ Timezone fixed — Africa/Nairobi UTC+3 */}
               <p className={`text-[11px] ${isMe ? 'text-white/50' : 'text-muted-foreground'}`}>
                 {formatTime(message.created_at)}
               </p>
@@ -222,6 +232,8 @@ const formatDate = (dateStr: string) =>
           </div>
         </div>
 
+        {/* ... Rest of your component (Reactions & Seen by logic remains exactly the same) ... */}
+        
         {/* Reactions */}
         {reactions.length > 0 && (
           <div className={`flex flex-wrap gap-1 mt-1.5 px-1 ${isMe ? 'justify-end' : 'justify-start'}`}>
@@ -323,7 +335,6 @@ const formatDate = (dateStr: string) =>
                         <p className="text-xs font-medium text-foreground truncate max-w-[110px]">
                           {read.profiles?.full_name || 'Unknown'}
                         </p>
-                        {/* ✅ seen_at also in Africa/Nairobi */}
                         <p className="text-[10px] text-muted-foreground">
                           {formatTime(read.seen_at)}
                         </p>

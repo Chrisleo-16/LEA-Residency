@@ -1,12 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createClient } from '@/lib/supabase/server'
 import webpush from 'web-push'
 
 // Initialize Supabase client
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
+// We'll create a request-scoped server client inside handlers
 
 // Configure web-push with VAPID keys
 webpush.setVapidDetails(
@@ -36,30 +33,19 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Get authorization header to verify admin/landlord access
-    const authHeader = request.headers.get('Authorization')
-    if (!authHeader) {
-      return NextResponse.json(
-        { error: 'Unauthorized - no auth header' },
-        { status: 401 }
-      )
-    }
-
-    const token = authHeader.split(' ')[1]
-    if (!token) {
-      return NextResponse.json(
-        { error: 'Unauthorized - invalid token format' },
-        { status: 401 }
-      )
-    }
-
-    // Verify the JWT token
-    const { data, error: authError } = await supabase.auth.getUser(token)
-    if (authError || !data.user) {
-      return NextResponse.json(
-        { error: 'Unauthorized - invalid token' },
-        { status: 401 }
-      )
+    const supabase = await createClient()
+    let authUser = null
+    const { data: authData, error: authError } = await supabase.auth.getUser()
+    if (authData?.user) {
+      authUser = authData.user
+    } else {
+      const authHeader = request.headers.get('Authorization')
+      if (!authHeader) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      const token = authHeader.split(' ')[1]
+      if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      const { data, error: bearerError } = await supabase.auth.getUser(token)
+      if (bearerError || !data?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      authUser = data.user
     }
 
     // TODO: Add role check to ensure only landlords/admins can send notifications

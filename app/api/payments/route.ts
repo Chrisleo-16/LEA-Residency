@@ -4,6 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { createClient } from '@/lib/supabase/server'
 import { initializeDatabase, getDatabase } from '@/lib/database/client';
 import MpesaPaymentEngine from '@/lib/engines/mpesa_engine';
 import SMSDispatcher from '@/attalking_integration/sms_dispatcher/dispatcher';
@@ -45,6 +46,13 @@ function getSmsDispatcher(): SMSDispatcher {
  */
 export async function POST(request: NextRequest) {
   try {
+    const supabase = await createClient()
+    const { data: authData, error: authError } = await supabase.auth.getUser()
+    if (authError || !authData?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    const user = authData.user
+
     const body = await request.json();
     const {
       tenantId,
@@ -97,6 +105,18 @@ export async function POST(request: NextRequest) {
         { error: 'Lease not found' },
         { status: 404 }
       );
+    }
+
+    // Authorization: tenants may initiate for themselves; landlords only for their leases; admins allowed
+    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
+    if (profile?.role === 'tenant') {
+      if (user.id !== tenantId) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      }
+    } else if (profile?.role === 'landlord') {
+      if (lease.landlord_id !== user.id) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      }
     }
 
     // Generate payment ID
@@ -220,6 +240,13 @@ export async function confirmPayment(
  */
 export async function getPaymentStatus(request: NextRequest) {
   try {
+    const supabase = await createClient()
+    const { data: authData, error: authError } = await supabase.auth.getUser()
+    if (authError || !authData?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    const user = authData.user
+
     const { searchParams } = new URL(request.url);
     const paymentId = searchParams.get('paymentId');
 
@@ -242,6 +269,14 @@ export async function getPaymentStatus(request: NextRequest) {
         { error: 'Payment not found' },
         { status: 404 }
       );
+    }
+
+    // Ownership check: tenant or landlord or admin
+    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
+    if (profile?.role === 'tenant') {
+      if (payment.tenant_id !== user.id) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    } else if (profile?.role === 'landlord') {
+      if (payment.landlord_id !== user.id) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
     return NextResponse.json({
@@ -267,6 +302,17 @@ export async function getPaymentStatus(request: NextRequest) {
  */
 export async function retryPayment(request: NextRequest) {
   try {
+    const supabase = await createClient()
+    const { data: authData, error: authError } = await supabase.auth.getUser()
+    if (authError || !authData?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    const user = authData.user
+    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
+    if (profile?.role !== 'admin') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
     const queue = await getOfflineQueue();
     const results = await queue.syncQueue(async (item) => {
       if (item.transactionType !== 'payment') return;

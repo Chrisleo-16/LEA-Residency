@@ -1,576 +1,1267 @@
-/**
- * LEA Platform - TypeScript Type Definitions
- * Production-ready types for all entities
- */
+export type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json | undefined }
+  | Json[]
 
-// ============================================================================
-// ENUMS
-// ============================================================================
-
-export enum Country {
-  KENYA = 'KE',
-  NIGERIA = 'NG',
-  UGANDA = 'UG',
-  TANZANIA = 'TZ',
-  GHANA = 'GH'
+export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "14.4"
+  }
+  public: {
+    Tables: {
+      account_deletion_requests: {
+        Row: {
+          created_at: string | null
+          id: string
+          reason: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          reason?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "account_deletion_requests_reviewed_by_fkey"
+            columns: ["reviewed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "account_deletion_requests_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      blockchain_transactions: {
+        Row: {
+          block_hash: string
+          confirmations: number | null
+          confirmed: boolean | null
+          from_entity: string | null
+          id: string
+          timestamp: string | null
+          to_entity: string | null
+          transaction_data: Json
+          transaction_hash: string
+          transaction_type: string
+        }
+        Insert: {
+          block_hash: string
+          confirmations?: number | null
+          confirmed?: boolean | null
+          from_entity?: string | null
+          id?: string
+          timestamp?: string | null
+          to_entity?: string | null
+          transaction_data?: Json
+          transaction_hash: string
+          transaction_type: string
+        }
+        Update: {
+          block_hash?: string
+          confirmations?: number | null
+          confirmed?: boolean | null
+          from_entity?: string | null
+          id?: string
+          timestamp?: string | null
+          to_entity?: string | null
+          transaction_data?: Json
+          transaction_hash?: string
+          transaction_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "blockchain_transactions_block_hash_fkey"
+            columns: ["block_hash"]
+            isOneToOne: false
+            referencedRelation: "landlord_blocks"
+            referencedColumns: ["block_hash"]
+          },
+        ]
+      }
+      complaints: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          status: string | null
+          tenant_id: string | null
+          title: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          status?: string | null
+          tenant_id?: string | null
+          title?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          status?: string | null
+          tenant_id?: string | null
+          title?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "complaints_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contact_submissions: {
+        Row: {
+          agreed_to_terms: boolean
+          created_at: string | null
+          email: string
+          first_name: string
+          id: string
+          inquiry_type: string
+          ip_address: string | null
+          last_name: string
+          message: string
+          phone: string | null
+          preferred_contact: string
+          resolved_at: string | null
+          status: string
+          subject: string
+          updated_at: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          agreed_to_terms?: boolean
+          created_at?: string | null
+          email: string
+          first_name: string
+          id?: string
+          inquiry_type: string
+          ip_address?: string | null
+          last_name: string
+          message: string
+          phone?: string | null
+          preferred_contact?: string
+          resolved_at?: string | null
+          status?: string
+          subject: string
+          updated_at?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          agreed_to_terms?: boolean
+          created_at?: string | null
+          email?: string
+          first_name?: string
+          id?: string
+          inquiry_type?: string
+          ip_address?: string | null
+          last_name?: string
+          message?: string
+          phone?: string | null
+          preferred_contact?: string
+          resolved_at?: string | null
+          status?: string
+          subject?: string
+          updated_at?: string | null
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
+      conversation_participants: {
+        Row: {
+          conversation_id: string | null
+          id: string
+          user_id: string | null
+        }
+        Insert: {
+          conversation_id?: string | null
+          id?: string
+          user_id?: string | null
+        }
+        Update: {
+          conversation_id?: string | null
+          id?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversation_participants_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversation_participants_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      conversations: {
+        Row: {
+          created_at: string | null
+          id: string
+          type: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          type?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          type?: string | null
+        }
+        Relationships: []
+      }
+      landlord_blocks: {
+        Row: {
+          block_data: Json
+          block_hash: string
+          block_number: number
+          blockchain_signature: string | null
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          landlord_code: string
+          landlord_email: string
+          landlord_id: string
+          landlord_name: string
+          nonce: number | null
+          previous_block_hash: string | null
+          property_capacity: number
+          property_used: number
+        }
+        Insert: {
+          block_data?: Json
+          block_hash: string
+          block_number: number
+          blockchain_signature?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          landlord_code: string
+          landlord_email: string
+          landlord_id: string
+          landlord_name: string
+          nonce?: number | null
+          previous_block_hash?: string | null
+          property_capacity?: number
+          property_used?: number
+        }
+        Update: {
+          block_data?: Json
+          block_hash?: string
+          block_number?: number
+          blockchain_signature?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          landlord_code?: string
+          landlord_email?: string
+          landlord_id?: string
+          landlord_name?: string
+          nonce?: number | null
+          previous_block_hash?: string | null
+          property_capacity?: number
+          property_used?: number
+        }
+        Relationships: []
+      }
+      message_reactions: {
+        Row: {
+          created_at: string | null
+          emoji: string | null
+          id: string
+          message_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          emoji?: string | null
+          id?: string
+          message_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          emoji?: string | null
+          id?: string
+          message_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_reactions_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "message_reactions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      message_reads: {
+        Row: {
+          id: string
+          message_id: string | null
+          seen_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          id?: string
+          message_id?: string | null
+          seen_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          id?: string
+          message_id?: string | null
+          seen_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_reads_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "message_reads_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      messages: {
+        Row: {
+          content: string | null
+          conversation_id: string | null
+          created_at: string | null
+          edited_at: string | null
+          id: string
+          is_edited: boolean | null
+          read: boolean | null
+          reply_to_id: string | null
+          sender_id: string | null
+        }
+        Insert: {
+          content?: string | null
+          conversation_id?: string | null
+          created_at?: string | null
+          edited_at?: string | null
+          id?: string
+          is_edited?: boolean | null
+          read?: boolean | null
+          reply_to_id?: string | null
+          sender_id?: string | null
+        }
+        Update: {
+          content?: string | null
+          conversation_id?: string | null
+          created_at?: string | null
+          edited_at?: string | null
+          id?: string
+          is_edited?: boolean | null
+          read?: boolean | null
+          reply_to_id?: string | null
+          sender_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_reply_to_id_fkey"
+            columns: ["reply_to_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_sender_id_fkey"
+            columns: ["sender_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payments: {
+        Row: {
+          account_number: string | null
+          amount: number
+          created_at: string | null
+          id: string
+          landlord_id: string | null
+          logged_by: string | null
+          mpesa_code: string | null
+          notes: string | null
+          payment_date: string | null
+          payment_method: string | null
+          payment_month: string
+          phone_number: string | null
+          status: string | null
+          tenant_id: string | null
+        }
+        Insert: {
+          account_number?: string | null
+          amount: number
+          created_at?: string | null
+          id?: string
+          landlord_id?: string | null
+          logged_by?: string | null
+          mpesa_code?: string | null
+          notes?: string | null
+          payment_date?: string | null
+          payment_method?: string | null
+          payment_month: string
+          phone_number?: string | null
+          status?: string | null
+          tenant_id?: string | null
+        }
+        Update: {
+          account_number?: string | null
+          amount?: number
+          created_at?: string | null
+          id?: string
+          landlord_id?: string | null
+          logged_by?: string | null
+          mpesa_code?: string | null
+          notes?: string | null
+          payment_date?: string | null
+          payment_method?: string | null
+          payment_month?: string
+          phone_number?: string | null
+          status?: string | null
+          tenant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payments_landlord_id_fkey"
+            columns: ["landlord_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      photos: {
+        Row: {
+          category: string | null
+          description: string | null
+          file_name: string
+          file_size: number | null
+          file_url: string
+          id: string
+          is_public: boolean | null
+          mime_type: string | null
+          tags: string[] | null
+          title: string | null
+          updated_at: string | null
+          uploaded_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          category?: string | null
+          description?: string | null
+          file_name: string
+          file_size?: number | null
+          file_url: string
+          id?: string
+          is_public?: boolean | null
+          mime_type?: string | null
+          tags?: string[] | null
+          title?: string | null
+          updated_at?: string | null
+          uploaded_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          category?: string | null
+          description?: string | null
+          file_name?: string
+          file_size?: number | null
+          file_url?: string
+          id?: string
+          is_public?: boolean | null
+          mime_type?: string | null
+          tags?: string[] | null
+          title?: string | null
+          updated_at?: string | null
+          uploaded_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "photos_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      policies: {
+        Row: {
+          category: string | null
+          content: string | null
+          created_at: string | null
+          created_by: string | null
+          file_url: string | null
+          id: string
+          title: string | null
+        }
+        Insert: {
+          category?: string | null
+          content?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          file_url?: string | null
+          id?: string
+          title?: string | null
+        }
+        Update: {
+          category?: string | null
+          content?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          file_url?: string | null
+          id?: string
+          title?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "policies_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          blockchain_verified: boolean | null
+          created_at: string | null
+          email: string | null
+          full_name: string | null
+          id: string
+          kyc_verified: boolean | null
+          landlord_block_id: string | null
+          landlord_code: string | null
+          phone_number: string | null
+          property_setup_complete: boolean | null
+          role: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          blockchain_verified?: boolean | null
+          created_at?: string | null
+          email?: string | null
+          full_name?: string | null
+          id: string
+          kyc_verified?: boolean | null
+          landlord_block_id?: string | null
+          landlord_code?: string | null
+          phone_number?: string | null
+          property_setup_complete?: boolean | null
+          role?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          blockchain_verified?: boolean | null
+          created_at?: string | null
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          kyc_verified?: boolean | null
+          landlord_block_id?: string | null
+          landlord_code?: string | null
+          phone_number?: string | null
+          property_setup_complete?: boolean | null
+          role?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profiles_landlord_block_id_fkey"
+            columns: ["landlord_block_id"]
+            isOneToOne: false
+            referencedRelation: "landlord_blocks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      properties: {
+        Row: {
+          created_at: string | null
+          id: string
+          landlord_block_id: string
+          property_address: string
+          property_name: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          landlord_block_id: string
+          property_address: string
+          property_name: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          landlord_block_id?: string
+          property_address?: string
+          property_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "properties_landlord_block_id_fkey"
+            columns: ["landlord_block_id"]
+            isOneToOne: false
+            referencedRelation: "landlord_blocks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      property_assignments: {
+        Row: {
+          landlord_id: string | null
+          tenant_id: string | null
+          unit: string | null
+        }
+        Insert: {
+          landlord_id?: string | null
+          tenant_id?: string | null
+          unit?: string | null
+        }
+        Update: {
+          landlord_id?: string | null
+          tenant_id?: string | null
+          unit?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "property_assignments_landlord_id_fkey"
+            columns: ["landlord_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "property_assignments_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      push_subscriptions: {
+        Row: {
+          auth_key: string
+          created_at: string | null
+          endpoint: string
+          id: string
+          ip_address: string | null
+          is_active: boolean | null
+          p256dh_key: string
+          updated_at: string | null
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          auth_key: string
+          created_at?: string | null
+          endpoint: string
+          id?: string
+          ip_address?: string | null
+          is_active?: boolean | null
+          p256dh_key: string
+          updated_at?: string | null
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          auth_key?: string
+          created_at?: string | null
+          endpoint?: string
+          id?: string
+          ip_address?: string | null
+          is_active?: boolean | null
+          p256dh_key?: string
+          updated_at?: string | null
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      rent_settings: {
+        Row: {
+          created_at: string | null
+          due_day: number | null
+          id: string
+          monthly_amount: number
+          tenant_id: string | null
+          unit_number: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          due_day?: number | null
+          id?: string
+          monthly_amount?: number
+          tenant_id?: string | null
+          unit_number?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          due_day?: number | null
+          id?: string
+          monthly_amount?: number
+          tenant_id?: string | null
+          unit_number?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rent_settings_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      requests: {
+        Row: {
+          category: string | null
+          created_at: string | null
+          description: string | null
+          id: string
+          status: string | null
+          tenant_id: string | null
+          title: string | null
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          status?: string | null
+          tenant_id?: string | null
+          title?: string | null
+        }
+        Update: {
+          category?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          status?: string | null
+          tenant_id?: string | null
+          title?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "requests_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff: {
+        Row: {
+          availability: string
+          company_name: string | null
+          created_at: string | null
+          created_by: string | null
+          email: string
+          experience_years: number | null
+          first_name: string
+          hourly_rate: number | null
+          id: string
+          is_active: boolean
+          last_name: string
+          notes: string | null
+          phone: string
+          rating: number | null
+          specialty: string
+          total_jobs: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          availability?: string
+          company_name?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          email: string
+          experience_years?: number | null
+          first_name: string
+          hourly_rate?: number | null
+          id?: string
+          is_active?: boolean
+          last_name: string
+          notes?: string | null
+          phone: string
+          rating?: number | null
+          specialty: string
+          total_jobs?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          availability?: string
+          company_name?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          email?: string
+          experience_years?: number | null
+          first_name?: string
+          hourly_rate?: number | null
+          id?: string
+          is_active?: boolean
+          last_name?: string
+          notes?: string | null
+          phone?: string
+          rating?: number | null
+          specialty?: string
+          total_jobs?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      staff_assignments: {
+        Row: {
+          assigned_at: string | null
+          assigned_by: string | null
+          completed_at: string | null
+          created_at: string | null
+          id: string
+          notes: string | null
+          property_id: string | null
+          staff_id: string
+          status: string
+          tenant_id: string
+          unit_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          assigned_at?: string | null
+          assigned_by?: string | null
+          completed_at?: string | null
+          created_at?: string | null
+          id?: string
+          notes?: string | null
+          property_id?: string | null
+          staff_id: string
+          status?: string
+          tenant_id: string
+          unit_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          assigned_at?: string | null
+          assigned_by?: string | null
+          completed_at?: string | null
+          created_at?: string | null
+          id?: string
+          notes?: string | null
+          property_id?: string | null
+          staff_id?: string
+          status?: string
+          tenant_id?: string
+          unit_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_assignments_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_availability: {
+        Row: {
+          created_at: string | null
+          date: string
+          end_time: string
+          id: string
+          notes: string | null
+          staff_id: string
+          start_time: string
+          status: string
+        }
+        Insert: {
+          created_at?: string | null
+          date: string
+          end_time: string
+          id?: string
+          notes?: string | null
+          staff_id: string
+          start_time: string
+          status?: string
+        }
+        Update: {
+          created_at?: string | null
+          date?: string
+          end_time?: string
+          id?: string
+          notes?: string | null
+          staff_id?: string
+          start_time?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_availability_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenant_slots: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_occupied: boolean | null
+          landlord_block_id: string
+          lease_end_date: string | null
+          lease_start_date: string | null
+          monthly_rent: number | null
+          occupied_at: string | null
+          property_id: string | null
+          slot_number: number
+          tenant_code: string
+          tenant_email: string | null
+          tenant_id: string | null
+          tenant_name: string | null
+          tenant_phone: string | null
+          vacated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_occupied?: boolean | null
+          landlord_block_id: string
+          lease_end_date?: string | null
+          lease_start_date?: string | null
+          monthly_rent?: number | null
+          occupied_at?: string | null
+          property_id?: string | null
+          slot_number: number
+          tenant_code: string
+          tenant_email?: string | null
+          tenant_id?: string | null
+          tenant_name?: string | null
+          tenant_phone?: string | null
+          vacated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_occupied?: boolean | null
+          landlord_block_id?: string
+          lease_end_date?: string | null
+          lease_start_date?: string | null
+          monthly_rent?: number | null
+          occupied_at?: string | null
+          property_id?: string | null
+          slot_number?: number
+          tenant_code?: string
+          tenant_email?: string | null
+          tenant_id?: string | null
+          tenant_name?: string | null
+          tenant_phone?: string | null
+          vacated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_slots_landlord_block_id_fkey"
+            columns: ["landlord_block_id"]
+            isOneToOne: false
+            referencedRelation: "landlord_blocks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_slots_property_id_fkey"
+            columns: ["property_id"]
+            isOneToOne: false
+            referencedRelation: "properties"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      viewing_requests: {
+        Row: {
+          agreed_to_terms: boolean
+          budget: string | null
+          completed_at: string | null
+          confirmed_at: string | null
+          created_at: string | null
+          email: string
+          first_name: string
+          group_size: string
+          id: string
+          ip_address: string | null
+          last_name: string
+          message: string | null
+          phone: string
+          preferred_date: string
+          preferred_time: string
+          property_type: string
+          status: string
+          updated_at: string | null
+          urgency: string
+          user_agent: string | null
+        }
+        Insert: {
+          agreed_to_terms?: boolean
+          budget?: string | null
+          completed_at?: string | null
+          confirmed_at?: string | null
+          created_at?: string | null
+          email: string
+          first_name: string
+          group_size: string
+          id?: string
+          ip_address?: string | null
+          last_name: string
+          message?: string | null
+          phone: string
+          preferred_date: string
+          preferred_time: string
+          property_type: string
+          status?: string
+          updated_at?: string | null
+          urgency: string
+          user_agent?: string | null
+        }
+        Update: {
+          agreed_to_terms?: boolean
+          budget?: string | null
+          completed_at?: string | null
+          confirmed_at?: string | null
+          created_at?: string | null
+          email?: string
+          first_name?: string
+          group_size?: string
+          id?: string
+          ip_address?: string | null
+          last_name?: string
+          message?: string | null
+          phone?: string
+          preferred_date?: string
+          preferred_time?: string
+          property_type?: string
+          status?: string
+          updated_at?: string | null
+          urgency?: string
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      [_ in never]: never
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
 }
 
-export enum PropertyType {
-  APARTMENT_BLOCK = 'apartment_block',
-  VILLA = 'villa',
-  HOUSE = 'house',
-  COMMERCIAL = 'commercial',
-  MIXED = 'mixed'
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
+
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
+
+export type Tables<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
 }
+  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+      Row: infer R
+    }
+    ? R
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
+        Row: infer R
+      }
+      ? R
+      : never
+    : never
 
-export enum UnitType {
-  STUDIO = 'studio',
-  ONE_BR = '1br',
-  TWO_BR = '2br',
-  THREE_BR = '3br',
-  OFFICE = 'office'
+export type TablesInsert<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
 }
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Insert: infer I
+    }
+    ? I
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Insert: infer I
+      }
+      ? I
+      : never
+    : never
 
-export enum UnitStatus {
-  VACANT = 'vacant',
-  OCCUPIED = 'occupied',
-  MAINTENANCE = 'maintenance'
+export type TablesUpdate<
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
+    | { schema: keyof DatabaseWithoutInternals },
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    : never = never,
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
 }
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+      Update: infer U
+    }
+    ? U
+    : never
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
+        Update: infer U
+      }
+      ? U
+      : never
+    : never
 
-export enum LeaseStatus {
-  DRAFT = 'draft',
-  ACTIVE = 'active',
-  EXPIRED = 'expired',
-  TERMINATED = 'terminated'
+export type Enums<
+  DefaultSchemaEnumNameOrOptions extends
+    | keyof DefaultSchema["Enums"]
+    | { schema: keyof DatabaseWithoutInternals },
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    : never = never,
+> = DefaultSchemaEnumNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
 }
+  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
+    : never
 
-export enum PaymentType {
-  RENT = 'rent',
-  DEPOSIT = 'deposit',
-  UTILITIES = 'utilities',
-  OTHER = 'other'
+export type CompositeTypes<
+  PublicCompositeTypeNameOrOptions extends
+    | keyof DefaultSchema["CompositeTypes"]
+    | { schema: keyof DatabaseWithoutInternals },
+  CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
+    schema: keyof DatabaseWithoutInternals
+  }
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    : never = never,
+> = PublicCompositeTypeNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
 }
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+    : never
 
-export enum PaymentMethod {
-  MPESA = 'mpesa',
-  BANK_TRANSFER = 'bank_transfer',
-  CASH = 'cash',
-  OTHER = 'other'
-}
-
-export enum PaymentStatus {
-  PENDING = 'pending',
-  COMPLETED = 'completed',
-  FAILED = 'failed',
-  DISPUTED = 'disputed'
-}
-
-export enum NotificationChannel {
-  SMS = 'sms',
-  EMAIL = 'email',
-  PUSH = 'push'
-}
-
-export enum DeliveryStatus {
-  PENDING = 'pending',
-  DELIVERED = 'delivered',
-  FAILED = 'failed',
-  BOUNCED = 'bounced'
-}
-
-export enum BookingStatus {
-  PENDING_DEPOSIT = 'pending_deposit',
-  CONFIRMED = 'confirmed',
-  CHECKED_IN = 'checked_in',
-  CHECKED_OUT = 'checked_out',
-  CANCELLED = 'cancelled',
-  DISPUTED = 'disputed'
-}
-
-export enum CancellationPolicy {
-  STRICT = 'strict',
-  MODERATE = 'moderate',
-  FLEXIBLE = 'flexible'
-}
-
-export enum MaintenanceUrgency {
-  LOW = 'low',
-  NORMAL = 'normal',
-  URGENT = 'urgent',
-  EMERGENCY = 'emergency'
-}
-
-export enum MaintenanceStatus {
-  OPEN = 'open',
-  ASSIGNED = 'assigned',
-  IN_PROGRESS = 'in_progress',
-  COMPLETED = 'completed',
-  CLOSED = 'closed',
-  REJECTED = 'rejected'
-}
-
-export enum IssueCategory {
-  PLUMBING = 'plumbing',
-  ELECTRICAL = 'electrical',
-  APPLIANCE = 'appliance',
-  STRUCTURAL = 'structural',
-  CLEANING = 'cleaning',
-  OTHER = 'other'
-}
-
-export enum ReportType {
-  MOVE_IN = 'move_in',
-  MOVE_OUT = 'move_out'
-}
-
-export enum ConditionLevel {
-  EXCELLENT = 'excellent',
-  GOOD = 'good',
-  FAIR = 'fair',
-  POOR = 'poor'
-}
-
-export enum USSDSessionStatus {
-  ACTIVE = 'active',
-  COMPLETED = 'completed',
-  EXPIRED = 'expired'
-}
-
-export enum SyncStatus {
-  PENDING = 'pending',
-  SYNCED = 'synced',
-  FAILED = 'failed'
-}
-
-// ============================================================================
-// USER TYPES
-// ============================================================================
-
-export interface Landlord {
-  id: string;
-  email: string;
-  phoneNumber: string;
-  displayName: string;
-  country: Country;
-  kycVerified: boolean;
-  kycDocumentUrl?: string;
-  passwordHash: string;
-  twoFactorEnabled: boolean;
-  twoFactorSecret?: string;
-  createdAt: Date;
-  updatedAt: Date;
-  deletedAt?: Date;
-}
-
-export interface Tenant {
-  id: string;
-  phoneNumber: string;
-  email?: string;
-  displayName: string;
-  country: Country;
-  idNumber?: string;
-  nationalIdUrl?: string;
-  isVerified: boolean;
-  verificationDate?: Date;
-  createdAt: Date;
-  updatedAt: Date;
-  deletedAt?: Date;
-}
-
-export interface Guest {
-  id: string;
-  phoneNumber: string;
-  email?: string;
-  displayName: string;
-  country: Country;
-  verificationStatus: 'unverified' | 'email_verified' | 'phone_verified' | 'fully_verified';
-  profilePhotoUrl?: string;
-  createdAt: Date;
-  updatedAt: Date;
-  deletedAt?: Date;
-}
-
-// ============================================================================
-// PROPERTY & UNIT TYPES
-// ============================================================================
-
-export interface Property {
-  id: string;
-  landlordId: string;
-  propertyName: string;
-  propertyType: PropertyType;
-  address: string;
-  city: string;
-  country: Country;
-  latitude?: number;
-  longitude?: number;
-  totalUnits: number;
-  yearBuilt?: number;
-  description?: string;
-  amenities: string[];
-  createdAt: Date;
-  updatedAt: Date;
-  deletedAt?: Date;
-}
-
-export interface Unit {
-  id: string;
-  propertyId: string;
-  unitNumber: string;
-  unitType: UnitType;
-  bedrooms?: number;
-  bathrooms?: number;
-  squareMeters?: number;
-  monthlyRent: number;
-  securityDeposit?: number;
-  utilitiesIncluded: boolean;
-  utilitiesCost?: number;
-  features: string[];
-  photosUrls: string[];
-  status: UnitStatus;
-  createdAt: Date;
-  updatedAt: Date;
-  deletedAt?: Date;
-}
-
-// ============================================================================
-// LEASE & TENANCY TYPES
-// ============================================================================
-
-export interface Lease {
-  id: string;
-  unitId: string;
-  tenantId: string;
-  landlordId: string;
-  leaseStartDate: Date;
-  leaseEndDate: Date;
-  monthlyRent: number;
-  securityDeposit?: number;
-  leaseDocumentUrl?: string;
-  status: LeaseStatus;
-  autoRenewal: boolean;
-  renewalNoticeDays: number;
-  createdAt: Date;
-  updatedAt: Date;
-  terminatedAt?: Date;
-  terminatedReason?: string;
-  deletedAt?: Date;
-}
-
-// ============================================================================
-// PAYMENT TYPES
-// ============================================================================
-
-export interface Payment {
-  id: string;
-  leaseId: string;
-  tenantId: string;
-  landlordId: string;
-  amount: number;
-  paymentType: PaymentType;
-  paymentMethod: PaymentMethod;
-  referenceNumber?: string;
-  mpesaTransactionId?: string;
-  dueDate: Date;
-  paidDate?: Date;
-  status: PaymentStatus;
-  notes?: string;
-  receiptUrl?: string;
-  createdAt: Date;
-  updatedAt: Date;
-  deletedAt?: Date;
-}
-
-export interface PaymentNotification {
-  id: string;
-  paymentId?: string;
-  tenantId: string;
-  phoneNumber: string;
-  messageType: 'payment_reminder' | 'payment_confirmation' | 'overdue_alert';
-  messageContent: string;
-  channel: NotificationChannel;
-  deliveryStatus: DeliveryStatus;
-  deliveryTimestamp?: Date;
-  failureReason?: string;
-  deliveryAttempts: number;
-  nextRetryAt?: Date;
-  createdAt: Date;
-}
-
-// ============================================================================
-// MARKETPLACE TYPES
-// ============================================================================
-
-export interface Listing {
-  id: string;
-  unitId: string;
-  landlordId: string;
-  title: string;
-  description: string;
-  nightlyPrice: number;
-  weeklyDiscount: number;
-  monthlyDiscount: number;
-  depositPercentage: number;
-  maxGuests: number;
-  minimumStayNights: number;
-  listingType: 'short_term' | 'furnished' | 'serviced';
-  isActive: boolean;
-  photosCompressed: Array<{ base64: string; thumbnail: string }>;
-  amenityTags: string[];
-  houseRules?: string;
-  cancellationPolicy: CancellationPolicy;
-  createdAt: Date;
-  updatedAt: Date;
-  deletedAt?: Date;
-}
-
-export interface Booking {
-  id: string;
-  listingId: string;
-  guestId: string;
-  landlordId: string;
-  checkInDate: Date;
-  checkOutDate: Date;
-  numberOfGuests: number;
-  nightlyRate: number;
-  totalNights: number;
-  subtotal: number;
-  depositAmount?: number;
-  cleaningFee?: number;
-  serviceFee?: number;
-  discountAmount: number;
-  totalAmount: number;
-  status: BookingStatus;
-  depositPaymentId?: string;
-  bookingReference: string;
-  specialRequests?: string;
-  cancellationReason?: string;
-  createdAt: Date;
-  updatedAt: Date;
-  deletedAt?: Date;
-}
-
-export interface Review {
-  id: string;
-  bookingId: string;
-  reviewerId: string;
-  reviewerType: 'guest' | 'landlord';
-  listingId: string;
-  rating: 1 | 2 | 3 | 4 | 5;
-  cleanlinessRating?: 1 | 2 | 3 | 4 | 5;
-  accuracyRating?: 1 | 2 | 3 | 4 | 5;
-  communicationRating?: 1 | 2 | 3 | 4 | 5;
-  locationRating?: 1 | 2 | 3 | 4 | 5;
-  reviewText?: string;
-  reviewSource: 'app' | 'sms' | 'voice';
-  reviewDate: Date;
-  isResponse: boolean;
-  responseToReviewId?: string;
-  createdAt: Date;
-  deletedAt?: Date;
-}
-
-// ============================================================================
-// MAINTENANCE TYPES
-// ============================================================================
-
-export interface MaintenanceRequest {
-  id: string;
-  unitId: string;
-  tenantId: string;
-  landlordId: string;
-  issueTitle: string;
-  issueDescription: string;
-  issueCategory: IssueCategory;
-  urgency: MaintenanceUrgency;
-  photosUrls: string[];
-  status: MaintenanceStatus;
-  assignedToContractorId?: string;
-  estimatedCost?: number;
-  actualCost?: number;
-  reportedDate: Date;
-  targetCompletionDate?: Date;
-  actualCompletionDate?: Date;
-  notes?: string;
-  createdAt: Date;
-  updatedAt: Date;
-  deletedAt?: Date;
-}
-
-// ============================================================================
-// INSPECTION TYPES
-// ============================================================================
-
-export interface RoomCondition {
-  [roomName: string]: {
-    condition: ConditionLevel;
-    notes?: string;
-  };
-}
-
-export interface Discrepancy {
-  location: string;
-  damage: string;
-  severity: 'high' | 'medium' | 'low';
-  estimatedRepairCost?: number;
-}
-
-export interface ConditionReport {
-  id: string;
-  leaseId: string;
-  tenantId: string;
-  landlordId: string;
-  reportType: ReportType;
-  inspectionDate: Date;
-  inspectorName?: string;
-  inspectorContact?: string;
-  overallCondition?: ConditionLevel;
-  roomConditions: RoomCondition;
-  photoUrls: string[];
-  discrepancies: Discrepancy[];
-  estimatedRepairCost?: number;
-  notes?: string;
-  signedByTenantAt?: Date;
-  signedByLandlordAt?: Date;
-  pdfReportUrl?: string;
-  createdAt: Date;
-  updatedAt: Date;
-  deletedAt?: Date;
-}
-
-// ============================================================================
-// FINANCIAL TYPES
-// ============================================================================
-
-export interface FinancialSummary {
-  id: string;
-  landlordId: string;
-  propertyId?: string;
-  summaryMonth: Date;
-  expectedRent: number;
-  actualRentCollected: number;
-  collectionRate: number; // percentage
-  expenses: number;
-  expensesBreakdown: Record<string, number>;
-  netProfit?: number;
-  overduePayments: number;
-  overdueCount: number;
-  vacancyCount?: number;
-  occupancyRate?: number; // percentage
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-// ============================================================================
-// COMMUNICATION TYPES
-// ============================================================================
-
-export interface SMSLog {
-  id: string;
-  phoneNumber: string;
-  messageContent: string;
-  messageType: string;
-  senderEntityId?: string;
-  deliveryStatus: DeliveryStatus;
-  failureReason?: string;
-  africaTalkingMessageId?: string;
-  sentAt?: Date;
-  deliveredAt?: Date;
-  retryCount: number;
-  maxRetries: number;
-  nextRetryAt?: Date;
-  createdAt: Date;
-}
-
-export interface USSDSession {
-  id: string;
-  phoneNumber: string;
-  sessionId: string;
-  currentMenuLevel?: string;
-  sessionData: Record<string, any>;
-  lastInput?: string;
-  sessionStatus: USSDSessionStatus;
-  initiatedAt: Date;
-  lastInteractionAt: Date;
-  completedAt?: Date;
-  createdAt: Date;
-}
-
-export interface VoiceCallLog {
-  id: string;
-  phoneNumber: string;
-  callId?: string;
-  callType?: 'inbound' | 'outbound';
-  callPurpose?: string;
-  durationSeconds?: number;
-  recordingUrl?: string;
-  transcription?: string;
-  aiInteraction: Record<string, any>;
-  callStatus?: string;
-  startedAt?: Date;
-  endedAt?: Date;
-  createdAt: Date;
-}
-
-// ============================================================================
-// OFFLINE SYNC TYPES
-// ============================================================================
-
-export interface OfflineQueueItem {
-  id: string;
-  userId?: string;
-  userType: 'tenant' | 'landlord' | 'guest';
-  transactionType: string;
-  transactionData: Record<string, any>;
-  syncStatus: SyncStatus;
-  lastSyncAttempt?: Date;
-  syncError?: string;
-  retryCount: number;
-  maxRetries: number;
-  nextRetryAt?: Date;
-  createdAt: Date;
-  updatedAt: Date;
-  syncedAt?: Date;
-}
-
-// ============================================================================
-// API RESPONSE TYPES
-// ============================================================================
-
-export interface ApiResponse<T> {
-  success: boolean;
-  data?: T;
-  error?: {
-    code: string;
-    message: string;
-    details?: Record<string, any>;
-  };
-  timestamp: Date;
-}
-
-export interface PaginatedResponse<T> {
-  data: T[];
-  pagination: {
-    page: number;
-    pageSize: number;
-    total: number;
-    hasMore: boolean;
-  };
-}
-
-// ============================================================================
-// AUDIT TYPES
-// ============================================================================
-
-export interface AuditLog {
-  id: string;
-  actorId?: string;
-  actorType: 'landlord' | 'tenant' | 'guest' | 'system' | 'admin';
-  action: string;
-  resourceType: string;
-  resourceId: string;
-  changes: Record<string, any>;
-  ipAddress?: string;
-  userAgent?: string;
-  createdAt: Date;
-}
+export const Constants = {
+  public: {
+    Enums: {},
+  },
+} as const

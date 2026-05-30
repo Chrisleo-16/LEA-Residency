@@ -135,6 +135,7 @@ export default function StaffManagementPage({
   const [filteredStaff, setFilteredStaff] = useState<Staff[]>([]);
   const [selectedStaff, setSelectedStaff] = useState<Staff | null>(null);
   const [availableTenants, setAvailableTenants] = useState<any[]>([]);
+  const [landlordBlockId, setLandlordBlockId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isAssignDialogOpen, setIsAssignDialogOpen] = useState(false);
@@ -211,166 +212,114 @@ export default function StaffManagementPage({
 
   const fetchTenants = async () => {
     try {
-      console.log("Starting fetchTenants...");
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('role, landlord_block_id')
+        .eq('id', user?.id)
+        .single();
 
-      // First, let's see what's actually in the requests table
-      const { data: allRequests, error: allRequestsError } = await supabase
-        .from("requests")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(10);
-
-      console.log("All requests (first 10):", allRequests);
-      console.log("All requests error:", allRequestsError);
-
-      // Get unique tenant IDs from requests with pending status
-      const { data: requestsData, error: requestsError } = await supabase
-        .from("requests")
-        .select("tenant_id, status, title")
-        .in("status", ["pending", "assigned", "in_progress"]);
-
-      console.log("Pending requests data:", requestsData);
-      console.log("Pending requests error:", requestsError);
-
-      // Get unique tenant IDs from complaints with pending status
-      const { data: complaintsData, error: complaintsError } = await supabase
-        .from("complaints")
-        .select("tenant_id, status, title")
-        .eq("status", "pending");
-
-      console.log("Pending complaints data:", complaintsData);
-      console.log("Pending complaints error:", complaintsError);
-
-      // Combine unique tenant IDs from both requests and complaints
-      const requestTenantIds = requestsData?.map((req) => req.tenant_id) || [];
-      const complaintTenantIds =
-        complaintsData?.map((comp) => comp.tenant_id) || [];
-      const uniqueTenantIds = [
-        ...new Set([...requestTenantIds, ...complaintTenantIds]),
-      ];
-
-      console.log("Request tenant IDs:", requestTenantIds);
-      console.log("Complaint tenant IDs:", complaintTenantIds);
-      console.log("Unique tenant IDs:", uniqueTenantIds);
-
-      if (uniqueTenantIds.length === 0) {
-        console.log(
-          "No pending requests or complaints found, no tenants to display",
-        );
+      if (profileError || profile?.role !== 'landlord' || !profile.landlord_block_id) {
         setAvailableTenants([]);
         return;
       }
 
-      // Check what's in the profiles table for these tenant IDs
-      console.log("Checking profiles for tenant IDs...");
-      const { data: allProfiles, error: allProfilesError } = await supabase
-        .from("profiles")
-        .select("*")
-        .limit(10);
+      setLandlordBlockId(profile.landlord_block_id);
 
-      console.log("All profiles (first 10):", allProfiles);
-      console.log("All profiles error:", allProfilesError);
+      const { data: tenantSlots, error: slotError } = await supabase
+        .from('tenant_slots')
+        .select('tenant_id')
+        .eq('landlord_block_id', profile.landlord_block_id)
+        .not('tenant_id', 'is', null);
 
-      // Now get tenant information from profiles table using these IDs
-      const { data: tenantProfiles, error: profilesError } = await supabase
-        .from("profiles")
-        .select("id, full_name, email, phone_number, role")
-        .in("id", uniqueTenantIds)
-        .order("full_name", { ascending: true });
-
-      console.log("Tenant profiles data:", tenantProfiles);
-      console.log("Tenant profiles error:", profilesError);
-
-      if (profilesError) {
-        console.log("Error fetching tenant profiles:", profilesError);
-        // Fallback: try to get from auth.users metadata
-        try {
-          const tenantData = await Promise.all(
-            uniqueTenantIds.map(async (tenantId) => {
-              // Try to get user info from profiles first
-              const { data: profileData } = await supabase
-                .from("profiles")
-                .select("id, full_name, email, phone_number")
-                .eq("id", tenantId)
-                .single();
-
-              if (profileData) {
-                return {
-                  ...profileData,
-                  phone: profileData.phone_number || "No phone available",
-                };
-              }
-
-              // Fallback to basic info
-              return {
-                id: tenantId,
-                full_name: `Tenant ${tenantId.slice(0, 8)}`,
-                email: "No email available",
-                phone: "No phone available",
-              };
-            }),
-          );
-
-          setAvailableTenants(tenantData);
-        } catch (fallbackError) {
-          console.error("Fallback tenant fetch failed:", fallbackError);
-          setAvailableTenants([]);
-        }
+      if (slotError) {
+        console.error('Failed to fetch tenant slots:', slotError);
+        setAvailableTenants([]);
         return;
       }
 
-      // Map phone_number to phone for consistency
+      const tenantIds = (tenantSlots || []).map((slot: any) => slot.tenant_id).filter(Boolean);
+      if (!tenantIds.length) {
+        setAvailableTenants([]);
+        return;
+      }
+
+      const { data: tenantProfiles, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, full_name, email, phone_number, role')
+        .in('id', tenantIds)
+        .eq('landlord_block_id', profile.landlord_block_id)
+        .eq('role', 'tenant')
+        .order('full_name', { ascending: true });
+
+      if (profilesError) {
+        console.error('Error fetching tenant profiles:', profilesError);
+        setAvailableTenants([]);
+        return;
+      }
+
       const mappedTenants = (tenantProfiles || []).map((profile) => ({
         ...profile,
-        phone: profile.phone_number || "No phone available",
+        phone: profile.phone_number || 'No phone available',
       }));
 
-      console.log(
-        `Found ${mappedTenants.length} tenants with pending requests/complaints:`,
-        mappedTenants,
-      );
       setAvailableTenants(mappedTenants);
     } catch (error) {
-      console.error("Error fetching tenants:", error);
-      toast.error("Failed to load tenant data");
+      console.error('Error fetching tenants:', error);
+      toast.error('Failed to load tenant data');
       setAvailableTenants([]);
     }
   };
 
   const fetchStaff = async () => {
     try {
-      // First get basic staff data
-      const { data: staffData, error: staffError } = await supabase
-        .from("staff")
-        .select("*")
-        .eq("is_active", true)
-        .order("created_at", { ascending: false });
+      const result = await fetch('/api/staff')
+      const payload = await result.json()
+      if (!result.ok) {
+        throw new Error(payload.error || 'Failed to load staff')
+      }
 
-      if (staffError) throw staffError;
+      const staffData = payload.staff || []
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('landlord_block_id')
+        .eq('id', user?.id)
+        .single()
 
-      // Then fetch assignments for each staff member
+      if (profileError) {
+        console.error('Failed to load landlord block id:', profileError)
+      }
+
+      const blockId = profileData?.landlord_block_id || landlordBlockId
+      if (blockId) {
+        setLandlordBlockId(blockId)
+      }
+
       const staffWithAssignments = await Promise.all(
-        (staffData || []).map(async (staffMember) => {
+        (staffData || []).map(async (staffMember: Staff) => {
           try {
-            // Get staff assignments with tenant info
-            let assignments: StaffAssignment[] = [];
+            let assignments: StaffAssignment[] = []
             try {
-              const { data: assignmentData, error: assignmentError } =
-                await supabase
-                  .from("staff_assignments")
-                  .select(
-                    `
-                  id,
-                  tenant_id,
-                  property_id,
-                  unit_id,
-                  assigned_at,
-                  status,
-                  profiles!inner(id, full_name, email, phone_number)
-                `,
-                  )
-                  .eq("staff_id", staffMember.id)
-                  .eq("status", "active");
+              const assignmentQuery = supabase
+                .from('staff_assignments')
+                .select(
+                  `
+                    id,
+                    tenant_id,
+                    property_id,
+                    unit_id,
+                    assigned_at,
+                    status,
+                    profiles!inner(id, full_name, email, phone_number, landlord_block_id)
+                  `,
+                )
+                .eq('staff_id', staffMember.id)
+                .eq('status', 'active')
+
+              if (blockId) {
+                assignmentQuery.eq('profiles.landlord_block_id', blockId)
+              }
+
+              const { data: assignmentData, error: assignmentError } = await assignmentQuery
 
               if (!assignmentError) {
                 assignments = (assignmentData || []).map((item: any) => ({
@@ -383,108 +332,115 @@ export default function StaffManagementPage({
                   profiles: item.profiles
                     ? {
                         ...item.profiles,
-                        phone: item.profiles.phone_number || "No phone",
+                        phone: item.profiles.phone_number || 'No phone',
                       }
                     : {
                         id: item.tenant_id,
-                        full_name: "Unknown Tenant",
-                        email: "No email",
-                        phone: "No phone",
+                        full_name: 'Unknown Tenant',
+                        email: 'No email',
+                        phone: 'No phone',
                       },
-                }));
+                }))
               } else {
                 console.log(
-                  "Assignment query failed, trying without profiles join:",
+                  'Assignment query failed, trying without profiles join:',
                   assignmentError,
-                );
-                // Fallback: get assignments without profiles join
+                )
                 const { data: fallbackAssignments } = await supabase
-                  .from("staff_assignments")
-                  .select(
-                    "id, tenant_id, property_id, unit_id, assigned_at, status",
-                  )
-                  .eq("staff_id", staffMember.id)
-                  .eq("status", "active");
+                  .from('staff_assignments')
+                  .select('id, tenant_id, property_id, unit_id, assigned_at, status')
+                  .eq('staff_id', staffMember.id)
+                  .eq('status', 'active')
 
-                // Try to get tenant info for each assignment
                 assignments = await Promise.all(
                   (fallbackAssignments || []).map(
                     async (assignment): Promise<StaffAssignment> => {
                       try {
                         const { data: tenantData } = await supabase
-                          .from("profiles")
-                          .select("id, full_name, email, phone_number")
-                          .eq("id", assignment.tenant_id)
-                          .single();
+                          .from('profiles')
+                          .select('id, full_name, email, phone_number, landlord_block_id')
+                          .eq('id', assignment.tenant_id)
+                          .single()
+
+                        if (blockId && tenantData?.landlord_block_id !== blockId) {
+                          return {
+                            ...assignment,
+                            profiles: {
+                              id: assignment.tenant_id,
+                              full_name: 'Unknown Tenant',
+                              email: 'No email',
+                              phone: 'No phone',
+                            },
+                          }
+                        }
 
                         return {
                           ...assignment,
                           profiles: tenantData
                             ? {
                                 ...tenantData,
-                                phone: tenantData.phone_number || "No phone",
+                                phone: tenantData.phone_number || 'No phone',
                               }
                             : {
                                 id: assignment.tenant_id,
-                                full_name: "Unknown Tenant",
-                                email: "No email",
-                                phone: "No phone",
+                                full_name: 'Unknown Tenant',
+                                email: 'No email',
+                                phone: 'No phone',
                               },
-                        };
+                        }
                       } catch (err) {
                         return {
                           ...assignment,
                           profiles: {
                             id: assignment.tenant_id,
-                            full_name: "Unknown Tenant",
-                            email: "No email",
-                            phone: "No phone",
+                            full_name: 'Unknown Tenant',
+                            email: 'No email',
+                            phone: 'No phone',
                           },
-                        };
+                        }
                       }
                     },
                   ),
-                );
+                )
               }
             } catch (assignmentErr) {
-              console.error("Error fetching assignments:", assignmentErr);
-              assignments = [];
+              console.error('Error fetching assignments:', assignmentErr)
+              assignments = []
             }
 
-            // Get recent requests (maintenance requests)
             const { data: recentWork } = await supabase
-              .from("requests")
-              .select("id, title, status, created_at")
-              .eq("assigned_staff_id", staffMember.id)
-              .order("created_at", { ascending: false })
-              .limit(5);
+              .from('requests')
+              .select('id, title, status, created_at')
+              .eq('assigned_staff_id', staffMember.id)
+              .order('created_at', { ascending: false })
+              .limit(5)
 
             return {
               ...staffMember,
               assigned_tenants: assignments || [],
               recent_assignments: recentWork || [],
-            };
+            }
           } catch (error) {
             console.error(
               `Error fetching details for staff ${staffMember.id}:`,
               error,
-            );
+            )
             return {
               ...staffMember,
               assigned_tenants: [],
               recent_assignments: [],
-            };
+            }
           }
         }),
-      );
+      )
 
-      setStaff(staffWithAssignments);
+      setStaff(staffWithAssignments)
     } catch (error) {
-      console.error("Error fetching staff:", error);
-      toast.error("Failed to load staff data");
-      setStaff([]);
+      console.error('Error fetching staff:', error)
+      toast.error('Failed to load staff data')
+      setStaff([])
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
   };
 
@@ -492,48 +448,60 @@ export default function StaffManagementPage({
     e.preventDefault();
 
     try {
-      const { error } = await supabase.from("staff_assignments").insert({
-        staff_id: assignmentData.staff_id,
-        tenant_id: assignmentData.tenant_id,
-        property_id: assignmentData.property_id,
-        assigned_by: user?.id,
-        notes: assignmentData.notes,
-      });
+      const response = await fetch('/api/staff-assignments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          staff_id: assignmentData.staff_id,
+          tenant_id: assignmentData.tenant_id,
+          property_id: assignmentData.property_id,
+          notes: assignmentData.notes,
+        }),
+      })
 
-      if (error) throw error;
-      toast.success("Staff assigned to tenant successfully");
-      setIsAssignDialogOpen(false);
+      const payload = await response.json()
+      if (!response.ok) {
+        throw new Error(payload.error || 'Failed to assign staff to tenant')
+      }
+
+      toast.success('Staff assigned to tenant successfully')
+      setIsAssignDialogOpen(false)
       setAssignmentData({
-        staff_id: "",
-        tenant_id: "",
-        property_id: "",
-        notes: "",
-      });
-      fetchStaff();
+        staff_id: '',
+        tenant_id: '',
+        property_id: '',
+        notes: '',
+      })
+      fetchStaff()
     } catch (error) {
-      console.error("Error assigning staff:", error);
-      toast.error("Failed to assign staff to tenant");
+      console.error('Error assigning staff:', error)
+      toast.error('Failed to assign staff to tenant')
     }
-  };
+  }
 
   const handleRemoveAssignment = async (staffId: string, tenantId: string) => {
-    if (!confirm("Are you sure you want to remove this assignment?")) return;
+    if (!confirm('Are you sure you want to remove this assignment?')) return;
 
     try {
-      const { error } = await supabase
-        .from("staff_assignments")
-        .delete()
-        .eq("staff_id", staffId)
-        .eq("tenant_id", tenantId);
+      const response = await fetch(
+        `/api/staff-assignments?staffId=${encodeURIComponent(staffId)}&tenantId=${encodeURIComponent(tenantId)}`,
+        {
+          method: 'DELETE',
+        },
+      )
 
-      if (error) throw error;
-      toast.success("Assignment removed successfully");
-      fetchStaff();
+      const payload = await response.json()
+      if (!response.ok) {
+        throw new Error(payload.error || 'Failed to remove assignment')
+      }
+
+      toast.success('Assignment removed successfully')
+      fetchStaff()
     } catch (error) {
-      console.error("Error removing assignment:", error);
-      toast.error("Failed to remove assignment");
+      console.error('Error removing assignment:', error)
+      toast.error('Failed to remove assignment')
     }
-  };
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -549,24 +517,25 @@ export default function StaffManagementPage({
           : null,
       };
 
-      if (editingStaff) {
-        // Update existing staff
-        const { error } = await supabase
-          .from("staff")
-          .update(submitData)
-          .eq("id", editingStaff.id);
-
-        if (error) throw error;
-        toast.success("Staff member updated successfully");
-      } else {
-        // Add new staff
-        const { error } = await supabase.from("staff").insert(submitData);
-
-        if (error) throw error;
-        toast.success("Staff member added successfully");
+      const endpoint = '/api/staff'
+      const response = await fetch(endpoint, {
+        method: editingStaff ? 'PUT' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(
+          editingStaff
+            ? { staffId: editingStaff.id, ...submitData }
+            : submitData,
+        ),
+      })
+      const payload = await response.json()
+      if (!response.ok) {
+        throw new Error(payload.error || 'Failed to save staff member')
       }
 
-      // Reset form and refresh data
+      toast.success(
+        editingStaff ? 'Staff member updated successfully' : 'Staff member added successfully',
+      )
+
       setFormData({
         first_name: "",
         last_name: "",
@@ -609,17 +578,16 @@ export default function StaffManagementPage({
     if (!confirm("Are you sure you want to remove this staff member?")) return;
 
     try {
-      const { error } = await supabase
-        .from("staff")
-        .update({ is_active: false })
-        .eq("id", staffId);
-
-      if (error) throw error;
-      toast.success("Staff member removed successfully");
-      fetchStaff();
+      const response = await fetch(`/api/staff?staffId=${encodeURIComponent(staffId)}`, {
+        method: 'DELETE',
+      })
+      const payload = await response.json()
+      if (!response.ok) throw new Error(payload.error || 'Failed to remove staff member')
+      toast.success('Staff member removed successfully')
+      fetchStaff()
     } catch (error) {
-      console.error("Error deleting staff:", error);
-      toast.error("Failed to remove staff member");
+      console.error('Error deleting staff:', error)
+      toast.error('Failed to remove staff member')
     }
   };
 

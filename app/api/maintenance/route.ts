@@ -1,12 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createClient } from '@/lib/supabase/server'
 import { sendSMS, validatePhoneNumber, formatPhoneNumber } from '@/lib/sms'
-
-// Initialize Supabase client
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
 
 interface MaintenanceRequestData {
   tenant_id: string
@@ -23,12 +17,17 @@ interface MaintenanceRequestData {
  */
 export async function POST(request: NextRequest) {
   try {
+    const supabase = await createClient()
+    const { data: authData, error: authError } = await supabase.auth.getUser()
+    if (authError || !authData?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const body: MaintenanceRequestData = await request.json()
 
-    // Validate required fields
-    const requiredFields = ['tenant_id', 'title', 'description', 'category', 'priority']
+    // Ensure required fields (tenant_id will be taken from the authenticated user)
+    const requiredFields = ['title', 'description', 'category', 'priority']
     const missingFields = requiredFields.filter(field => !body[field as keyof MaintenanceRequestData])
-    
     if (missingFields.length > 0) {
       return NextResponse.json(
         { error: `Missing required fields: ${missingFields.join(', ')}` },
@@ -36,17 +35,17 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    const user = authData.user
+
     // Get client IP and user agent
-    const ipAddress = request.headers.get('x-forwarded-for') || 
-                     request.headers.get('x-real-ip') || 
-                     'unknown'
+    const ipAddress = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown'
     const userAgent = request.headers.get('user-agent') || 'unknown'
 
-    // Create maintenance request record
+    // Create maintenance request record using authenticated tenant id to avoid spoofing
     const { data, error } = await supabase
       .from('maintenance_requests')
       .insert({
-        tenant_id: body.tenant_id,
+        tenant_id: user.id,
         title: body.title,
         description: body.description,
         category: body.category,
@@ -69,10 +68,7 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       console.error('[Maintenance] Database error:', error)
-      return NextResponse.json(
-        { error: 'Failed to save maintenance request' },
-        { status: 500 }
-      )
+      return NextResponse.json({ error: 'Failed to save maintenance request' }, { status: 500 })
     }
 
     // Send SMS notification to landlord about new request
@@ -128,6 +124,15 @@ LEA Executive System`
  */
 export async function GET(request: NextRequest) {
   try {
+    const supabase = await createClient()
+    const { data: authData, error: authError } = await supabase.auth.getUser()
+    if (authError || !authData?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const user = authData.user
+    const { data: profile } = await supabase.from('profiles').select('role, landlord_block_id').eq('id', user.id).maybeSingle()
+
     const { searchParams } = new URL(request.url)
     const tenantId = searchParams.get('tenant_id')
     const status = searchParams.get('status')
@@ -152,7 +157,21 @@ export async function GET(request: NextRequest) {
       `)
       .order('created_at', { ascending: false })
 
-    // Apply filters
+    // Authorization & scoping
+    if (profile?.role === 'tenant') {
+      // Tenants can only see their own requests
+      query = query.eq('tenant_id', user.id)
+    } else if (profile?.role === 'landlord') {
+      // Landlords only see requests for their properties: fetch property ids for landlord_block_id
+      const { data: props } = await supabase.from('properties').select('id').eq('landlord_block_id', profile.landlord_block_id)
+      const propIds = (props || []).map((p: any) => p.id)
+      if (propIds.length === 0) {
+        return NextResponse.json({ success: true, requests: [] })
+      }
+      query = query.in('property_id', propIds)
+    }
+
+    // Additional filters
     if (tenantId) {
       query = query.eq('tenant_id', tenantId)
     }
@@ -167,23 +186,13 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       console.error('[Maintenance] Fetch error:', error)
-      return NextResponse.json(
-        { error: 'Failed to fetch maintenance requests' },
-        { status: 500 }
-      )
+      return NextResponse.json({ error: 'Failed to fetch maintenance requests' }, { status: 500 })
     }
 
-    return NextResponse.json({
-      success: true,
-      requests: data || []
-    })
-
+    return NextResponse.json({ success: true, requests: data || [] })
   } catch (error) {
     console.error('[Maintenance] Unexpected error:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
 
@@ -193,6 +202,15 @@ export async function GET(request: NextRequest) {
  */
 export async function PUT(request: NextRequest) {
   try {
+    const supabase = await createClient()
+    const { data: authData, error: authError } = await supabase.auth.getUser()
+    if (authError || !authData?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const user = authData.user
+    const { data: profile } = await supabase.from('profiles').select('role, landlord_block_id').eq('id', user.id).maybeSingle()
+
     const body = await request.json()
     const { requestId, status, assigned_staff_id, estimated_completion_date, cost_estimate, landlord_notes } = body
 
@@ -228,6 +246,23 @@ export async function PUT(request: NextRequest) {
         { error: 'Maintenance request not found' },
         { status: 404 }
       )
+    }
+
+    // Authorization: only the tenant who owns this request or the landlord for its property may update
+    if (profile?.role === 'tenant') {
+      if (currentRequest.tenant_id !== user.id) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      }
+    } else if (profile?.role === 'landlord') {
+      const { data: property } = await supabase
+        .from('properties')
+        .select('landlord_block_id')
+        .eq('id', currentRequest.property_id)
+        .maybeSingle()
+
+      if (!property || property.landlord_block_id !== profile.landlord_block_id) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      }
     }
 
     // Update the request

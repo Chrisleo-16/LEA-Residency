@@ -59,19 +59,13 @@ interface PaymentsPageProps {
 }
 
 const MONTHS = Array.from({ length: 12 }, (_, i) => {
-  const d = new Date();
-  d.setMonth(d.getMonth() - i);
-  return (
-    d
-      .toLocaleDateString("en-GB", {
-        month: "long",
-        year: "numeric",
-        timeZone: TZ,
-      })
-      .replace(" ", " ") +
-    "|" +
-    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`
-  );
+  const now = new Date();
+  const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+  return `${d.toLocaleDateString("en-GB", {
+    month: "long",
+    year: "numeric",
+    timeZone: TZ,
+  })}|${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`
 });
 
 export default function PaymentsPage({ user }: PaymentsPageProps) {
@@ -145,31 +139,69 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
     setIsLoading(true);
     const { data: profile } = await supabase
       .from("profiles")
-      .select("role")
+      .select("role, landlord_block_id")
       .eq("id", user!.id)
       .single();
     setRole(profile?.role || null);
 
     if (profile?.role === "landlord") {
-      // Fetch all payments with tenant profile
-      const { data: pays } = await supabase
-        .from("payments")
-        .select("*, profiles!payments_tenant_id_fkey(full_name, email)")
-        .order("payment_date", { ascending: false });
-      setPayments(pays || []);
+      const { data: slotRows } = await supabase
+        .from("tenant_slots")
+        .select("tenant_id")
+        .eq("landlord_block_id", profile.landlord_block_id )
+        .not("tenant_id", "is", null)
 
-      // Fetch all tenants
-      const { data: tList } = await supabase
-        .from("profiles")
-        .select("id, full_name, email, avatar_url, phone_number")
-        .eq("role", "tenant");
-      setTenants(tList || []);
+      const tenantIds = (slotRows || [])
+        .map((slot: any) => slot.tenant_id)
+        .filter(Boolean)
 
-      // Fetch rent settings
-      const { data: rs } = await supabase
-        .from("rent_settings")
-        .select("*, profiles(full_name, email, avatar_url)");
-      setRentSettings(rs || []);
+      if (tenantIds.length) {
+        const { data: pays } = await supabase
+          .from("payments")
+          .select("*, profiles!payments_tenant_id_fkey(full_name, email)")
+          .in("tenant_id", tenantIds)
+          .order("payment_date", { ascending: false })
+        setPayments(pays || [])
+
+        const { data: tList } = await supabase
+          .from("profiles")
+          .select("id, full_name, email, avatar_url, phone_number")
+          .in("id", tenantIds)
+        setTenants(tList || [])
+
+        const { data: rs } = await supabase
+          .from("rent_settings")
+          .select("*, profiles(full_name, email, avatar_url)")
+          .in("tenant_id", tenantIds)
+        setRentSettings(rs || [])
+      } else {
+        const { data: pays } = await supabase
+          .from("payments")
+          .select("*, profiles!payments_tenant_id_fkey(full_name, email)")
+          .eq("landlord_id", user!.id)
+          .order("payment_date", { ascending: false })
+        setPayments(pays || [])
+
+        const uniqueTenantIds = Array.from(
+          new Set((pays || []).map((p: any) => p.tenant_id).filter(Boolean)),
+        )
+
+        const { data: tList } = uniqueTenantIds.length
+          ? await supabase
+              .from("profiles")
+              .select("id, full_name, email, avatar_url, phone_number")
+              .in("id", uniqueTenantIds)
+          : { data: [] }
+        setTenants(tList || [])
+
+        const { data: rs } = uniqueTenantIds.length
+          ? await supabase
+              .from("rent_settings")
+              .select("*, profiles(full_name, email, avatar_url)")
+              .in("tenant_id", uniqueTenantIds)
+          : { data: [] }
+        setRentSettings(rs || [])
+      }
     } else {
       // Tenant — own payments only
       const { data: pays } = await supabase
@@ -218,6 +250,10 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
     if (!logTenantId || !logAmount) return;
     setIsLogging(true);
     try {
+      if (!tenants.some((t) => t.id === logTenantId)) {
+        throw new Error("Selected tenant is not assigned to you.")
+      }
+
       if (logMpesaCode) {
         const { data: existing } = await supabase
           .from("payments")
@@ -262,6 +298,10 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
     if (!settingsTenantId || !settingsAmount) return;
     setIsSavingSettings(true);
     try {
+      if (!tenants.some((t) => t.id === settingsTenantId)) {
+        throw new Error("Selected tenant is not assigned to you.")
+      }
+
       const { error } = await supabase.from("rent_settings").upsert(
         {
           tenant_id: settingsTenantId,
@@ -325,10 +365,33 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
   };
 
   const handleDeletePayment = async (id: string) => {
-    await supabase.from("payments").delete().eq("id", id);
-    showFeedback("Payment record deleted.");
-    fetchData();
-  };
+    const paymentToDelete = payments.find((p) => p.id === id)
+    if (!paymentToDelete) {
+      showFeedback("Payment not found.", true)
+      return
+    }
+
+    if (role === "landlord" && !tenants.some((t) => t.id === paymentToDelete.tenant_id)) {
+      showFeedback("Unauthorized to delete this payment.", true)
+      return
+    }
+
+    const deleteQuery = supabase.from("payments").delete().eq("id", id)
+    if (role === "landlord") {
+      deleteQuery.eq("landlord_id", user!.id)
+    } else {
+      deleteQuery.eq("tenant_id", user!.id)
+    }
+
+    const { error } = await deleteQuery
+    if (error) {
+      showFeedback("Failed to delete payment.", true)
+      return
+    }
+
+    showFeedback("Payment record deleted.")
+    fetchData()
+  }
 
   const formatDate = (s: string) =>
     toUTC(s).toLocaleDateString(undefined, {
@@ -766,11 +829,11 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
 
         {/* ── Month selector ───────────────────────────── */}
         <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none -mx-1 px-1">
-          {MONTHS.slice(0, 6).map((m) => {
+          {MONTHS.slice(0, 6).map((m, index) => {
             const [label, value] = m.split("|");
             return (
               <button
-                key={value}
+                key={`${value}-${index}`}
                 onClick={() => setActiveMonth(value)}
                 className={`text-xs px-3.5 py-2 rounded-xl border whitespace-nowrap transition-all shrink-0 font-medium ${
                   activeMonth === value

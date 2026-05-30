@@ -1,20 +1,68 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createClient } from '@/lib/supabase/server'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+async function authenticate(request: NextRequest) {
+  const supabase = await createClient()
+  const { data, error } = await supabase.auth.getUser()
+  if (error || !data?.user) {
+    return { supabase, user: null, profile: null, error: 'Unauthorized' }
+  }
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role, landlord_block_id')
+    .eq('id', data.user.id)
+    .maybeSingle()
+
+  return { supabase, user: data.user, profile, error: null }
+}
 
 export async function POST(request: NextRequest) {
   try {
-    const { messageId, chatId } = await request.json()
+    const { supabase, user, profile, error } = await authenticate(request)
+    if (error || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
 
-    if (!messageId || !chatId) {
+    const { messageId, conversationId } = await request.json()
+
+    if (!messageId || !conversationId) {
       return NextResponse.json(
-        { error: 'Missing messageId or chatId' },
+        { error: 'Missing messageId or conversationId' },
         { status: 400 }
       )
+    }
+
+    // Landlord isolation check: ensure conversation belongs to user's landlord
+    const { data: conversation } = await supabase
+      .from('conversations')
+      .select('id, landlord_id')
+      .eq('id', conversationId)
+      .maybeSingle()
+
+    if (!conversation) {
+      return NextResponse.json({ error: 'Conversation not found' }, { status: 404 })
+    }
+
+    if (profile?.role === 'tenant' || profile?.role === 'landlord') {
+      if (!profile.landlord_block_id) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      }
+      if (conversation.landlord_id !== profile.landlord_block_id) {
+        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+      }
+    }
+
+    // Ownership check: ensure user is a participant in the conversation
+    const { data: participant } = await supabase
+      .from('conversation_participants')
+      .select('id')
+      .eq('conversation_id', conversationId)
+      .eq('user_id', user.id)
+      .maybeSingle()
+
+    if (!participant) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
     // Mark the specific message as read
@@ -22,6 +70,7 @@ export async function POST(request: NextRequest) {
       .from('messages')
       .update({ read: true })
       .eq('id', messageId)
+      .eq('conversation_id', conversationId)
 
     if (messageError) {
       console.error('Failed to mark message as read:', messageError)
@@ -31,22 +80,22 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Update chat last_read_at for the user
-    // Note: You'll need to pass the userId in a real implementation
-    const { error: chatError } = await supabase
-      .from('chat_participants')
+    // Update conversation participant last_read_at for the user
+    const { error: participantError } = await supabase
+      .from('conversation_participants')
       .update({ last_read_at: new Date().toISOString() })
-      .eq('chat_id', chatId)
+      .eq('conversation_id', conversationId)
+      .eq('user_id', user.id)
 
-    if (chatError) {
-      console.error('Failed to update chat read status:', chatError)
-      // Don't fail the request if chat update fails
+    if (participantError) {
+      console.error('Failed to update conversation read status:', participantError)
+      // Don't fail the request if participant update fails
     }
 
     return NextResponse.json({
       success: true,
       messageId,
-      chatId,
+      conversationId,
       timestamp: new Date().toISOString()
     })
 

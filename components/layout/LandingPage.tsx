@@ -578,7 +578,7 @@ function LuxuryHamburgerMenu({
 
               <div style={{ display: "flex", gap: 32, flexWrap: "wrap" }}>
                 {[
-                  { icon: <Phone size={12} />, text: "+254 700 123 456" },
+                  { icon: <Phone size={12} />, text: "+254 748 333 763" },
                   { icon: <Mail size={12} />, text: "hello@leaexecutive.com" },
                   { icon: <MapPin size={12} />, text: "Nairobi, Kenya" },
                 ].map(({ icon, text }) => (
@@ -1196,17 +1196,8 @@ export default function Home() {
           </p>
           <div style={{ display: 'flex', gap: 14, justifyContent: 'center', flexWrap: 'wrap' }}>
             <button className="btn-gold" onClick={() => router.push('/login')}>Tenant Login <ArrowRight size={14} /></button>
-            <button className="btn-outline" onClick={() => router.push('/contact')}>Contact Management</button>
+            <button className="btn-outline" onClick={() => router.push('/contact')}> Contact Management</button>
           </div>
-
-          {/* Live site note */}
-          <div style={{ marginTop: 40, display: 'inline-flex', alignItems: 'center', gap: 8, border: '1px solid rgba(242,237,228,.12)', padding: '10px 20px' }}>
-            <div style={{ width: 8, height: 8, background: '#4ade80', borderRadius: '50%', animation: 'pulse 2s infinite' }} />
-            <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, color: 'rgba(242,237,228,.45)', letterSpacing: '.08em' }}>
-              Live at lea-residency.vercel.app
-            </span>
-          </div>
-          <style>{`@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }`}</style>
         </div>
       </section>
 
@@ -1315,7 +1306,7 @@ export default function Home() {
               </p>
               {/* Contact */}
               {[
-                { icon: <Phone size={12} />, text: '+254 700 000 000' },
+                { icon: <Phone size={12} />, text: '+254 748 333 763' },
                 { icon: <Mail size={12} />, text: 'management@lea-residency.app' },
                 { icon: <MapPin size={12} />, text: 'Nairobi, Kenya' },
               ].map(({ icon, text }) => (
@@ -1344,7 +1335,7 @@ export default function Home() {
           </div>
 
           <div style={{ borderTop: '1px solid rgba(242,237,228,.07)', paddingTop: 24, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-            <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, color: 'rgba(242,237,228,.25)' }}> &copy; {new Date().getFullYear()} LEA Executive Residency. All rights reserved.</span>
+            <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, color: 'rgba(242,237,228,.25)' }}> &copy;  {new Date().getFullYear()} | LEA Executive Residency. All rights reserved.</span>
             <div style={{ display: 'flex', gap: 20 }}>
               {['Privacy Policy', 'Terms of Service', 'Tenant Rights'].map(l => (
                 <span key={l} style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, color: 'rgba(242,237,228,.25)', cursor: 'pointer' }}>{l}</span>

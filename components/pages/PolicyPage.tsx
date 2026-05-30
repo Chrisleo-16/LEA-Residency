@@ -104,11 +104,13 @@ export default function PolicyPage({ user }: PolicyPageProps) {
     setFullName(profile?.full_name || '')
     setEmail(profile?.email || '')
 
-    const { data } = await supabase
-      .from('policies').select('*')
-      .neq('category', 'announcement')
-      .order('created_at', { ascending: false })
-    setPolicies(data || [])
+    const response = await fetch('/api/policies')
+    const payload = await response.json()
+    if (response.ok) {
+      setPolicies(payload.policies || [])
+    } else {
+      setError(payload.error || 'Failed to load policies')
+    }
     setIsLoading(false)
   }
 
@@ -141,10 +143,18 @@ export default function PolicyPage({ user }: PolicyPageProps) {
         const { data: urlData } = supabase.storage.from('policy-docs').getPublicUrl(uploadData.path)
         fileUrl = urlData.publicUrl
       }
-      const { error } = await supabase.from('policies').insert({
-        title, content, category, file_url: fileUrl, created_by: user!.id,
+      const response = await fetch('/api/policies', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title,
+          content,
+          category,
+          file_url: fileUrl,
+        }),
       })
-      if (error) throw error
+      const payload = await response.json()
+      if (!response.ok) throw new Error(payload.error || 'Failed to create policy')
       setSuccess('Policy published successfully!')
       setTitle(''); setContent(''); setCategory(CATEGORIES[0].value)
       setPdfFile(null); setShowForm(false)
@@ -155,23 +165,47 @@ export default function PolicyPage({ user }: PolicyPageProps) {
   }
 
   const handleDelete = async (id: string, fileUrl: string | null) => {
-    if (fileUrl) {
-      const fileName = fileUrl.split('/').pop()
-      if (fileName) await supabase.storage.from('policy-docs').remove([fileName])
+    try {
+      if (fileUrl) {
+        const fileName = fileUrl.split('/').pop()
+        if (fileName) await supabase.storage.from('policy-docs').remove([fileName])
+      }
+
+      const response = await fetch(`/api/policies?policyId=${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+      })
+      const payload = await response.json()
+      if (!response.ok) throw new Error(payload.error || 'Failed to delete policy')
+      fetchData()
+    } catch (err: any) {
+      setError(err.message)
     }
-    await supabase.from('policies').delete().eq('id', id)
-    fetchData()
   }
 
   const handleEdit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!editingPolicy) return
     setIsSavingEdit(true)
-    const { error } = await supabase.from('policies')
-      .update({ title: editTitle, content: editContent }).eq('id', editingPolicy.id)
-    setIsSavingEdit(false)
-    if (!error) { setEditingPolicy(null); setSuccess('Policy updated!'); fetchData() }
-    else setError(error.message)
+    try {
+      const response = await fetch('/api/policies', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          policyId: editingPolicy.id,
+          title: editTitle,
+          content: editContent,
+        }),
+      })
+      const payload = await response.json()
+      if (!response.ok) throw new Error(payload.error || 'Failed to update policy')
+      setEditingPolicy(null)
+      setSuccess('Policy updated!')
+      fetchData()
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setIsSavingEdit(false)
+    }
   }
 
   const handleDownloadAgreement = async () => {
@@ -764,59 +798,58 @@ export default function PolicyPage({ user }: PolicyPageProps) {
 
                   {/* Expanded content */}
                   {isExpanded && (
-  <div className="border-t border-border">
+                    <div className="border-t border-border">
 
-    {/* ✅ Show image if file_url is an image (not PDF) */}
-    {policy.file_url && !policy.file_url.endsWith('.pdf') && (
-      <div className="px-5 pt-4 pb-2">
-        <img
-          src={policy.file_url}
-          alt={policy.title}
-          className="w-full rounded-xl border border-border object-contain max-h-[600px]"
-          loading="lazy"
-        />
-      </div>
-    )}
+                      {/* ✅ Show image if file_url is an image (not PDF) */}
+                      {policy.file_url && !policy.file_url.endsWith('.pdf') && (
+                        <div className="px-5 pt-4 pb-2">
+                          <img
+                            src={policy.file_url}
+                            alt={policy.title}
+                            className="w-full rounded-xl border border-border object-contain max-h-150"
+                          />
+                        </div>
+                      )}
 
-    {/* Text content */}
-    {policy.content && (
-      <div className="px-5 py-4">
-        <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">
-          {policy.content}
-        </p>
-      </div>
-    )}
+                      {/* Text content */}
+                      {policy.content && (
+                        <div className="px-5 py-4">
+                          <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">
+                            {policy.content}
+                          </p>
+                        </div>
+                      )}
 
-    {/* PDF download — only for actual PDFs */}
-    {policy.file_url && policy.file_url.endsWith('.pdf') && (
-      <div className="px-5 pb-4 pt-1">
-        
-          <a href={policy.file_url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-2 text-sm font-medium text-accent hover:text-accent/80 bg-accent/10 border border-accent/20 px-4 py-2 rounded-xl transition-colors hover:bg-accent/15"
-        >
-          <FileText className="w-4 h-4" />
-          View / Download PDF
-          <ExternalLink className="w-3.5 h-3.5 opacity-60" />
-        </a>
-      </div>
-    )}
+                      {/* PDF download — only for actual PDFs */}
+                      {policy.file_url && policy.file_url.endsWith('.pdf') && (
+                        <div className="px-5 pb-4 pt-1">
+                          <a
+                            href={policy.file_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-2 text-sm font-medium text-accent hover:text-accent/80 bg-accent/10 border border-accent/20 px-4 py-2 rounded-xl transition-colors hover:bg-accent/15"
+                          >
+                            <FileText className="w-4 h-4" />
+                            View / Download PDF
+                            <ExternalLink className="w-3.5 h-3.5 opacity-60" />
+                          </a>
+                        </div>
+                      )}
 
-    {/* Mark as read */}
-    {role === 'tenant' && !isRead && (
-      <div className="border-t border-border px-5 py-3 bg-secondary/30">
-        <button
-          onClick={() => markAsRead(policy.id)}
-          className="text-xs font-medium text-accent hover:text-accent/80 flex items-center gap-1.5 transition-colors"
-        >
-          <CheckCircle2 className="w-3.5 h-3.5" />
-          Mark as read
-        </button>
-      </div>
-    )}
-  </div>
-)}
+                      {/* Mark as read */}
+                      {role === 'tenant' && !isRead && (
+                        <div className="border-t border-border px-5 py-3 bg-secondary/30">
+                          <button
+                            onClick={() => markAsRead(policy.id)}
+                            className="text-xs font-medium text-accent hover:text-accent/80 flex items-center gap-1.5 transition-colors"
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            Mark as read
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )
             })
@@ -1100,26 +1133,3 @@ export default function PolicyPage({ user }: PolicyPageProps) {
     </div>
   )
 }
-// ```
-
-// ---
-
-// **Also make sure you have the API route at `app/api/generate-agreement/route.ts`** — that's the file from the previous response. Without it the download button will fail.
-
-// **What's included in this full file:**
-// ```
-// ✅ toUTC() helper — fixes 3-hour timestamp issue
-// ✅ fetchData fetches full_name + email for agreement
-// ✅ All policy features: search, read tracking, categories, edit, delete
-// ✅ Reading progress bar for tenants
-// ✅ Full Tenancy Agreement section at bottom:
-//      📋 5 General Terms with emojis
-//      🏠 12 Tenant Responsibilities with emojis
-//      🏢 5 Landlord Obligations with emojis
-//      National ID input field
-//      Unread warning if policies not all read
-//      Agreement checkbox disabled until all read
-//      Download button → calls API → generates PDF
-//      Success state after download
-// ✅ Edit modal for landlord
-// ✅ All dates use Africa/Nairobi timezone via toUTC()

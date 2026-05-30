@@ -1,15 +1,16 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   MessageSquare, Settings, LogOut, Search,
   AlertCircle, ClipboardList, FileText, Users,
-  X, Home, Building2, ChevronRight, Wrench
+  X, Home, Building2, ChevronRight, Wrench, Activity,
+  Receipt
 } from 'lucide-react'
-import { supabase } from '@/lib/supabase'
-import { User } from '@supabase/supabase-js'
-import { Receipt } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
+import { User, RealtimeChannel } from '@supabase/supabase-js'
+
 interface SidebarProps {
   activeTab: string
   setActiveTab: (tab: string) => void
@@ -17,54 +18,78 @@ interface SidebarProps {
 
 export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
   const router = useRouter()
+  const supabaseRef = useRef(createClient())
   const [user, setUser] = useState<User | null>(null)
   const [role, setRole] = useState<string | null>(null)
   const [fullName, setFullName] = useState('')
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
 
- useEffect(() => {
-  let channel: ReturnType<typeof supabase.channel> | null = null
+  useEffect(() => {
+    let channel: RealtimeChannel | null = null
+    let isMounted = true // Prevents memory leaks if unmounted during async roundtrips
+  const supabase = supabaseRef.current
 
   supabase.auth.getSession().then(async ({ data: { session } }) => {
-    if (!session) { router.push('/login'); return }
-    setUser(session.user)
+      // If the component unmounted while waiting for the session, abort
+      if (!isMounted) return
 
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role, full_name, avatar_url')
-      .eq('id', session.user.id)
-      .single()
+      if (!session) { 
+        router.push('/login')
+        return 
+      }
+      
+      setUser(session.user)
 
-    if (profile) {
-      setRole(profile.role)
-      setFullName(profile.full_name || '')
-      setAvatarUrl(profile.avatar_url || null)
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('role, full_name, avatar_url')
+        .eq('id', session.user.id)
+        .maybeSingle()
+
+      // Double check mounting status after the second await 
+      if (!isMounted) return
+
+      if (profileError) {
+        console.error('Error fetching profile:', profileError)
+      }
+
+      if (profile) {
+        setRole(profile.role)
+        setFullName(profile.full_name || '')
+        setAvatarUrl(profile.avatar_url || null)
+      } else {
+        console.warn('No profile found for user:', session.user.id)
+      }
+
+      // Initialize and chain methods completely BEFORE subscribing
+      channel = supabase
+        .channel('sidebar-profile-realtime')
+        .on('postgres_changes', {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'profiles',
+          filter: `id=eq.${session.user.id}`,
+        }, (payload) => {
+          setFullName(payload.new.full_name || '')
+          setAvatarUrl(payload.new.avatar_url || null)
+          setRole(payload.new.role || null)
+        })
+      
+      channel.subscribe()
+    })
+
+    // Cleanup function executes immediately on unmount
+    return () => {
+      isMounted = false
+      if (channel) {
+        supabase.removeChannel(channel)
+      }
     }
-
-    // ✅ Now inside .then() so session.user.id is accessible
-    channel = supabase
-      .channel('sidebar-profile-realtime')
-      .on('postgres_changes', {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'profiles',
-        filter: `id=eq.${session.user.id}`,
-      }, (payload) => {
-        setFullName(payload.new.full_name || '')
-        setAvatarUrl(payload.new.avatar_url || null)
-        setRole(payload.new.role || null)
-      })
-      .subscribe()
-  })
-
-  return () => {
-    channel?.unsubscribe()
-  }
-}, [])
+  }, [router]) // Safely include router dependency
 
   const handleLogout = async () => {
-    await supabase.auth.signOut()
+    await supabaseRef.current.auth.signOut()
     router.push('/login')
   }
 
@@ -73,7 +98,6 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
     { id: 'community',  label: 'Community',           icon: Users,         desc: 'Group & announcements' },
     { id: 'complaints', label: 'My Complaints',       icon: AlertCircle,   desc: 'Submit & track issues' },
     { id: 'requests',   label: 'My Requests',         icon: ClipboardList, desc: 'Service requests' },
-    // { id: 'maintenance', label: 'Maintenance',         icon: Wrench,       desc: 'Maintenance & repairs' },
     { id: 'payments',   label: 'Payments',            icon: Receipt,       desc: 'Rent payment history' },
     { id: 'policy',     label: 'Policy & Docs',       icon: FileText,      desc: 'Rules & documents' },
     { id: 'settings',   label: 'Settings',            icon: Settings,      desc: 'Account preferences' },
@@ -84,21 +108,22 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
     { id: 'community',  label: 'Community',           icon: Users,         desc: 'Group & announcements' },
     { id: 'complaints', label: 'Complaints',          icon: AlertCircle,   desc: 'Manage tenant issues' },
     { id: 'requests',   label: 'Requests',            icon: ClipboardList, desc: 'Service requests' },
-    // { id: 'maintenance', label: 'Maintenance',         icon: Wrench,       desc: 'Maintenance requests' },
-    { id: 'staff',      label: 'Staff Management',   icon: Users,         desc: 'Manage staff members' },
+    { id: 'staff',      label: 'Staff Management',    icon: Users,         desc: 'Manage staff members' },
     { id: 'payments',   label: 'Rent Ledger',         icon: Receipt,       desc: 'Track all payments' },
     { id: 'policy',     label: 'Manage Policies',     icon: FileText,      desc: 'Publish documents' },
     { id: 'settings',   label: 'Settings',            icon: Settings,      desc: 'Account preferences' },
   ]
 
-  const tabs = role === 'landlord' ? landlordTabs : tenantTabs
+  let tabs = tenantTabs
+  if (role === 'landlord') {
+    tabs = landlordTabs
+  }
   const filteredTabs = tabs.filter(t =>
     t.label.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
   return (
     <div className="w-72 bg-sidebar flex flex-col h-full overflow-hidden">
-
       {/* Brand header */}
       <div className="px-5 pt-6 pb-4 shrink-0">
         <div className="flex items-center gap-3 mb-5">
@@ -117,7 +142,7 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
 
         {/* Role badge */}
         {role && (
-          <div className="flex items-center gap-2 mb-4">
+          <div className="flex items-center gap-2 mb-4" suppressHydrationWarning>
             <div className="w-1.5 h-1.5 rounded-full bg-accent" />
             <span className="text-xs text-sidebar-foreground/50 capitalize tracking-wide">
               {role === 'landlord' ? 'Property Manager' : 'Resident Tenant'}
@@ -160,7 +185,13 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
           return (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => {
+                if (tab.id === 'developer-dashboard') {
+                  router.push('/developer-dashboard')
+                } else {
+                  setActiveTab(tab.id)
+                }
+              }}
               className={`
                 w-full flex items-center gap-3 px-3 py-3 rounded-xl text-left
                 transition-all duration-150 group relative
@@ -199,7 +230,7 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
       <div className="mx-5 border-t border-sidebar-border shrink-0" />
 
       {/* User footer */}
-      <div className="p-4 shrink-0">
+      <div className="p-4 shrink-0" suppressHydrationWarning>
         <div className="flex items-center gap-3 p-3 rounded-xl bg-sidebar-accent border border-sidebar-border">
           <div className="relative shrink-0">
             <div className="w-9 h-9 rounded-full bg-accent flex items-center justify-center overflow-hidden ring-2 ring-accent/30">

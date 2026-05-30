@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { User } from '@supabase/supabase-js'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase/client'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 
 export default function LandlordPage() {
@@ -12,22 +12,31 @@ export default function LandlordPage() {
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
+    const supabase = createClient()
+    
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (!session) {
         router.push('/login')
         return
       }
 
-      // Check role from profiles table
       const { data: profile } = await supabase
         .from('profiles')
-        .select('role')
+        .select('role, kyc_verified, landlord_code, landlord_block_id, property_setup_complete')
         .eq('id', session.user.id)
-        .single()
+        .maybeSingle()
 
       if (profile?.role !== 'landlord') {
-        // Not a landlord — kick them out
         router.push('/dashboard')
+        return
+      }
+
+      if (
+        !profile?.landlord_code ||
+        !profile?.landlord_block_id ||
+        !profile?.property_setup_complete
+      ) {
+        router.push('/complete-setup')
         return
       }
 
@@ -38,7 +47,7 @@ export default function LandlordPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-background">
+      <div className="flex items-center justify-center min-h-screen bg-background" suppressHydrationWarning>
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent" />
       </div>
     )

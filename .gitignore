@@ -17,3 +17,6 @@ next.user-config.*
 node_modules/
 .next/
 .DS_Store
+# Sentry Config File
+.env.sentry-build-plugin
+supabase\migrations

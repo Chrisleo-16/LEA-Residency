@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import { Nunito } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
+import LogRocketInit from '@/components/LogRocketInit'
 
 const nunito = Nunito({
   subsets: ['latin'],
@@ -49,6 +50,7 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
       </head>
       <body className={`${nunito.className} antialiased`}>
+        <LogRocketInit />
         {children}
         <Analytics />
         {/* ✅ Only register SW in production — fixes 404 in dev */}

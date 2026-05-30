@@ -371,6 +371,11 @@ export default function ViewingPage() {
       <nav
         style={{
           position: "sticky",
+          margin:"30px",
+          display:"flex",
+          justifyContent:"center",
+          gap:2
+
         }}
       >
         <Link
@@ -394,9 +399,9 @@ export default function ViewingPage() {
           <ArrowLeft size={13} /> Gallery
         </Link>
         <div
-          style={{ width: 1, height: 18, background: "rgba(242,237,228,.1)" }}
+          style={{ width: 1, height: 60, background: "rgba(242,237,228,.1)", marginLeft:10 }}
         />
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 , marginLeft:20, marginRight:10}}>
           <div
             style={{
               width: 30,
