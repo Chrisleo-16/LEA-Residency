@@ -19,4 +19,7 @@ node_modules/
 .DS_Store
 # Sentry Config File
 .env.sentry-build-plugin
-supabase\migrations
+supabase/migrations
+lib/database/blockchain_schema.sql
+lib/database/schema_updates.sql 
+lib/database/schema.sql
