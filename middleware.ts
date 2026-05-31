@@ -1,35 +1,49 @@
 // middleware.ts
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-// Import the middleware-specific initialization function cleanly
 import { createMiddlewareClient } from "@/lib/supabase/server"
 
 export async function middleware(request: NextRequest) {
-  // Initialize the base response
-  const response = NextResponse.next({ request })
-
-  // Initialize Supabase with the request and response contexts
-  const supabase = createMiddlewareClient(request, response)
-
-  // Securely check token authenticity server-side (refreshes expired tokens automatically)
-  const { data: { user } } = await supabase.auth.getUser()
-
   const path = request.nextUrl.pathname
 
   const isProtectedRoute = path.startsWith('/dashboard') ||
-                          path.startsWith('/developer-dashboard') ||
-                          path.startsWith('/landlord')
+                           path.startsWith('/developer-dashboard') ||
+                           path.startsWith('/landlord')
 
   const isAuthPage = path === '/login'
   const isOnboardingPage = path === '/onboarding'
 
-  // Route guarding based on core authentication state
+  // 1. Initialize the base response
+  const initialResponse = NextResponse.next({ request })
+
+  // 2. Initialize Supabase and pull out the actively tracked response object
+  const { client: supabase, supabaseResponse } = createMiddlewareClient(request, initialResponse)
+
+  // 3. Authenticate user server-side (Refreshes tokens if expired via supabaseResponse)
+  const { data: { user } } = await supabase.auth.getUser()
+
+  // --- ROUTE GUARDING BLOCK ---
+
+  // Helper function to cleanly forward Supabase's fresh cookies to any redirect
+  // Helper function to cleanly forward Supabase's fresh cookies to any redirect
+  const redirectWithCookies = (url: string) => {
+    const redirectRes = NextResponse.redirect(new URL(url, request.url))
+    
+    supabaseResponse.cookies.getAll().forEach((cookie) => {
+      // Destructure name and value, and gather the remaining properties into an 'options' object
+      const { name, value, ...options } = cookie
+      redirectRes.cookies.set(name, value, options)
+    })
+    
+    return redirectRes
+  }
+  // User is trying to access a protected dashboard route, but is not logged in
   if (isProtectedRoute && !user) {
-    return NextResponse.redirect(new URL('/login', request.url))
+    return redirectWithCookies('/login')
   }
 
+  // User is logged in but trying to visit the login page
   if (isAuthPage && user) {
-    // Check if user has completed onboarding
     const { data: profile } = await supabase
       .from('profiles')
       .select('onboarding_completed, role')
@@ -37,13 +51,13 @@ export async function middleware(request: NextRequest) {
       .single()
 
     if (profile?.role === 'landlord' && !profile?.onboarding_completed) {
-      return NextResponse.redirect(new URL('/onboarding', request.url))
+      return redirectWithCookies('/onboarding')
     }
     
-    return NextResponse.redirect(new URL('/dashboard', request.url))
+    return redirectWithCookies('/dashboard')
   }
 
-  // If accessing dashboard or protected routes without completing onboarding
+  // Protecting uncompleted onboarding flows
   if (isProtectedRoute && user && !isOnboardingPage) {
     const { data: profile } = await supabase
       .from('profiles')
@@ -52,15 +66,17 @@ export async function middleware(request: NextRequest) {
       .single()
 
     if (profile?.role === 'landlord' && !profile?.onboarding_completed) {
-      return NextResponse.redirect(new URL('/onboarding', request.url))
+      return redirectWithCookies('/onboarding')
     }
   }
 
-  return response
+  // If no redirect is needed, return the base response containing the updated session cookies
+  return supabaseResponse
 }
 
 export const config = {
   matcher: [
+    // This optimized regex protects matching dashboards but excludes static assets/images
     '/dashboard/:path*',
     '/developer-dashboard/:path*',
     '/landlord/:path*',
