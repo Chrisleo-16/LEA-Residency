@@ -1,4 +1,3 @@
-// middleware.ts
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { createMiddlewareClient } from "@/lib/supabase/server"
@@ -24,22 +23,14 @@ export async function middleware(request: NextRequest) {
 
   // --- ROUTE GUARDING BLOCK ---
 
-  // Helper function to cleanly forward Supabase's fresh cookies to any redirect
-  // Helper function to cleanly forward Supabase's fresh cookies to any redirect
-  const redirectWithCookies = (url: string) => {
-    const redirectRes = NextResponse.redirect(new URL(url, request.url))
-    
-    supabaseResponse.cookies.getAll().forEach((cookie) => {
-      // Destructure name and value, and gather the remaining properties into an 'options' object
-      const { name, value, ...options } = cookie
-      redirectRes.cookies.set(name, value, options)
-    })
-    
-    return redirectRes
-  }
   // User is trying to access a protected dashboard route, but is not logged in
   if (isProtectedRoute && !user) {
-    return redirectWithCookies('/login')
+    const redirectRes = NextResponse.redirect(new URL('/login', request.url))
+    // Pull the freshest cookies directly from the active supabaseResponse object
+    supabaseResponse.cookies.getAll().forEach(({ name, value, ...options }) => {
+      redirectRes.cookies.set(name, value, options)
+    })
+    return redirectRes
   }
 
   // User is logged in but trying to visit the login page
@@ -50,11 +41,16 @@ export async function middleware(request: NextRequest) {
       .eq('id', user.id)
       .single()
 
-    if (profile?.role === 'landlord' && !profile?.onboarding_completed) {
-      return redirectWithCookies('/onboarding')
-    }
-    
-    return redirectWithCookies('/dashboard')
+    const targetUrl = (profile?.role === 'landlord' && !profile?.onboarding_completed) 
+      ? '/onboarding' 
+      : '/dashboard'
+
+    const redirectRes = NextResponse.redirect(new URL(targetUrl, request.url))
+    // Pull cookies AFTER the database query finishes to ensure we don't lose the session
+    supabaseResponse.cookies.getAll().forEach(({ name, value, ...options }) => {
+      redirectRes.cookies.set(name, value, options)
+    })
+    return redirectRes
   }
 
   // Protecting uncompleted onboarding flows
@@ -66,7 +62,11 @@ export async function middleware(request: NextRequest) {
       .single()
 
     if (profile?.role === 'landlord' && !profile?.onboarding_completed) {
-      return redirectWithCookies('/onboarding')
+      const redirectRes = NextResponse.redirect(new URL('/onboarding', request.url))
+      supabaseResponse.cookies.getAll().forEach(({ name, value, ...options }) => {
+        redirectRes.cookies.set(name, value, options)
+      })
+      return redirectRes
     }
   }
 
@@ -76,7 +76,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    // This optimized regex protects matching dashboards but excludes static assets/images
     '/dashboard/:path*',
     '/developer-dashboard/:path*',
     '/landlord/:path*',
