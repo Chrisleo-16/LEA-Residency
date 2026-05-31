@@ -39,32 +39,31 @@ export default function LoginPage() {
   }
 
   const handleGoogleSignIn = async () => {
-    setIsLoading(true)
-    setError('')
-    try {
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/dashboard`,
-          skipBrowserRedirect: false,
+  setIsLoading(true)
+  setError('')
+  try {
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/dashboard`,
+        queryParams: {
+          prompt: 'select_account',
         },
-      })
+      },
+    })
 
-      console.log('OAuth response:', { data, error })
+    if (error) throw error
 
-      if (error) throw error
-
-      if (data?.url) {
-        window.location.href = data.url
-      } else {
-        throw new Error('No redirect URL returned from Supabase. Check Google provider is enabled in Supabase dashboard.')
-      }
-    } catch (err: any) {
-      console.error('Google OAuth error:', err)
-      setError(err.message || 'Google sign-in failed. Please try again.')
-      setIsLoading(false)
+    if (data?.url) {
+      window.location.href = data.url
+    } else {
+      throw new Error('No redirect URL returned. Check Google provider is enabled in Supabase dashboard.')
     }
+  } catch (err: any) {
+    setError(err.message || 'Google sign-in failed. Please try again.')
+    setIsLoading(false)
   }
+}
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
