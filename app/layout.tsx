@@ -3,6 +3,7 @@ import { Nunito } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
 import LogRocketInit from '@/components/LogRocketInit'
+import SupabaseListener from '@/components/SupabaseListener'
 
 const nunito = Nunito({
   subsets: ['latin'],
@@ -51,6 +52,7 @@ export default function RootLayout({
       </head>
       <body className={`${nunito.className} antialiased`}>
         <LogRocketInit />
+        <SupabaseListener />
         {children}
         <Analytics />
         {/* ✅ Only register SW in production — fixes 404 in dev */}
