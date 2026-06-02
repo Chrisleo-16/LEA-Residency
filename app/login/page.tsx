@@ -276,8 +276,10 @@ export default function LoginPage() {
             {/* Full name — signup only */}
             {!isLogin && (
               <div className="space-y-1.5">
-                <label className="text-sm font-medium text-foreground">Full Name</label>
+                <label htmlFor="full-name" className="text-sm font-medium text-foreground">Full Name</label>
                 <Input
+                  id="full-name"
+                  name="fullName"
                   type="text"
                   placeholder="John Doe"
                   value={name}
@@ -317,8 +319,10 @@ export default function LoginPage() {
 
             {/* Email */}
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-foreground">Email address</label>
+              <label htmlFor="email" className="text-sm font-medium text-foreground">Email address</label>
               <Input
+                id="email"
+                name="email"
                 type="email"
                 placeholder="you@example.com"
                 value={email}
@@ -332,7 +336,7 @@ export default function LoginPage() {
             {/* Password */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <label className="text-sm font-medium text-foreground">Password</label>
+                <label htmlFor="password" className="text-sm font-medium text-foreground">Password</label>
                 {isLogin && (
                   <button
                     type="button"
@@ -344,6 +348,8 @@ export default function LoginPage() {
               </div>
               <div className="relative">
                 <Input
+                  id="password"
+                  name="password"
                   type={showPassword ? 'text' : 'password'}
                   placeholder="••••••••"
                   value={password}

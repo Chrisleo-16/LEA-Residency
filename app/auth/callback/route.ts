@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
 import { createServerClient } from '@supabase/ssr'
 
 export const dynamic = 'force-dynamic'
@@ -13,13 +14,14 @@ export async function GET(request: Request) {
     const response = NextResponse.redirect(`${origin}${next}`)
 
     // 2. Initialize a standalone client tied directly to this response
+    const cookieStore = cookies()
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
         cookies: {
           getAll() {
-            return [] // Not needed for the code exchange inbound request
+            return cookieStore.getAll().map(({ name, value }) => ({ name, value }))
           },
           setAll(cookiesToSet) {
             // Force cookies directly onto the redirect response object
