@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { AlertCircle, Eye, EyeOff, ArrowRight, Home } from 'lucide-react'
@@ -10,7 +10,6 @@ import Link from 'next/link'
 
 export default function LoginPage() {
   const router = useRouter()
-  const searchParams = useSearchParams()
   const [isLogin, setIsLogin] = useState(true)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -23,6 +22,7 @@ export default function LoginPage() {
 
   // Redirect if already authenticated and profile setup is complete
   useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search)
     const authError = searchParams.get('error')
     const authMessage = searchParams.get('message')
 
@@ -67,7 +67,7 @@ export default function LoginPage() {
     }
 
     checkSession()
-  }, [router, searchParams, supabase])
+  }, [router, supabase])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
