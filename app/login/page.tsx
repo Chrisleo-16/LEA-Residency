@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { AlertCircle, Eye, EyeOff, ArrowRight, Home } from 'lucide-react'
@@ -10,6 +10,7 @@ import Link from 'next/link'
 
 export default function LoginPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [isLogin, setIsLogin] = useState(true)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -22,6 +23,16 @@ export default function LoginPage() {
 
   // Redirect if already authenticated and profile setup is complete
   useEffect(() => {
+    const authError = searchParams.get('error')
+    const authMessage = searchParams.get('message')
+
+    if (authError === 'auth_failed') {
+      setError(
+        authMessage ||
+          'Authentication failed after redirect. Please try again or contact support.'
+      )
+    }
+
     const checkSession = async () => {
       const { data: { session }, error } = await supabase.auth.getSession()
       if (error || !session) return
@@ -56,7 +67,7 @@ export default function LoginPage() {
     }
 
     checkSession()
-  }, [router])
+  }, [router, searchParams, supabase])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()

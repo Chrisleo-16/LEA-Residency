@@ -2,16 +2,13 @@
 
 import { useRouter } from 'next/navigation'
 import { useEffect } from 'react'
-import { createBrowserClient } from '@supabase/ssr'
+import { createClient } from '@/lib/supabase/client'
 
 export default function SupabaseListener() {
   const router = useRouter()
   
   // Initialize the Supabase client for the browser
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
+  const supabase = createClient()
 
   useEffect(() => {
     // Listen for any changes in the user's login status

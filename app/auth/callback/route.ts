@@ -37,8 +37,15 @@ export async function GET(request: Request) {
     if (!error) {
       return response
     }
+
+    const errorMessage = encodeURIComponent(error.message || 'Unable to complete authentication.')
+    return NextResponse.redirect(
+      `${origin}/login?error=auth_failed&message=${errorMessage}`
+    )
   }
 
   // Fallback if no code or exchange fails
-  return NextResponse.redirect(`${origin}/login?error=auth_failed`)
+  return NextResponse.redirect(
+    `${origin}/login?error=auth_failed&message=missing_code`
+  )
 }
