@@ -9,7 +9,11 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams, origin } = new URL(request.url)
     const code = searchParams.get('code')
-    const next = searchParams.get('next') ?? '/dashboard'
+    const nextParam = searchParams.get('next') ?? '/dashboard'
+    const next =
+      nextParam.startsWith('/') && !nextParam.startsWith('//')
+        ? nextParam
+        : '/dashboard'
 
     if (!code) {
       return NextResponse.redirect(
@@ -17,8 +21,6 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Create a Supabase server client for the code exchange
-    // This client doesn't need incoming cookies since OAuth code is fresh
     const response = NextResponse.redirect(`${origin}${next}`)
 
     const supabase = createServerClient(
@@ -27,11 +29,10 @@ export async function GET(request: NextRequest) {
       {
         cookies: {
           getAll() {
-            // Empty for OAuth code exchange (no session cookies yet)
-            return []
+            // PKCE code verifier is stored in cookies when OAuth starts in the browser
+            return request.cookies.getAll()
           },
           setAll(cookiesToSet) {
-            // Set the fresh session cookies on the redirect response
             cookiesToSet.forEach(({ name, value, options }) => {
               response.cookies.set(name, value, options)
             })
