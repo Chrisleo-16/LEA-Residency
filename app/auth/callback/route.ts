@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
+import { getFriendlyAuthError } from '@/lib/auth-errors'
 
 export const dynamic = 'force-dynamic'
 
@@ -44,9 +45,12 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       console.error('[OAuth Callback] Exchange error:', error.message)
-      const errorMsg = encodeURIComponent(error.message || 'Authentication failed')
+      const friendlyError = getFriendlyAuthError(error.message)
+      const errorMessage = encodeURIComponent(
+        `${friendlyError.title}\n\n${friendlyError.description}\n\n${friendlyError.action}`
+      )
       return NextResponse.redirect(
-        `${origin}/login?error=auth_failed&message=${errorMsg}`
+        `${origin}/login?error=auth_failed&message=${errorMessage}`
       )
     }
 
@@ -55,8 +59,14 @@ export async function GET(request: NextRequest) {
   } catch (err) {
     console.error('[OAuth Callback] Unexpected error:', err)
     const origin = new URL(request.url).origin
+    const friendlyError = getFriendlyAuthError(
+      err instanceof Error ? err.message : 'Unknown error'
+    )
+    const errorMessage = encodeURIComponent(
+      `${friendlyError.title}\n\n${friendlyError.description}\n\n${friendlyError.action}`
+    )
     return NextResponse.redirect(
-      `${origin}/login?error=auth_failed&message=callback_error`
+      `${origin}/login?error=auth_failed&message=${errorMessage}`
     )
   }
 }

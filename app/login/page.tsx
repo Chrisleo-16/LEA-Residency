@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { AlertCircle, Eye, EyeOff, ArrowRight, Home } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { getFriendlyAuthError, formatAuthErrorForDisplay } from '@/lib/auth-errors'
 import Link from 'next/link' 
 
 export default function LoginPage() {
@@ -27,8 +28,9 @@ export default function LoginPage() {
     const authMessage = searchParams.get('message')
 
     if (authError === 'auth_failed') {
+      // authMessage is already formatted from the callback route
       setError(
-        authMessage ||
+        decodeURIComponent(authMessage || '') ||
           'Authentication failed after redirect. Please try again or contact support.'
       )
     }
@@ -103,7 +105,8 @@ export default function LoginPage() {
         router.push('/dashboard')
       }
     } catch (err: any) {
-      setError(err.message || 'Login failed. Please try again.')
+      const friendlyError = getFriendlyAuthError(err.message || err)
+      setError(formatAuthErrorForDisplay(friendlyError))
     } finally {
       setIsLoading(false)
     }
@@ -153,7 +156,8 @@ export default function LoginPage() {
         router.push('/dashboard')
       }
     } catch (err: any) {
-      setError(err.message || 'Registration failed. Please try again.')
+      const friendlyError = getFriendlyAuthError(err.message || err)
+      setError(formatAuthErrorForDisplay(friendlyError))
     } finally {
       setIsLoading(false)
     }
@@ -167,9 +171,13 @@ export default function LoginPage() {
           redirectTo: `${window.location.origin}/auth/callback`,
         },
       })
-      if (error) setError(error.message)
+      if (error) {
+        const friendlyError = getFriendlyAuthError(error.message || 'Google sign-in failed')
+        setError(formatAuthErrorForDisplay(friendlyError))
+      }
     } catch (err: any) {
-      setError(err.message || 'Google sign-in failed')
+      const friendlyError = getFriendlyAuthError(typeof err === 'string' ? err : err?.message || 'Unknown error')
+      setError(formatAuthErrorForDisplay(friendlyError))
     }
   }
 
@@ -264,9 +272,11 @@ export default function LoginPage() {
 
           {/* Error */}
           {error && (
-            <div className="mb-5 p-3.5 bg-destructive/10 border border-destructive/20 rounded-xl flex items-start gap-3">
-              <AlertCircle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
-              <p className="text-sm text-destructive">{error}</p>
+            <div className="mb-5 p-4 bg-destructive/10 border border-destructive/20 rounded-xl flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
+              <div className="text-sm text-destructive whitespace-pre-line">
+                {error}
+              </div>
             </div>
           )}
 
