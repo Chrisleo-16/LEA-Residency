@@ -1,11 +1,11 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { Message } from '@/hooks/useChat'
-import { Reply, Pencil, Trash2, Check, X, SmilePlus } from 'lucide-react' // <-- Added Trash2
+import { Message, isMessageDeleted } from '@/hooks/useChat'
+import { DELETED_MESSAGE_PLACEHOLDER } from '@/lib/chat/constants'
+import { Reply, Pencil, Trash2, Check, X, SmilePlus, FileText } from 'lucide-react'
 
 const ALL_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '🔥']
-const TZ = 'Africa/Nairobi'
 
 interface MessageBubbleProps {
   message: Message
@@ -14,8 +14,53 @@ interface MessageBubbleProps {
   onReact: (messageId: string, emoji: string) => void
   onReply: (message: Message) => void
   onEdit: (messageId: string, newContent: string) => void
-  onDelete: (messageId: string) => void // <-- Added onDelete prop
+  onDelete: (messageId: string) => void
   showAvatar?: boolean
+}
+
+function MessageAttachments({
+  attachmentUrl,
+  attachmentType,
+}: {
+  attachmentUrl: string
+  attachmentType: string | null
+}) {
+  const type = attachmentType || 'file'
+
+  if (type === 'image') {
+    return (
+      <a href={attachmentUrl} target="_blank" rel="noopener noreferrer" className="block mt-2">
+        <img
+          src={attachmentUrl}
+          alt="Shared attachment"
+          className="max-w-full rounded-lg max-h-64 object-cover"
+        />
+      </a>
+    )
+  }
+
+  if (type === 'video') {
+    return (
+      <video
+        src={attachmentUrl}
+        controls
+        className="mt-2 max-w-full rounded-lg max-h-64"
+        preload="metadata"
+      />
+    )
+  }
+
+  return (
+    <a
+      href={attachmentUrl}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="mt-2 inline-flex items-center gap-2 text-xs underline opacity-90"
+    >
+      <FileText className="w-3.5 h-3.5" />
+      View attachment
+    </a>
+  )
 }
 
 export default function MessageBubble({
@@ -29,6 +74,9 @@ export default function MessageBubble({
   const pickerRef = useRef<HTMLDivElement>(null)
   const editRef = useRef<HTMLInputElement>(null)
 
+  const deleted = isMessageDeleted(message)
+  const hasAttachment = !deleted && Boolean(message.attachment_url)
+
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       if (pickerRef.current && !pickerRef.current.contains(e.target as Node))
@@ -41,6 +89,10 @@ export default function MessageBubble({
   useEffect(() => {
     if (isEditing) editRef.current?.focus()
   }, [isEditing])
+
+  useEffect(() => {
+    if (!isEditing) setEditContent(message.content)
+  }, [message.content, isEditing])
 
   const reactions = Object.values(message.reactions)
   const readsExcludingMe = message.reads.filter(r => r.user_id !== currentUserId)
@@ -67,17 +119,14 @@ export default function MessageBubble({
     setIsEditing(false)
   }
 
-  // <-- Added Confirm Delete Handler
-  const handleDelete = () => {
-    if (window.confirm('Are you sure you want to delete this message?')) {
-      onDelete(message.id)
-    }
-  }
+  const replyPreviewText =
+    message.reply_to && isMessageDeleted(message.reply_to)
+      ? DELETED_MESSAGE_PLACEHOLDER
+      : message.reply_to?.content
 
   return (
     <div className={`flex gap-2 group ${isMe ? 'flex-row-reverse' : 'flex-row'} items-end`}>
 
-      {/* Avatar */}
       {showAvatar && (
         <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center shrink-0 text-xs font-bold text-accent mb-1 overflow-hidden border border-accent/20">
           {message.profiles?.avatar_url
@@ -89,14 +138,12 @@ export default function MessageBubble({
 
       <div className={`flex flex-col max-w-[78%] sm:max-w-[68%] ${isMe ? 'items-end' : 'items-start'}`}>
 
-        {/* Sender name */}
         {!isMe && showAvatar && (
           <p className="text-xs text-muted-foreground mb-1 px-1 font-semibold">
             {message.profiles?.full_name || 'Unknown'}
           </p>
         )}
 
-        {/* Reply preview */}
         {message.reply_to && (
           <div className={`
             mb-1.5 px-3 py-2 rounded-xl border-l-2 border-accent
@@ -106,97 +153,95 @@ export default function MessageBubble({
             <p className="font-bold text-accent text-[11px] mb-0.5">
               ↩ {message.reply_to.profiles?.full_name || 'Unknown'}
             </p>
-            <p className="text-muted-foreground truncate max-w-[200px]">
-              {message.reply_to.content}
+            <p className="text-muted-foreground truncate max-w-[200px] italic">
+              {replyPreviewText}
             </p>
           </div>
         )}
 
-        {/* Bubble row */}
         <div className={`relative flex items-end gap-1.5 ${isMe ? 'flex-row-reverse' : 'flex-row'}`}>
 
-          {/* Action buttons */}
-          <div className={`
-            flex items-center gap-0.5 mb-1.5
-            opacity-100 md:opacity-0 md:group-hover:opacity-100
-            transition-all duration-150
-            ${isMe ? 'flex-row-reverse' : 'flex-row'}
-          `}>
-            
-            {/* Reply */}
-            <button
-              onClick={() => onReply(message)}
-              className="w-7 h-7 rounded-full bg-card/90 backdrop-blur border border-border shadow-sm flex items-center justify-center hover:bg-accent/10 hover:border-accent/30 active:scale-95 transition-all"
-              title="Reply"
-            >
-              <Reply className="w-3 h-3 text-muted-foreground" />
-            </button>
-
-            {/* Edit & Delete — own messages only */}
-            {isMe && (
-              <>
-                <button
-                  onClick={() => { setIsEditing(true); setEditContent(message.content) }}
-                  className="w-7 h-7 rounded-full bg-card/90 backdrop-blur border border-border shadow-sm flex items-center justify-center hover:bg-accent/10 hover:border-accent/30 active:scale-95 transition-all"
-                  title="Edit"
-                >
-                  <Pencil className="w-3 h-3 text-muted-foreground" />
-                </button>
-                
-                {/* Delete Button */}
-                <button
-                  onClick={handleDelete}
-                  className="w-7 h-7 rounded-full bg-card/90 backdrop-blur border border-border shadow-sm flex items-center justify-center hover:bg-red-500/10 hover:border-red-500/30 active:scale-95 transition-all group/delete"
-                  title="Delete"
-                >
-                  <Trash2 className="w-3 h-3 text-muted-foreground group-hover/delete:text-red-500 transition-colors" />
-                </button>
-              </>
-            )}
-
-            {/* React */}
-            <div className="relative" ref={pickerRef}>
+          {!deleted && (
+            <div className={`
+              flex items-center gap-0.5 mb-1.5
+              opacity-100 md:opacity-0 md:group-hover:opacity-100
+              transition-all duration-150
+              ${isMe ? 'flex-row-reverse' : 'flex-row'}
+            `}>
               <button
-                onClick={() => setShowEmojiPicker(v => !v)}
+                onClick={() => onReply(message)}
                 className="w-7 h-7 rounded-full bg-card/90 backdrop-blur border border-border shadow-sm flex items-center justify-center hover:bg-accent/10 hover:border-accent/30 active:scale-95 transition-all"
-                title="React"
+                title="Reply"
               >
-                <SmilePlus className="w-3 h-3 text-muted-foreground" />
+                <Reply className="w-3 h-3 text-muted-foreground" />
               </button>
 
-              {showEmojiPicker && (
-                <div className={`
-                  absolute bottom-9 z-50 bg-card border border-border
-                  rounded-2xl shadow-2xl p-2 flex gap-0.5
-                  ${isMe ? 'right-0' : 'left-0'}
-                `}>
-                  {ALL_EMOJIS.map(emoji => (
-                    <button
-                      key={emoji}
-                      onClick={() => { onReact(message.id, emoji); setShowEmojiPicker(false) }}
-                      className={`
-                        text-lg p-1.5 rounded-xl transition-all
-                        hover:scale-125 active:scale-95
-                        ${message.reactions[emoji]?.reactedByMe ? 'bg-accent/15 ring-1 ring-accent' : 'hover:bg-secondary'}
-                      `}
-                    >
-                      {emoji}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
+              {isMe && (
+                <>
+                  <button
+                    onClick={() => { setIsEditing(true); setEditContent(message.content) }}
+                    className="w-7 h-7 rounded-full bg-card/90 backdrop-blur border border-border shadow-sm flex items-center justify-center hover:bg-accent/10 hover:border-accent/30 active:scale-95 transition-all"
+                    title="Edit"
+                  >
+                    <Pencil className="w-3 h-3 text-muted-foreground" />
+                  </button>
 
-          {/* Message bubble */}
+                  <button
+                    onClick={() => onDelete(message.id)}
+                    className="w-7 h-7 rounded-full bg-card/90 backdrop-blur border border-border shadow-sm flex items-center justify-center hover:bg-red-500/10 hover:border-red-500/30 active:scale-95 transition-all group/delete"
+                    title="Delete for everyone"
+                  >
+                    <Trash2 className="w-3 h-3 text-muted-foreground group-hover/delete:text-red-500 transition-colors" />
+                  </button>
+                </>
+              )}
+
+              <div className="relative" ref={pickerRef}>
+                <button
+                  onClick={() => setShowEmojiPicker(v => !v)}
+                  className="w-7 h-7 rounded-full bg-card/90 backdrop-blur border border-border shadow-sm flex items-center justify-center hover:bg-accent/10 hover:border-accent/30 active:scale-95 transition-all"
+                  title="React"
+                >
+                  <SmilePlus className="w-3 h-3 text-muted-foreground" />
+                </button>
+
+                {showEmojiPicker && (
+                  <div className={`
+                    absolute bottom-9 z-50 bg-card border border-border
+                    rounded-2xl shadow-2xl p-2 flex gap-0.5
+                    ${isMe ? 'right-0' : 'left-0'}
+                  `}>
+                    {ALL_EMOJIS.map(emoji => (
+                      <button
+                        key={emoji}
+                        onClick={() => { onReact(message.id, emoji); setShowEmojiPicker(false) }}
+                        className={`
+                          text-lg p-1.5 rounded-xl transition-all
+                          hover:scale-125 active:scale-95
+                          ${message.reactions[emoji]?.reactedByMe ? 'bg-accent/15 ring-1 ring-accent' : 'hover:bg-secondary'}
+                        `}
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           <div className={`
             px-3.5 py-2.5 rounded-2xl text-sm shadow-sm
-            ${isMe
-              ? 'bg-accent text-white rounded-br-md'
-              : 'bg-card border border-border text-foreground rounded-bl-md'
+            ${deleted
+              ? 'bg-muted/60 border border-border text-muted-foreground italic rounded-2xl'
+              : isMe
+                ? 'bg-accent text-white rounded-br-md'
+                : 'bg-card border border-border text-foreground rounded-bl-md'
             }
           `}>
-            {isEditing ? (
+            {deleted ? (
+              <p className="text-sm italic opacity-80">{DELETED_MESSAGE_PLACEHOLDER}</p>
+            ) : isEditing ? (
               <div className="flex items-center gap-2 min-w-[180px]">
                 <input
                   ref={editRef}
@@ -216,26 +261,33 @@ export default function MessageBubble({
                 </button>
               </div>
             ) : (
-              <p className="break-words leading-relaxed">{message.content}</p>
+              <>
+                {message.content ? (
+                  <p className="break-words leading-relaxed">{message.content}</p>
+                ) : null}
+                {hasAttachment && message.attachment_url && (
+                  <MessageAttachments
+                    attachmentUrl={message.attachment_url}
+                    attachmentType={message.attachment_type}
+                  />
+                )}
+              </>
             )}
 
-            <div className={`flex items-center gap-1.5 mt-1 ${isMe ? 'justify-end' : 'justify-start'}`}>
-              {message.is_edited && (
+            <div className={`flex items-center gap-1.5 mt-1 ${isMe && !deleted ? 'justify-end' : 'justify-start'}`}>
+              {!deleted && message.is_edited && (
                 <span className={`text-[10px] italic ${isMe ? 'text-white/40' : 'text-muted-foreground'}`}>
                   edited
                 </span>
               )}
-              <p className={`text-[11px] ${isMe ? 'text-white/50' : 'text-muted-foreground'}`}>
+              <p className={`text-[11px] ${deleted ? 'text-muted-foreground' : isMe ? 'text-white/50' : 'text-muted-foreground'}`}>
                 {formatTime(message.created_at)}
               </p>
             </div>
           </div>
         </div>
 
-        {/* ... Rest of your component (Reactions & Seen by logic remains exactly the same) ... */}
-        
-        {/* Reactions */}
-        {reactions.length > 0 && (
+        {!deleted && reactions.length > 0 && (
           <div className={`flex flex-wrap gap-1 mt-1.5 px-1 ${isMe ? 'justify-end' : 'justify-start'}`}>
             {reactions.map(reaction => (
               <div
@@ -290,8 +342,7 @@ export default function MessageBubble({
           </div>
         )}
 
-        {/* Seen by */}
-        {isMe && seenCount > 0 && (
+        {isMe && !deleted && seenCount > 0 && (
           <div
             className="relative flex items-center gap-1 mt-1 px-1 cursor-pointer"
             onMouseEnter={() => setShowSeenBy(true)}

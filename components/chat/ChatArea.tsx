@@ -37,6 +37,7 @@ export default function ChatArea({ user }: ChatAreaProps) {
   const [replyingTo, setReplyingTo] = useState<Message | null>(null)
   const [tenantSearch, setTenantSearch] = useState('')
   const [deleteConfirm, setDeleteConfirm] = useState<{ show: boolean; messageId: string }>({ show: false, messageId: '' })
+  const [deleteError, setDeleteError] = useState('')
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -48,12 +49,20 @@ export default function ChatArea({ user }: ChatAreaProps) {
   const isOtherPersonOnline = onlineUsers.some(u => u.userId === otherPersonId)
 
   const handleDeleteMessage = (messageId: string) => {
+    setDeleteError('')
     setDeleteConfirm({ show: true, messageId })
   }
 
-  const confirmDelete = () => {
-    if (deleteConfirm.messageId) {
-      deleteMessage(deleteConfirm.messageId)
+  const confirmDelete = async () => {
+    if (!deleteConfirm.messageId) {
+      setDeleteConfirm({ show: false, messageId: '' })
+      return
+    }
+    setDeleteError('')
+    const err = await deleteMessage(deleteConfirm.messageId)
+    if (err) {
+      setDeleteError(err)
+      return
     }
     setDeleteConfirm({ show: false, messageId: '' })
   }
@@ -69,7 +78,12 @@ export default function ChatArea({ user }: ChatAreaProps) {
   useEffect(() => {
     if (!messages.length || !user) return
     const unseenIds = messages
-      .filter(m => m.sender_id !== user.id && !m.reads.find(r => r.user_id === user.id))
+      .filter(
+        m =>
+          m.status !== 'deleted' &&
+          m.sender_id !== user.id &&
+          !m.reads.find(r => r.user_id === user.id)
+      )
       .map(m => m.id)
     if (unseenIds.length) markAsSeen(unseenIds)
   }, [messages, user])
@@ -783,10 +797,13 @@ const formatTime = (dateStr: string) => {
       {deleteConfirm.show && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-card rounded-2xl p-6 max-w-sm w-full shadow-2xl">
-            <h3 className="text-lg font-bold text-foreground mb-2">Delete Message</h3>
+            <h3 className="text-lg font-bold text-foreground mb-2">Delete for everyone?</h3>
             <p className="text-sm text-muted-foreground mb-6">
-              Are you sure you want to delete this message? This action cannot be undone.
+              This message will be removed for everyone in the chat. You can only delete messages within 24 hours of sending.
             </p>
+            {deleteError && (
+              <p className="text-sm text-red-600 mb-4">{deleteError}</p>
+            )}
             <div className="flex gap-3 justify-end">
               <Button
                 onClick={cancelDelete}
@@ -799,7 +816,7 @@ const formatTime = (dateStr: string) => {
                 onClick={confirmDelete}
                 className="bg-red-500 hover:bg-red-600 text-white rounded-xl"
               >
-                Delete
+                Delete for everyone
               </Button>
             </div>
           </div>

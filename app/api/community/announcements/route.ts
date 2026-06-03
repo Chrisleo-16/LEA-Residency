@@ -96,6 +96,127 @@ export async function GET(request: NextRequest) {
   }
 }
 
+export async function PATCH(request: NextRequest) {
+  try {
+    const { supabase, user, profile, error } = await authenticate(request)
+    if (error || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const body = await request.json()
+    const { id, title, content } = body
+    if (!id || !title || !content) {
+      return NextResponse.json({ error: 'Missing id, title, or content' }, { status: 400 })
+    }
+
+    let query = supabase
+      .from('policies')
+      .update({ title, content })
+      .eq('id', id)
+      .eq('category', 'announcement')
+
+    if (profile?.landlord_block_id) {
+      query = query.eq('landlord_id', profile.landlord_block_id)
+    }
+
+    const { data, error: updateError } = await query.select('id')
+
+    if (updateError && updateError.message?.includes('landlord_id')) {
+      const { data: fallbackData, error: fallbackError } = await supabase
+        .from('policies')
+        .update({ title, content })
+        .eq('id', id)
+        .eq('category', 'announcement')
+        .select('id')
+
+      if (fallbackError) {
+        console.error('[Announcements API] Fallback update error:', fallbackError)
+        return NextResponse.json({ error: 'Failed to update announcement' }, { status: 500 })
+      }
+
+      if (!fallbackData?.length) {
+        return NextResponse.json({ error: 'Announcement not found' }, { status: 404 })
+      }
+
+      return NextResponse.json({ success: true })
+    }
+
+    if (updateError) {
+      console.error('[Announcements API] Update error:', updateError)
+      return NextResponse.json({ error: 'Failed to update announcement' }, { status: 500 })
+    }
+
+    if (!data?.length) {
+      return NextResponse.json({ error: 'Announcement not found' }, { status: 404 })
+    }
+
+    return NextResponse.json({ success: true })
+  } catch (err: any) {
+    console.error('[Announcements API] Error:', err)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const { supabase, user, profile, error } = await authenticate(request)
+    if (error || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const id = request.nextUrl.searchParams.get('id')
+    if (!id) {
+      return NextResponse.json({ error: 'Missing announcement id' }, { status: 400 })
+    }
+
+    let query = supabase
+      .from('policies')
+      .delete()
+      .eq('id', id)
+      .eq('category', 'announcement')
+
+    if (profile?.landlord_block_id) {
+      query = query.eq('landlord_id', profile.landlord_block_id)
+    }
+
+    const { data, error: deleteError } = await query.select('id')
+
+    if (deleteError && deleteError.message?.includes('landlord_id')) {
+      const { data: fallbackData, error: fallbackError } = await supabase
+        .from('policies')
+        .delete()
+        .eq('id', id)
+        .eq('category', 'announcement')
+        .select('id')
+
+      if (fallbackError) {
+        console.error('[Announcements API] Fallback delete error:', fallbackError)
+        return NextResponse.json({ error: 'Failed to delete announcement' }, { status: 500 })
+      }
+
+      if (!fallbackData?.length) {
+        return NextResponse.json({ error: 'Announcement not found' }, { status: 404 })
+      }
+
+      return NextResponse.json({ success: true })
+    }
+
+    if (deleteError) {
+      console.error('[Announcements API] Delete error:', deleteError)
+      return NextResponse.json({ error: 'Failed to delete announcement' }, { status: 500 })
+    }
+
+    if (!data?.length) {
+      return NextResponse.json({ error: 'Announcement not found' }, { status: 404 })
+    }
+
+    return NextResponse.json({ success: true })
+  } catch (err: any) {
+    console.error('[Announcements API] Error:', err)
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { supabase, user, profile, error } = await authenticate(request)
@@ -121,7 +242,6 @@ export async function POST(request: NextRequest) {
       created_at: new Date().toISOString(),
     }
 
-    // Only add landlord_id if the column exists (after migration)
     try {
       insertData.landlord_id = profile.landlord_block_id
     } catch (err) {
@@ -132,7 +252,6 @@ export async function POST(request: NextRequest) {
 
     if (insertError) {
       console.error('[Announcements API] Insert error:', insertError)
-      // If error is about landlord_id column, try without it
       if (insertError.message?.includes('landlord_id')) {
         console.warn('[Announcements API] landlord_id column not found, inserting without it')
         const { error: fallbackError } = await supabase.from('policies').insert({

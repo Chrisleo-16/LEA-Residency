@@ -45,10 +45,18 @@ export default function CommunityPage({ user }: CommunityPageProps) {
   const [expandedAnn, setExpandedAnn] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showPostForm, setShowPostForm] = useState(false);
+  const [editingAnnouncementId, setEditingAnnouncementId] = useState<string | null>(null);
+  const [editingAnnouncementTitle, setEditingAnnouncementTitle] = useState("");
+  const [editingAnnouncementContent, setEditingAnnouncementContent] = useState("");
+  const [deleteAnnouncementConfirm, setDeleteAnnouncementConfirm] = useState<{
+    show: boolean;
+    announcementId: string | null;
+  }>({ show: false, announcementId: null });
   const [deleteConfirm, setDeleteConfirm] = useState<{
     show: boolean;
     messageId: string;
   }>({ show: false, messageId: "" });
+  const [deleteError, setDeleteError] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -71,6 +79,7 @@ export default function CommunityPage({ user }: CommunityPageProps) {
     const unseenIds = messages
       .filter(
         (m) =>
+          m.status !== "deleted" &&
           m.sender_id !== user.id &&
           !m.reads.find((r) => r.user_id === user.id),
       )
@@ -83,12 +92,20 @@ export default function CommunityPage({ user }: CommunityPageProps) {
   };
 
   const handleDeleteMessage = (messageId: string) => {
+    setDeleteError("");
     setDeleteConfirm({ show: true, messageId });
   };
 
-  const confirmDelete = () => {
-    if (deleteConfirm.messageId) {
-      deleteMessage(deleteConfirm.messageId);
+  const confirmDelete = async () => {
+    if (!deleteConfirm.messageId) {
+      setDeleteConfirm({ show: false, messageId: "" });
+      return;
+    }
+    setDeleteError("");
+    const err = await deleteMessage(deleteConfirm.messageId);
+    if (err) {
+      setDeleteError(err);
+      return;
     }
     setDeleteConfirm({ show: false, messageId: "" });
   };
@@ -338,6 +355,74 @@ export default function CommunityPage({ user }: CommunityPageProps) {
     setIsSubmitting(false);
     setShowPostForm(false);
     fetchAnnouncements();
+  };
+
+  const startEditAnnouncement = (ann: Announcement) => {
+    setEditingAnnouncementId(ann.id);
+    setEditingAnnouncementTitle(ann.title);
+    setEditingAnnouncementContent(ann.content);
+    setExpandedAnn(ann.id);
+  };
+
+  const cancelEditAnnouncement = () => {
+    setEditingAnnouncementId(null);
+    setEditingAnnouncementTitle("");
+    setEditingAnnouncementContent("");
+  };
+
+  const saveAnnouncementEdit = async () => {
+    if (!editingAnnouncementId) return;
+    setIsSubmitting(true);
+    try {
+      const response = await fetch("/api/community/announcements", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: editingAnnouncementId,
+          title: editingAnnouncementTitle,
+          content: editingAnnouncementContent,
+        }),
+      });
+      const result = await response.json();
+      if (!response.ok) {
+        console.error("Failed to update announcement", result.error);
+      } else {
+        cancelEditAnnouncement();
+        fetchAnnouncements();
+      }
+    } catch (err) {
+      console.error("Failed to update announcement", err);
+    }
+    setIsSubmitting(false);
+  };
+
+  const requestDeleteAnnouncement = (announcementId: string) => {
+    setDeleteAnnouncementConfirm({ show: true, announcementId });
+  };
+
+  const cancelDeleteAnnouncement = () => {
+    setDeleteAnnouncementConfirm({ show: false, announcementId: null });
+  };
+
+  const confirmDeleteAnnouncement = async () => {
+    if (!deleteAnnouncementConfirm.announcementId) return;
+    setIsSubmitting(true);
+    try {
+      const response = await fetch(
+        `/api/community/announcements?id=${deleteAnnouncementConfirm.announcementId}`,
+        { method: "DELETE" },
+      );
+      const result = await response.json();
+      if (!response.ok) {
+        console.error("Failed to delete announcement", result.error);
+      } else {
+        cancelDeleteAnnouncement();
+        fetchAnnouncements();
+      }
+    } catch (err) {
+      console.error("Failed to delete announcement", err);
+    }
+    setIsSubmitting(false);
   };
 
   const formatDate = (dateStr: string) =>
@@ -656,10 +741,65 @@ export default function CommunityPage({ user }: CommunityPageProps) {
                         <div className="border-t border-border">
                           {/* Full content */}
                           <div className="px-5 py-4">
-                            <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">
-                              {ann.content}
-                            </p>
+                            {editingAnnouncementId === ann.id ? (
+                              <div className="space-y-3">
+                                <Input
+                                  value={editingAnnouncementTitle}
+                                  onChange={(e) => setEditingAnnouncementTitle(e.target.value)}
+                                  className="bg-secondary border-border text-foreground rounded-xl"
+                                />
+                                <textarea
+                                  value={editingAnnouncementContent}
+                                  onChange={(e) => setEditingAnnouncementContent(e.target.value)}
+                                  rows={4}
+                                  className="w-full rounded-xl border border-border bg-secondary text-foreground placeholder:text-muted-foreground p-3 text-sm focus:outline-none focus:ring-2 focus:ring-accent/40 resize-none"
+                                />
+                                <div className="flex gap-2 justify-end">
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={cancelEditAnnouncement}
+                                    className="rounded-xl"
+                                  >
+                                    Cancel
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    onClick={saveAnnouncementEdit}
+                                    disabled={!editingAnnouncementTitle.trim() || !editingAnnouncementContent.trim() || isSubmitting}
+                                    className="bg-accent hover:bg-accent/90 text-white rounded-xl"
+                                  >
+                                    {isSubmitting ? "Saving..." : "Save"}
+                                  </Button>
+                                </div>
+                              </div>
+                            ) : (
+                              <p className="text-sm text-foreground whitespace-pre-wrap leading-relaxed">
+                                {ann.content}
+                              </p>
+                            )}
                           </div>
+
+                          {role === "landlord" && editingAnnouncementId !== ann.id && (
+                            <div className="px-5 py-3 border-t border-border bg-secondary/30 flex flex-wrap gap-2 justify-end">
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => startEditAnnouncement(ann)}
+                                className="rounded-xl"
+                              >
+                                Edit
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="destructive"
+                                onClick={() => requestDeleteAnnouncement(ann.id)}
+                                className="rounded-xl"
+                              >
+                                Delete
+                              </Button>
+                            </div>
+                          )}
 
                           {/* Comment section */}
                           <div className="border-t border-border px-5 py-4 bg-secondary/30">
@@ -706,12 +846,15 @@ export default function CommunityPage({ user }: CommunityPageProps) {
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-card rounded-2xl p-6 max-w-sm w-full shadow-2xl">
             <h3 className="text-lg font-bold text-foreground mb-2">
-              Delete Message
+              Delete for everyone?
             </h3>
             <p className="text-sm text-muted-foreground mb-6">
-              Are you sure you want to delete this message? This action cannot
-              be undone.
+              This message will be removed for everyone in the group. You can
+              only delete messages within 24 hours of sending.
             </p>
+            {deleteError && (
+              <p className="text-sm text-red-600 mb-4">{deleteError}</p>
+            )}
             <div className="flex gap-3 justify-end">
               <Button
                 onClick={cancelDelete}
@@ -722,6 +865,36 @@ export default function CommunityPage({ user }: CommunityPageProps) {
               </Button>
               <Button
                 onClick={confirmDelete}
+                className="bg-red-500 hover:bg-red-600 text-white rounded-xl"
+              >
+                Delete for everyone
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete announcement confirmation modal */}
+      {deleteAnnouncementConfirm.show && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-card rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+            <h3 className="text-lg font-bold text-foreground mb-2">
+              Delete Announcement
+            </h3>
+            <p className="text-sm text-muted-foreground mb-6">
+              Are you sure you want to delete this announcement? This action
+              cannot be undone.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <Button
+                onClick={cancelDeleteAnnouncement}
+                variant="outline"
+                className="rounded-xl"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={confirmDeleteAnnouncement}
                 className="bg-red-500 hover:bg-red-600 text-white rounded-xl"
               >
                 Delete

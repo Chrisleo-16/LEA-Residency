@@ -3,6 +3,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { User } from '@supabase/supabase-js'
 import { supabase } from '@/lib/supabase'
+import {
+  MESSAGE_DELETED_BROADCAST_EVENT,
+  type MessageDeletedBroadcastPayload,
+  type MessageStatus,
+} from '@/lib/chat/constants'
 
 export interface Profile {
   id: string
@@ -32,10 +37,40 @@ export interface Message {
   reply_to_id: string | null
   is_edited: boolean
   edited_at: string | null
+  status: MessageStatus
+  deleted_at: string | null
+  attachment_url: string | null
+  attachment_type: string | null
   profiles?: Profile
   reply_to?: Message | null
   reactions: Record<string, Reaction>
   reads: MessageRead[]
+}
+
+export function isMessageDeleted(message: Pick<Message, 'status'>): boolean {
+  return message.status === 'deleted'
+}
+
+function normalizeMessageRow(row: Record<string, unknown>): Omit<Message, 'reactions' | 'reads' | 'reply_to'> {
+  return {
+    ...(row as Omit<Message, 'reactions' | 'reads' | 'reply_to'>),
+    status: (row.status as MessageStatus) || 'sent',
+    deleted_at: (row.deleted_at as string | null) ?? null,
+    attachment_url: (row.attachment_url as string | null) ?? null,
+    attachment_type: (row.attachment_type as string | null) ?? null,
+    content: row.status === 'deleted' ? '' : (row.content as string),
+  }
+}
+
+function toDeletedMessagePatch(deletedAt: string): Partial<Message> {
+  return {
+    status: 'deleted',
+    content: '',
+    deleted_at: deletedAt,
+    attachment_url: null,
+    attachment_type: null,
+    reactions: {},
+  }
 }
 
 export interface PresenceUser {
@@ -105,15 +140,28 @@ export function useChat(conversationId: string | null, currentUser: User | null)
           : Promise.resolve({ data: [] }),
       ])
 
-    const enriched: Message[] = rawMessages.map(msg => ({
-      ...msg,
-      reply_to: replyMessages?.find(r => r.id === msg.reply_to_id) || null,
-      reactions: buildReactionsMap(
-        (rawReactions || []).filter(r => r.message_id === msg.id),
-        currentUser?.id
-      ),
-      reads: (rawReads || []).filter(r => r.message_id === msg.id),
-    }))
+    const enriched: Message[] = rawMessages.map(msg => {
+      const base = normalizeMessageRow(msg as Record<string, unknown>)
+      const replyRow = replyMessages?.find(r => r.id === msg.reply_to_id)
+      return {
+        ...base,
+        reply_to: replyRow
+          ? {
+              ...normalizeMessageRow(replyRow as Record<string, unknown>),
+              reactions: {},
+              reads: [],
+              reply_to: null,
+            }
+          : null,
+        reactions: isMessageDeleted(base)
+          ? {}
+          : buildReactionsMap(
+              (rawReactions || []).filter(r => r.message_id === msg.id),
+              currentUser?.id
+            ),
+        reads: (rawReads || []).filter(r => r.message_id === msg.id),
+      }
+    })
 
     setMessages(enriched)
     setIsLoading(false)
@@ -155,11 +203,12 @@ export function useChat(conversationId: string | null, currentUser: User | null)
       console.warn('[Chat] landlord_id column not found in conversations')
     }
 
-    const insertData: any = {
+    const insertData: Record<string, unknown> = {
       conversation_id: conversationId,
       sender_id: currentUser.id,
       content: content.trim(),
       reply_to_id: replyToId || null,
+      status: 'sent',
     }
 
     // Only add landlord_id if the column exists (after migration)
@@ -210,7 +259,23 @@ export function useChat(conversationId: string | null, currentUser: User | null)
 
     setMessages(prev => {
       if (prev.find(m => m.id === newMsg.id)) return prev
-      return [...prev, { ...newMsg, reactions: {}, reads: [], reply_to: replyTo }]
+      const normalized = normalizeMessageRow(newMsg as Record<string, unknown>)
+      return [
+        ...prev,
+        {
+          ...normalized,
+          reactions: {},
+          reads: [],
+          reply_to: replyTo
+            ? {
+                ...normalizeMessageRow(replyTo as Record<string, unknown>),
+                reactions: {},
+                reads: [],
+                reply_to: null,
+              }
+            : null,
+        },
+      ]
     })
 
     // 🚀 SEND PUSH NOTIFICATION TO RECIPIENT
@@ -274,6 +339,9 @@ export function useChat(conversationId: string | null, currentUser: User | null)
   const editMessage = useCallback(async (messageId: string, newContent: string) => {
     if (!currentUser || !newContent.trim()) return
 
+    const existing = messages.find(m => m.id === messageId)
+    if (existing && isMessageDeleted(existing)) return
+
     const { error } = await supabase
       .from('messages')
       .update({
@@ -292,7 +360,7 @@ export function useChat(conversationId: string | null, currentUser: User | null)
         : m
       )
     )
-  }, [currentUser])
+  }, [currentUser, messages])
 
   const sendTyping = useCallback(() => {
     if (!presenceChannelRef.current || !currentUser) return
@@ -324,6 +392,7 @@ export function useChat(conversationId: string | null, currentUser: User | null)
 
     setMessages(prev => {
       const msg = prev.find(m => m.id === messageId)
+      if (!msg || isMessageDeleted(msg)) return prev
       const alreadyReacted = msg?.reactions[emoji]?.reactedByMe
       if (alreadyReacted) {
         supabase.from('message_reactions').delete()
@@ -351,21 +420,91 @@ export function useChat(conversationId: string | null, currentUser: User | null)
       )
     )
   }
-  const deleteMessage = async (messageId: string) => {
-    // 1. Snappy optimistic UI update - remove it instantly locally
-    setMessages((prev) => prev.filter((msg) => msg.id !== messageId));
+  const applyMessageDeletedLocally = useCallback((messageId: string, deletedAt: string) => {
+    setMessages(prev =>
+      prev.map(m => {
+        if (m.id === messageId) {
+          return { ...m, ...toDeletedMessagePatch(deletedAt) }
+        }
+        if (m.reply_to?.id === messageId) {
+          return {
+            ...m,
+            reply_to: {
+              ...m.reply_to,
+              ...toDeletedMessagePatch(deletedAt),
+            },
+          }
+        }
+        return m
+      })
+    )
+  }, [])
 
-    // 2. Clear it out from the Supabase database
-    const { error } = await supabase
-      .from('messages')
-      .delete()
-      .eq('id', messageId);
+  const broadcastMessageDeleted = useCallback(
+    (payload: MessageDeletedBroadcastPayload) => {
+      channelRef.current?.send({
+        type: 'broadcast',
+        event: MESSAGE_DELETED_BROADCAST_EVENT,
+        payload,
+      })
+    },
+    []
+  )
 
-    if (error) {
-      console.error("Failed to delete message from database:", error);
-      // Optional: re-fetch messages here if you want to roll back on database error
-    }
-  };
+  const deleteMessage = useCallback(
+    async (messageId: string): Promise<string | null> => {
+      if (!conversationId || !currentUserRef.current) {
+        return 'Not signed in'
+      }
+
+      const target = messages.find(m => m.id === messageId)
+      if (!target) return 'Message not found'
+      if (target.sender_id !== currentUserRef.current.id) {
+        return 'You can only delete your own messages'
+      }
+      if (isMessageDeleted(target)) return null
+
+      const deletedAt = new Date().toISOString()
+      const snapshot = messages
+      applyMessageDeletedLocally(messageId, deletedAt)
+
+      try {
+        const res = await fetch('/api/messages/delete', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ messageId, conversationId }),
+        })
+
+        const data = await res.json().catch(() => ({}))
+
+        if (!res.ok) {
+          setMessages(snapshot)
+          return (
+            data.error ||
+            data.detail ||
+            (res.status === 403
+              ? 'You cannot delete this message'
+              : 'Failed to delete message for everyone')
+          )
+        }
+
+        const payload: MessageDeletedBroadcastPayload = {
+          message_id: data.message_id,
+          chat_id: data.chat_id,
+          status: 'deleted',
+        }
+
+        broadcastMessageDeleted(payload)
+        return null
+      } catch (err) {
+        console.error('[Chat] Delete for everyone failed:', err)
+        setMessages(snapshot)
+        return 'Failed to delete message. Please try again.'
+      }
+    },
+    [conversationId, messages, applyMessageDeletedLocally, broadcastMessageDeleted]
+  )
   // Presence channel
   useEffect(() => {
     if (!conversationId || !currentUser) return
@@ -476,9 +615,27 @@ export function useChat(conversationId: string | null, currentUser: User | null)
               replyTo = data
             }
 
+            const normalized = normalizeMessageRow(fullMsg as Record<string, unknown>)
+            if (isMessageDeleted(normalized)) return
+
             setMessages(prev => {
-              if (prev.find(m => m.id === fullMsg.id)) return prev
-              return [...prev, { ...fullMsg, reactions: {}, reads: [], reply_to: replyTo }]
+              if (prev.find(m => m.id === normalized.id)) return prev
+              return [
+                ...prev,
+                {
+                  ...normalized,
+                  reactions: {},
+                  reads: [],
+                  reply_to: replyTo
+                    ? {
+                        ...normalizeMessageRow(replyTo as Record<string, unknown>),
+                        reactions: {},
+                        reads: [],
+                        reply_to: null,
+                      }
+                    : null,
+                },
+              ]
             })
 
             if (currentUserRef.current) {
@@ -497,7 +654,7 @@ export function useChat(conversationId: string | null, currentUser: User | null)
                 reg.showNotification(
                   `New message from ${fullMsg.profiles?.full_name || 'Someone'}`,
                   {
-                    body: fullMsg.content,
+                    body: normalized.content,
                     icon: '/icons/icon-192x192.png',
                     badge: '/icons/icon-72x72.png',
                     tag: `msg-${fullMsg.conversation_id}`,
@@ -508,16 +665,44 @@ export function useChat(conversationId: string | null, currentUser: User | null)
             }
           })
       })
+      .on('broadcast', { event: MESSAGE_DELETED_BROADCAST_EVENT }, ({ payload }) => {
+        const data = payload as MessageDeletedBroadcastPayload
+        if (!data?.message_id || data.chat_id !== conversationId || data.status !== 'deleted') {
+          return
+        }
+        applyMessageDeletedLocally(data.message_id, new Date().toISOString())
+      })
       .on('postgres_changes', {
         event: 'UPDATE',
         schema: 'public',
         table: 'messages',
         filter: `conversation_id=eq.${conversationId}`,
       }, (payload) => {
-        // ✅ Handle message edits in realtime
+        const updated = payload.new as {
+          id: string
+          status?: MessageStatus
+          deleted_at?: string | null
+          content?: string
+          is_edited?: boolean
+          edited_at?: string | null
+        }
+
+        if (updated.status === 'deleted') {
+          applyMessageDeletedLocally(
+            updated.id,
+            updated.deleted_at || new Date().toISOString()
+          )
+          return
+        }
+
         setMessages(prev =>
-          prev.map(m => m.id === payload.new.id
-            ? { ...m, content: payload.new.content, is_edited: payload.new.is_edited, edited_at: payload.new.edited_at }
+          prev.map(m => m.id === updated.id
+            ? {
+                ...m,
+                content: updated.content ?? m.content,
+                is_edited: updated.is_edited ?? m.is_edited,
+                edited_at: updated.edited_at ?? m.edited_at,
+              }
             : m
           )
         )
@@ -561,7 +746,7 @@ export function useChat(conversationId: string | null, currentUser: User | null)
       channel.unsubscribe()
       channelRef.current = null
     }
-  }, [conversationId, currentUser?.id, currentUserRef.current])
+  }, [conversationId, currentUser?.id, fetchMessages, applyMessageDeletedLocally])
 
   return {
     messages,
