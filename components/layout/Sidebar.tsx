@@ -108,7 +108,7 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
     { id: 'community',  label: 'Community',           icon: Users,         desc: 'Group & announcements' },
     { id: 'complaints', label: 'Complaints',          icon: AlertCircle,   desc: 'Manage tenant issues' },
     { id: 'requests',   label: 'Requests',            icon: ClipboardList, desc: 'Service requests' },
-    { id: 'staff',      label: 'Staff Management',    icon: Users,         desc: 'Manage staff members' },
+    // { id: 'staff',      label: 'Staff Management',    icon: Users,         desc: 'Manage staff members' },
     { id: 'payments',   label: 'Rent Ledger',         icon: Receipt,       desc: 'Track all payments' },
     { id: 'policy',     label: 'Manage Policies',     icon: FileText,      desc: 'Publish documents' },
     { id: 'settings',   label: 'Settings',            icon: Settings,      desc: 'Account preferences' },
