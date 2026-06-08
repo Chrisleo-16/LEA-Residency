@@ -14,9 +14,8 @@ export default function Dashboard() {
   const [authError, setAuthError] = useState<string | null>(null)
 
   useEffect(() => {
-    // Mark as ready for rendering
     const supabase = createClient()
-    
+
     supabase.auth.getSession().then(async ({ data: { session }, error }) => {
       if (error) {
         console.error('Auth session error:', error)
@@ -31,7 +30,7 @@ export default function Dashboard() {
       }
 
       try {
-        // ✅ Check profile metadata and completion state
+        // Check for profile
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
           .select('role, kyc_verified, landlord_code, landlord_block_id, property_setup_complete')
@@ -45,28 +44,87 @@ export default function Dashboard() {
           return
         }
 
-        if (!profile) {
-          const { error: insertError } = await supabase.from('profiles').insert({
-            id: session.user.id,
-            role: 'tenant',
-            full_name: session.user.user_metadata?.name ||
-                       session.user.user_metadata?.full_name ||
-                       session.user.email?.split('@')[0],
-            email: session.user.email,
-            kyc_verified: false,
-          })
+        // --- NEW: Handle missing landlord_block_id for tenants (Google OAuth scenario) ---
+        if (profile && profile.role === 'tenant' && !profile.landlord_block_id) {
+          const pendingRef = localStorage.getItem('landlord_block_id_to_link')
+          if (pendingRef) {
+            // Update the profile with the landlord_block_id – triggers the slot assignment
+            const { error: updateError } = await supabase
+              .from('profiles')
+              .update({ landlord_block_id: pendingRef })
+              .eq('id', session.user.id)
 
-          if (insertError) {
-            console.error('Profile insert error:', insertError)
-            setAuthError(insertError.message)
+            if (updateError) {
+              console.error('Failed to link tenant to block:', updateError)
+              setAuthError('Failed to complete your property join. Please contact support.')
+              setIsLoading(false)
+              localStorage.removeItem('landlord_block_id_to_link') // clean up
+              return
+            }
+
+            // Remove the used invitation ref
+            localStorage.removeItem('landlord_block_id_to_link')
+
+            // Re‑fetch the profile to get the updated landlord_block_id
+            const { data: updatedProfile, error: refetchError } = await supabase
+              .from('profiles')
+              .select('role, kyc_verified, landlord_code, landlord_block_id, property_setup_complete')
+              .eq('id', session.user.id)
+              .maybeSingle()
+
+            if (refetchError || !updatedProfile) {
+              setAuthError('Could not verify profile after linking.')
+              setIsLoading(false)
+              return
+            }
+
+            // Continue with the updated profile
+            setUser(session.user)
             setIsLoading(false)
             return
+          } else {
+            // No pending invitation – tenant still has no block; they might need to join manually
+            // For now, just proceed (dashboard will show appropriate UI)
+            setUser(session.user)
+            setIsLoading(false)
+            return
+          }
+        }
+        // --------------------------------------------------------------------------------
+
+        // If profile doesn't exist (unlikely but handle gracefully with an upsert)
+        if (!profile) {
+          const pendingRef = localStorage.getItem('landlord_block_id_to_link')
+          const { error: upsertError } = await supabase
+            .from('profiles')
+            .upsert({
+              id: session.user.id,
+              role: 'tenant',
+              full_name:
+                session.user.user_metadata?.name ||
+                session.user.user_metadata?.full_name ||
+                session.user.email?.split('@')[0],
+              email: session.user.email,
+              kyc_verified: false,
+              landlord_block_id: pendingRef || null,
+            }, { onConflict: 'id' })
+
+          if (upsertError) {
+            console.error('Profile upsert error:', upsertError)
+            setAuthError(upsertError.message)
+            setIsLoading(false)
+            return
+          }
+
+          if (pendingRef) {
+            localStorage.removeItem('landlord_block_id_to_link')
           }
 
           router.push('/complete-setup')
           return
         }
 
+        // Role‑based routing
         if (profile.role === 'developer') {
           router.push('/developer-dashboard')
           return
@@ -92,13 +150,13 @@ export default function Dashboard() {
       }
     })
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
-        if (event === 'SIGNED_OUT') {
-          router.push('/login')
-        }
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT') {
+        router.push('/login')
       }
-    )
+    })
 
     return () => subscription?.unsubscribe()
   }, [router])

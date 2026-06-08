@@ -72,9 +72,7 @@ export default function SettingsPanel({ user }: SettingsPanelProps) {
   const [myDeletionRequest, setMyDeletionRequest] =
     useState<DeletionRequest | null>(null);
   const [allDeletionRequests, setAllDeletionRequests] = useState<DeletionRequest[]>([]);
-  const [showConfirmDelete, setShowConfirmDelete] = useState<string | null>(
-    null,
-  );
+  const [showConfirmDelete, setShowConfirmDelete] = useState<string | null>(null);
   const [phoneNumber, setPhoneNumber] = useState("");
 
   // Invite link state
@@ -84,6 +82,8 @@ export default function SettingsPanel({ user }: SettingsPanelProps) {
   const [copied, setCopied] = useState(false);
   const [showQR, setShowQR] = useState(false);
   const [isGeneratingLink, setIsGeneratingLink] = useState(false);
+  // Tracks whether the landlord has a block at all
+  const [hasNoBlock, setHasNoBlock] = useState(false);
 
   const fileRef = useRef<HTMLInputElement>(null);
   const { subscribe, unsubscribe } = usePushNotifications();
@@ -152,15 +152,24 @@ export default function SettingsPanel({ user }: SettingsPanelProps) {
       setRole(profile.role || "");
       setAvatarUrl(profile.avatar_url || null);
       setPhoneNumber(profile.phone_number || "");
-      setLandlordBlockId(profile.landlord_block_id || null);
       setBusinessName(profile.business_name || "");
 
-      // Load invite link — only relevant for landlords
+      const blockId = profile.landlord_block_id || null;
+      setLandlordBlockId(blockId);
+
       if (profile.role === "landlord") {
-        if (profile.invite_link) {
-          setInviteLink(profile.invite_link);
+        if (!blockId) {
+          // Landlord has no block — can't generate a valid invite link
+          setHasNoBlock(true);
+          setInviteLink("");
         } else {
-          await generateAndSaveInviteLink(profile.landlord_block_id);
+          setHasNoBlock(false);
+          if (profile.invite_link) {
+            setInviteLink(profile.invite_link);
+          } else {
+            // Generate and persist the link using the real block ID
+            await generateAndSaveInviteLink(blockId);
+          }
         }
       }
 
@@ -181,24 +190,42 @@ export default function SettingsPanel({ user }: SettingsPanelProps) {
     setIsLoading(false);
   };
 
-  const generateAndSaveInviteLink = async (blockId: string | null) => {
+  /**
+   * Generates and persists the invite link.
+   * IMPORTANT: blockId MUST be the landlord_blocks.id (uuid) — never user.id.
+   * The /join page queries landlord_blocks by this id, so using user.id would
+   * always result in "invalid link" or "property full" errors for tenants.
+   */
+  const generateAndSaveInviteLink = async (blockId: string) => {
     if (!user) return;
+
+    // Hard guard — never generate a link without a real block ID
+    if (!blockId) {
+      showFeedback(
+        "Your property block hasn't been set up yet. Please contact support.",
+        true
+      );
+      setHasNoBlock(true);
+      return;
+    }
+
     setIsGeneratingLink(true);
     try {
       const baseUrl = window.location.origin;
-      const ref = blockId || user.id;
-      const link = `${baseUrl}/join?ref=${ref}`;
+      const link = `${baseUrl}/join?ref=${blockId}`;
 
-      const { error } = await supabase
+      const { error: updateError } = await supabase
         .from("profiles")
         .update({ invite_link: link })
         .eq("id", user.id);
 
-      if (!error) {
-        setInviteLink(link);
-      } else {
-        console.error("Failed to save invite link:", error);
+      if (updateError) {
+        console.error("Failed to save invite link:", updateError);
+        showFeedback("Failed to save invite link. Please try again.", true);
+        return;
       }
+
+      setInviteLink(link);
     } finally {
       setIsGeneratingLink(false);
     }
@@ -249,15 +276,13 @@ export default function SettingsPanel({ user }: SettingsPanelProps) {
     if (!strong.test(newPassword)) {
       showFeedback(
         "Password must be 8+ characters with a number and special character.",
-        true,
+        true
       );
       return;
     }
     setIsSavingPassword(true);
     try {
-      const { error } = await supabase.auth.updateUser({
-        password: newPassword,
-      });
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
       if (error) throw error;
       showFeedback("Password changed successfully!");
       setNewPassword("");
@@ -331,7 +356,7 @@ export default function SettingsPanel({ user }: SettingsPanelProps) {
     try {
       const response = await fetch(
         `/api/account-deletion-requests?requestId=${encodeURIComponent(myDeletionRequest.id)}`,
-        { method: "DELETE" },
+        { method: "DELETE" }
       );
       const payload = await response.json();
       if (!response.ok)
@@ -343,10 +368,7 @@ export default function SettingsPanel({ user }: SettingsPanelProps) {
     }
   };
 
-  const handleApproveAndDelete = async (
-    requestId: string,
-    targetUserId: string,
-  ) => {
+  const handleApproveAndDelete = async (requestId: string, targetUserId: string) => {
     try {
       const response = await fetch("/api/account-deletion-requests", {
         method: "PUT",
@@ -355,9 +377,7 @@ export default function SettingsPanel({ user }: SettingsPanelProps) {
       });
       const payload = await response.json();
       if (!response.ok)
-        throw new Error(
-          payload.error || "Failed to approve deletion request",
-        );
+        throw new Error(payload.error || "Failed to approve deletion request");
       setShowConfirmDelete(null);
       showFeedback("Tenant account and all data removed successfully.");
       fetchProfile();
@@ -426,9 +446,7 @@ export default function SettingsPanel({ user }: SettingsPanelProps) {
     children: React.ReactNode;
     className?: string;
   }) => (
-    <div
-      className={`bg-card border border-border rounded-2xl p-5 ${className}`}
-    >
+    <div className={`bg-card border border-border rounded-2xl p-5 ${className}`}>
       {children}
     </div>
   );
@@ -470,9 +488,7 @@ export default function SettingsPanel({ user }: SettingsPanelProps) {
         {success && (
           <div className="p-4 bg-emerald-50 border border-emerald-200 rounded-xl dark:bg-emerald-950/20 dark:border-emerald-800 flex items-center gap-2">
             <CheckCircle className="w-4 h-4 text-emerald-600 shrink-0" />
-            <p className="text-sm text-emerald-700 dark:text-emerald-400">
-              {success}
-            </p>
+            <p className="text-sm text-emerald-700 dark:text-emerald-400">{success}</p>
           </div>
         )}
 
@@ -482,11 +498,7 @@ export default function SettingsPanel({ user }: SettingsPanelProps) {
             <div className="relative shrink-0">
               <div className="w-16 h-16 rounded-2xl bg-accent/10 border-2 border-accent/20 flex items-center justify-center overflow-hidden">
                 {avatarUrl ? (
-                  <img
-                    src={avatarUrl}
-                    alt="avatar"
-                    className="w-full h-full object-cover"
-                  />
+                  <img src={avatarUrl} alt="avatar" className="w-full h-full object-cover" />
                 ) : (
                   <span className="text-2xl font-bold text-accent">
                     {fullName.charAt(0).toUpperCase() || "?"}
@@ -586,11 +598,7 @@ export default function SettingsPanel({ user }: SettingsPanelProps) {
                 onClick={() => setShowPassword(!showPassword)}
                 className="absolute right-3.5 top-3 text-muted-foreground hover:text-foreground"
               >
-                {showPassword ? (
-                  <EyeOff className="w-4 h-4" />
-                ) : (
-                  <Eye className="w-4 h-4" />
-                )}
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
             <Input
@@ -654,9 +662,7 @@ export default function SettingsPanel({ user }: SettingsPanelProps) {
                   <p className="text-sm font-medium text-foreground">
                     {isDark ? "Dark Mode" : "Light Mode"}
                   </p>
-                  <p className="text-xs text-muted-foreground">
-                    Toggle app appearance
-                  </p>
+                  <p className="text-xs text-muted-foreground">Toggle app appearance</p>
                 </div>
               </div>
               <button
@@ -673,22 +679,41 @@ export default function SettingsPanel({ user }: SettingsPanelProps) {
 
         {/* ── LANDLORD ONLY: Invite Tenants ── */}
         {role === "landlord" && (
-          <div>
+          <Section>
             <SectionHeader
               icon={<Link2 className="w-4 h-4 text-accent" />}
               title="Invite Tenants"
             />
 
-            {isGeneratingLink ? (
+            {/* No block assigned — can't generate a valid link */}
+            {hasNoBlock && (
+              <div className="p-4 bg-destructive/8 border border-destructive/20 rounded-xl flex items-start gap-3">
+                <AlertCircle className="w-4 h-4 text-destructive shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-semibold text-destructive">
+                    Property block not set up
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Your account doesn't have a property block assigned yet.
+                    Contact support to get this resolved before inviting tenants.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* Generating spinner */}
+            {!hasNoBlock && isGeneratingLink && (
               <div className="flex items-center justify-center py-8">
                 <div className="animate-spin rounded-full h-6 w-6 border-2 border-accent border-t-transparent" />
                 <p className="text-sm text-muted-foreground ml-3">
                   Generating your invite link...
                 </p>
               </div>
-            ) : inviteLink ? (
-              <div className="space-y-4">
+            )}
 
+            {/* Valid invite link exists */}
+            {!hasNoBlock && !isGeneratingLink && inviteLink && (
+              <div className="space-y-4">
                 {/* Link input + copy */}
                 <div>
                   <label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide block mb-2">
@@ -719,7 +744,8 @@ export default function SettingsPanel({ user }: SettingsPanelProps) {
                     </Button>
                   </div>
                   <p className="text-xs text-muted-foreground mt-2">
-                    Tenants who sign up using this link are automatically linked to your property — no manual setup needed.
+                    Tenants who sign up using this link are automatically linked
+                    to your property — no manual setup needed.
                   </p>
                 </div>
 
@@ -741,9 +767,7 @@ export default function SettingsPanel({ user }: SettingsPanelProps) {
                 >
                   <div className="flex items-center gap-2.5">
                     <QrCode className="w-4 h-4 text-accent" />
-                    <span className="text-sm font-medium text-foreground">
-                      Show QR Code
-                    </span>
+                    <span className="text-sm font-medium text-foreground">Show QR Code</span>
                   </div>
                   <span className="text-xs text-muted-foreground">
                     {showQR ? "Hide" : "Print for notice board"}
@@ -776,53 +800,53 @@ export default function SettingsPanel({ user }: SettingsPanelProps) {
                 <div className="p-4 bg-accent/5 border border-accent/20 rounded-xl space-y-2">
                   <p className="text-xs font-semibold text-foreground">How it works</p>
                   <ul className="text-xs text-muted-foreground space-y-1.5">
-                    <li className="flex items-start gap-2">
-                      <span className="w-4 h-4 rounded-full bg-accent/20 text-accent text-[10px] flex items-center justify-center shrink-0 mt-0.5 font-bold">1</span>
-                      Share the link or QR code with your tenant via WhatsApp, SMS, or notice board
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="w-4 h-4 rounded-full bg-accent/20 text-accent text-[10px] flex items-center justify-center shrink-0 mt-0.5 font-bold">2</span>
-                      Tenant clicks the link and signs up for LEA
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="w-4 h-4 rounded-full bg-accent/20 text-accent text-[10px] flex items-center justify-center shrink-0 mt-0.5 font-bold">3</span>
-                      They are automatically assigned to your property — no manual linking needed
-                    </li>
-                    <li className="flex items-start gap-2">
-                      <span className="w-4 h-4 rounded-full bg-accent/20 text-accent text-[10px] flex items-center justify-center shrink-0 mt-0.5 font-bold">4</span>
-                      They appear instantly in your tenant dashboard
-                    </li>
+                    {[
+                      "Share the link or QR code with your tenant via WhatsApp, SMS, or notice board",
+                      "Tenant clicks the link and signs up for LEA",
+                      "They are automatically assigned to your property — no manual linking needed",
+                      "They appear instantly in your tenant dashboard",
+                    ].map((step, i) => (
+                      <li key={i} className="flex items-start gap-2">
+                        <span className="w-4 h-4 rounded-full bg-accent/20 text-accent text-[10px] flex items-center justify-center shrink-0 mt-0.5 font-bold">
+                          {i + 1}
+                        </span>
+                        {step}
+                      </li>
+                    ))}
                   </ul>
                 </div>
 
-                {/* Regenerate */}
+                {/* Regenerate — only allowed when we have a real block ID */}
                 <button
-                  onClick={() => generateAndSaveInviteLink(landlordBlockId)}
-                  className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground transition-colors"
+                  onClick={() => landlordBlockId && generateAndSaveInviteLink(landlordBlockId)}
+                  disabled={!landlordBlockId}
+                  className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   Regenerate invite link
                 </button>
               </div>
-            ) : (
+            )}
+
+            {/* Block exists but no link generated yet */}
+            {!hasNoBlock && !isGeneratingLink && !inviteLink && (
               <div className="text-center py-8 space-y-3">
                 <div className="w-12 h-12 rounded-2xl bg-accent/10 flex items-center justify-center mx-auto">
                   <Link2 className="w-5 h-5 text-accent" />
                 </div>
-                <p className="text-sm font-semibold text-foreground">
-                  No invite link yet
-                </p>
+                <p className="text-sm font-semibold text-foreground">No invite link yet</p>
                 <p className="text-sm text-muted-foreground">
                   Generate a unique link to start inviting tenants to your property
                 </p>
                 <Button
-                  onClick={() => generateAndSaveInviteLink(landlordBlockId)}
+                  onClick={() => landlordBlockId && generateAndSaveInviteLink(landlordBlockId)}
+                  disabled={!landlordBlockId}
                   className="bg-accent hover:bg-accent/90 text-white rounded-xl h-11 px-6 shadow-sm shadow-accent/20"
                 >
                   Generate Invite Link
                 </Button>
               </div>
             )}
-          </div>
+          </Section>
         )}
 
         {/* LANDLORD: Deletion requests */}
@@ -832,19 +856,14 @@ export default function SettingsPanel({ user }: SettingsPanelProps) {
               <div className="w-8 h-8 rounded-xl bg-destructive/10 flex items-center justify-center">
                 <Users className="w-4 h-4 text-destructive" />
               </div>
-              <h3 className="font-semibold text-foreground">
-                Account Deletion Requests
-              </h3>
+              <h3 className="font-semibold text-foreground">Account Deletion Requests</h3>
               <span className="ml-auto text-xs bg-destructive text-white px-2.5 py-0.5 rounded-full font-bold">
                 {allDeletionRequests.length}
               </span>
             </div>
             <div className="space-y-3">
               {allDeletionRequests.map((req) => (
-                <div
-                  key={req.id}
-                  className="p-4 bg-secondary rounded-xl border border-border space-y-3"
-                >
+                <div key={req.id} className="p-4 bg-secondary rounded-xl border border-border space-y-3">
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-center gap-2.5">
                       <div className="w-9 h-9 rounded-full bg-accent/10 flex items-center justify-center shrink-0 border border-accent/20">
@@ -856,9 +875,7 @@ export default function SettingsPanel({ user }: SettingsPanelProps) {
                         <p className="text-sm font-semibold text-foreground">
                           {req.profiles?.full_name || "Unknown Tenant"}
                         </p>
-                        <p className="text-xs text-muted-foreground">
-                          {req.profiles?.email}
-                        </p>
+                        <p className="text-xs text-muted-foreground">{req.profiles?.email}</p>
                       </div>
                     </div>
                     <span className="text-[10px] text-muted-foreground shrink-0">
@@ -997,20 +1014,15 @@ export default function SettingsPanel({ user }: SettingsPanelProps) {
 
         <div className="h-4" />
       </div>
-  
+
       {/* Delete request modal */}
       {showDeleteModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-card border border-border rounded-2xl w-full max-w-md p-6 shadow-2xl">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-bold text-foreground text-lg">
-                Request Account Deletion
-              </h3>
+              <h3 className="font-bold text-foreground text-lg">Request Account Deletion</h3>
               <button
-                onClick={() => {
-                  setShowDeleteModal(false);
-                  setDeleteReason("");
-                }}
+                onClick={() => { setShowDeleteModal(false); setDeleteReason(""); }}
                 className="p-1.5 rounded-xl hover:bg-secondary text-muted-foreground"
               >
                 <X className="w-4 h-4" />
@@ -1037,9 +1049,7 @@ export default function SettingsPanel({ user }: SettingsPanelProps) {
               </div>
 
               <div className="p-4 bg-destructive/8 border border-destructive/20 rounded-xl space-y-1">
-                <p className="text-xs font-semibold text-destructive">
-                  ⚠️ This will permanently delete:
-                </p>
+                <p className="text-xs font-semibold text-destructive">⚠️ This will permanently delete:</p>
                 <ul className="text-xs text-destructive/80 space-y-0.5 list-disc list-inside">
                   <li>All your messages and chat history</li>
                   <li>All your complaints and requests</li>
@@ -1051,10 +1061,7 @@ export default function SettingsPanel({ user }: SettingsPanelProps) {
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => {
-                    setShowDeleteModal(false);
-                    setDeleteReason("");
-                  }}
+                  onClick={() => { setShowDeleteModal(false); setDeleteReason(""); }}
                   className="flex-1 rounded-xl border-border"
                 >
                   Cancel

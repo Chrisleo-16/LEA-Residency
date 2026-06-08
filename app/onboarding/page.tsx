@@ -164,7 +164,7 @@ export default function OnboardingPage() {
         .from('profiles')
         .update({
           full_name: fullName,
-          phone: phoneNumber,
+          phone_number: phoneNumber,
           business_name: businessName,
           avatar_url: photoPreview || null,
         })
@@ -229,37 +229,52 @@ export default function OnboardingPage() {
     return Object.keys(newErrors).length === 0
   }
 
-  const handleStep2Next = async () => {
-    if (!validateStep2()) return
-    if (!user) {
-      setNetworkError('You must be logged in to continue.')
-      return
+ const handleStep2Next = async () => {
+  if (!validateStep2()) return
+  if (!user) {
+    setNetworkError('You must be logged in to continue.')
+    return
+  }
+  
+  setIsLoading(true)
+  try {
+    // Save units to database
+    const { error } = await supabase
+      .from('units')
+      .insert(
+        units.map(unit => ({
+          landlord_id: user.id,
+          unit_number: unit.name,
+          rent_amount: parseFloat(unit.rent),
+          deposit_amount: parseFloat(unit.deposit),
+        }))
+      )
+    
+    if (error) throw error
+
+    // ✅ THIS WAS MISSING — update property_capacity on landlord_blocks
+    // so the join page knows how many tenants are allowed
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('landlord_block_id')
+      .eq('id', user.id)
+      .single()
+
+    if (profile?.landlord_block_id) {
+      await supabase
+        .from('landlord_blocks')
+        .update({ property_capacity: parseInt(totalUnits) })
+        .eq('id', profile.landlord_block_id)
     }
     
-    setIsLoading(true)
-    try {
-      // Save units to database
-      const { error } = await supabase
-        .from('units')
-        .insert(
-          units.map(unit => ({
-            landlord_id: user.id,
-            unit_number: unit.name,
-            rent_amount: parseFloat(unit.rent),
-            deposit_amount: parseFloat(unit.deposit),
-          }))
-        )
-      
-      if (error) throw error
-      
-      setCurrentStep(3)
-    } catch (error) {
-      setNetworkError('Failed to save your units. Your progress is saved locally.')
-      console.error('Step 2 error:', error)
-    } finally {
-      setIsLoading(false)
-    }
+    setCurrentStep(3)
+  } catch (error) {
+    setNetworkError('Failed to save your units. Your progress is saved locally.')
+    console.error('Step 2 error:', error)
+  } finally {
+    setIsLoading(false)
   }
+}
 
   const handlePaymentVerification = async () => {
     if (!paybillNumber.trim()) {

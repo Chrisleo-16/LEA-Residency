@@ -298,8 +298,8 @@ export default function ChatArea({ user }: ChatAreaProps) {
  const fetchTenantConversation = useCallback(async () => {
   if (!user) return null
 
-  console.log('=== fetchTenantConversation DEBUG ===')
-  console.log('tenant user.id:', user.id)
+  // console.log('=== fetchTenantConversation DEBUG ===')
+  // console.log('tenant user.id:', user.id)
 
   // Step 1: Find tenant's slot
   const { data: tenantSlot, error: slotError } = await supabase
@@ -308,7 +308,7 @@ export default function ChatArea({ user }: ChatAreaProps) {
     .eq('tenant_id', user.id)
     .maybeSingle()
 
-  console.log('tenantSlot:', tenantSlot, 'slotError:', slotError)
+  // console.log('tenantSlot:', tenantSlot, 'slotError:', slotError)
 
   if (!tenantSlot?.landlord_block_id) {
     console.log('NO SLOT FOUND — tenant_slots has no row for this user')
@@ -322,7 +322,7 @@ export default function ChatArea({ user }: ChatAreaProps) {
     .eq('id', tenantSlot.landlord_block_id)
     .single()
 
-  console.log('landlordBlock:', landlordBlock, 'blockError:', blockError)
+  // console.log('landlordBlock:', landlordBlock, 'blockError:', blockError)
 
   if (!landlordBlock?.landlord_id) {
     console.log('NO LANDLORD BLOCK FOUND')
@@ -336,7 +336,7 @@ export default function ChatArea({ user }: ChatAreaProps) {
     .eq('id', landlordBlock.landlord_id)
     .single()
 
-  console.log('landlordProfile:', landlordProfile, 'profileError:', profileError)
+  // console.log('landlordProfile:', landlordProfile, 'profileError:', profileError)
 
   if (!landlordProfile) return null
 
@@ -346,7 +346,7 @@ export default function ChatArea({ user }: ChatAreaProps) {
     .select('conversation_id')
     .eq('user_id', user.id)
 
-  console.log('tenant conversation_ids:', myParts?.map((p: any) => p.conversation_id))
+  // console.log('tenant conversation_ids:', myParts?.map((p: any) => p.conversation_id))
 
   const myConvIds = (myParts || []).map((p: any) => p.conversation_id)
 
@@ -368,8 +368,8 @@ export default function ChatArea({ user }: ChatAreaProps) {
     .limit(1)
     .maybeSingle()
 
-  console.log('sharedConv:', sharedConv, 'sharedError:', sharedError)
-  console.log('=== END DEBUG ===')
+  // console.log('sharedConv:', sharedConv, 'sharedError:', sharedError)
+  // console.log('=== END DEBUG ===')
 
   return {
     conversationId: sharedConv?.conversation_id || null,
