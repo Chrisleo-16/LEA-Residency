@@ -11,32 +11,37 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     console.log('[PayHero Callback]', JSON.stringify(body, null, 2))
 
-    // ── PayHero webhook payload structure ─────────────
     const {
-      status,           // "Success" | "Failed" | "Cancelled"
-      amount,           // e.g. 18000
-      phone_number,     // e.g. "0712345678"
-      reference,        // our external_reference e.g. "RENT-uuid-2024-03"
-      receipt_number,   // M-Pesa receipt code e.g. "RGR000X1234"
-      transaction_date, // ISO date string
+      status,
+      amount,
+      phone_number,
+      reference,       // our external_reference: "RENT-{tenantId}-{YYYY-MM}"
+      receipt_number,  // M-Pesa code e.g. "RGR000X1234"
+      transaction_date,
     } = body
 
-    // ── Only process successful payments ─────────────
+    // Only process successful payments
     if (status !== 'Success') {
-      console.log(`[PayHero] Payment ${status} for ${reference} — ignored`)
+      console.log(`[PayHero] Payment ${status} for ${reference} — marking failed`)
 
-      // Update pending payment to failed
       if (reference) {
-        await supabase
-          .from('payments')
-          .update({ status: 'failed', notes: `Payment ${status}` })
-          .eq('status', 'pending')
-          .ilike('notes', `%STK sent — ref: ${reference}%`)
+        // Parse tenantId + month from reference to find the right pending record
+        const match = reference.match(/^(RENT|REPAIRS)-(.+)-(\d{4}-\d{2})$/)
+        if (match) {
+          const tenantId = match[2]
+          const paymentMonth = match[3]
+          await supabase
+            .from('payments')
+            .update({ status: 'failed', notes: `Payment ${status} via M-Pesa` })
+            .eq('tenant_id', tenantId)
+            .eq('payment_month', paymentMonth)
+            .eq('status', 'pending')
+        }
       }
       return NextResponse.json({ success: true })
     }
 
-    // ── Prevent duplicates ────────────────────────────
+    // Prevent duplicate processing
     if (receipt_number) {
       const { data: existing } = await supabase
         .from('payments')
@@ -50,23 +55,23 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // ── Parse tenantId and month from reference ───────
-    // Format: "TYPE-{tenantId}-{month}" e.g. "RENT-uuid-2024-03" or "REPAIRS-uuid-2024-03"
+    // Parse tenantId and month from reference
+    // Format: "RENT-{uuid}-{YYYY-MM}" or "REPAIRS-{uuid}-{YYYY-MM}"
     let tenantId: string | null = null
     let paymentMonth: string | null = null
-    let paymentType: string = 'rent'
+    let paymentType = 'rent'
 
     if (reference) {
-      // TYPE-{uuid}-{YYYY-MM}
       const match = reference.match(/^(RENT|REPAIRS)-(.+)-(\d{4}-\d{2})$/)
       if (match) {
         paymentType = match[1].toLowerCase()
         tenantId = match[2]
         paymentMonth = match[3]
+        console.log(`[PayHero] Parsed ref → tenant: ${tenantId} | month: ${paymentMonth} | type: ${paymentType}`)
       }
     }
 
-    // ── Fallback: find tenant by phone ────────────────
+    // Fallback: find tenant by phone number
     if (!tenantId && phone_number) {
       const phone07 = phone_number.startsWith('254')
         ? '0' + phone_number.slice(3)
@@ -83,18 +88,20 @@ export async function POST(req: NextRequest) {
         .maybeSingle()
 
       tenantId = tenant?.id || null
+      console.log(`[PayHero] Phone fallback tenant: ${tenantId}`)
     }
 
-    // ── Fallback: use current month ───────────────────
+    // Fallback: use current month
     if (!paymentMonth) {
       const now = new Date()
       paymentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
     }
 
-    // ── Calculate complete/partial status ─────────────
+    const paidAmount = Number(amount)
+
+    // Calculate complete/partial status
     let isComplete = false
     let pendingAmount = 0
-    const paidAmount = Number(amount)
 
     if (tenantId) {
       const { data: rentSetting } = await supabase
@@ -104,7 +111,6 @@ export async function POST(req: NextRequest) {
         .maybeSingle()
 
       if (rentSetting) {
-        // Sum ALL confirmed payments this month (excluding pending)
         const { data: existingPayments } = await supabase
           .from('payments')
           .select('amount')
@@ -121,7 +127,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // ── Determine landlord for this tenant if available ─────────
+    // Find landlord
     let landlordId: string | null = null
     if (tenantId) {
       const { data: existingPayment } = await supabase
@@ -132,19 +138,44 @@ export async function POST(req: NextRequest) {
         .limit(1)
         .maybeSingle()
       landlordId = existingPayment?.landlord_id || null
+
+      // Fallback via tenant_slots
+      if (!landlordId) {
+        const { data: slot } = await supabase
+          .from('tenant_slots')
+          .select('landlord_block_id')
+          .eq('tenant_id', tenantId)
+          .maybeSingle()
+
+        if (slot?.landlord_block_id) {
+          const { data: landlordProfile } = await supabase
+            .from('profiles')
+            .select('id')
+            .eq('landlord_block_id', slot.landlord_block_id)
+            .eq('role', 'landlord')
+            .maybeSingle()
+          landlordId = landlordProfile?.id || null
+        }
+      }
     }
 
-    // ── Check if pending payment exists to update ─────
+    const finalNotes = pendingAmount > 0
+      ? `KES ${pendingAmount.toLocaleString()} still pending`
+      : 'Fully paid via M-Pesa STK ✅'
+
+    // Find the pending record by tenant + month + status
+    // This is reliable because stkpush.ts always creates it with these values
     const { data: pendingPayment } = await supabase
       .from('payments')
       .select('id')
+      .eq('tenant_id', tenantId)
+      .eq('payment_month', paymentMonth)
       .eq('status', 'pending')
-      .ilike('notes', `%STK sent — ref: ${reference}%`)
       .maybeSingle()
 
     if (pendingPayment) {
-      // ── Update existing pending record ────────────
-      await supabase
+      // Update the pending record to complete
+      const { error: updateError } = await supabase
         .from('payments')
         .update({
           mpesa_code: receipt_number || null,
@@ -152,14 +183,19 @@ export async function POST(req: NextRequest) {
           phone_number: phone_number,
           status: isComplete ? 'complete' : 'partial',
           payment_date: transaction_date || new Date().toISOString(),
-          notes: pendingAmount > 0
-            ? `KES ${pendingAmount.toLocaleString()} still pending`
-            : 'Fully paid via M-Pesa STK ✅',
+          notes: finalNotes,
         })
         .eq('id', pendingPayment.id)
+
+      if (updateError) {
+        console.error('[PayHero] Update error:', updateError)
+      } else {
+        console.log(`✅ Updated pending → ${isComplete ? 'complete' : 'partial'}: ${receipt_number}`)
+      }
     } else {
-      // ── Insert new payment record ─────────────────
-      await supabase.from('payments').insert({
+      // No pending record found — insert fresh
+      console.log('[PayHero] No pending record found, inserting new payment')
+      const { error: insertError } = await supabase.from('payments').insert({
         tenant_id: tenantId,
         landlord_id: landlordId,
         amount: paidAmount,
@@ -170,18 +206,21 @@ export async function POST(req: NextRequest) {
         logged_by: 'system',
         status: isComplete ? 'complete' : 'partial',
         payment_date: transaction_date || new Date().toISOString(),
-        notes: pendingAmount > 0
-          ? `KES ${pendingAmount.toLocaleString()} still pending`
-          : 'Auto-logged via PayHero ✅',
+        notes: finalNotes,
       })
+
+      if (insertError) {
+        console.error('[PayHero] Insert error:', insertError)
+      } else {
+        console.log(`✅ Inserted new payment: ${receipt_number}`)
+      }
     }
 
     console.log(`✅ PayHero: ${receipt_number} | KES ${paidAmount} | ${isComplete ? 'COMPLETE' : `PARTIAL — KES ${pendingAmount} pending`}`)
     return NextResponse.json({ success: true })
-
   } catch (err: any) {
     console.error('[PayHero Callback] Error:', err.message)
-    // Always return 200 so PayHero doesn't retry
+    // Always return 200 so PayHero doesn't retry endlessly
     return NextResponse.json({ success: true })
   }
 }

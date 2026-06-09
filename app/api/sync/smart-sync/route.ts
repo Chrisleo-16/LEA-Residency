@@ -8,60 +8,58 @@ const supabase = createClient(
 
 export async function POST(req: NextRequest) {
   try {
-    // 1. Check environment variables first (Common cause of 500)
     if (!process.env.PAYHERO_USERNAME || !process.env.PAYHERO_PASSWORD) {
-      return NextResponse.json({ 
-        error: "Missing PayHero credentials in environment variables",
-        success: false 
+      return NextResponse.json({
+        error: 'Missing PayHero credentials in environment variables',
+        success: false,
       }, { status: 500 })
     }
 
     console.log('[Smart Sync] Starting intelligent transaction sync...')
-    
+
     const auth = Buffer.from(
-      `${process.env.PAYHERO_USERNAME}:${process.env.PAYHERO_PASSWORD}` 
+      `${process.env.PAYHERO_USERNAME}:${process.env.PAYHERO_PASSWORD}`
     ).toString('base64')
 
-    // 2. Fetch from PayHero (Try transactions endpoint first)
+    // Try transactions endpoint first, fall back to payments
     let response = await fetch('https://backend.payhero.co.ke/api/v2/transactions', {
-      headers: { 'Authorization': `Basic ${auth}` },
-      cache: 'no-store'
+      headers: { Authorization: `Basic ${auth}` },
+      cache: 'no-store',
     })
 
     if (!response.ok) {
       console.log('[Smart Sync] Trying alternative endpoint...')
       response = await fetch('https://backend.payhero.co.ke/api/v2/payments', {
-        headers: { 'Authorization': `Basic ${auth}` }
+        headers: { Authorization: `Basic ${auth}` },
       })
     }
 
     if (!response.ok) {
       const errorText = await response.text()
       console.error('[Smart Sync] API Response:', errorText)
-      return NextResponse.json({ 
+      return NextResponse.json({
         error: `PayHero API error: ${response.status} - ${errorText}`,
-        success: false 
+        success: false,
       }, { status: 500 })
     }
 
     const result = await response.json()
-    
-    // Handle different response structures
-    let transactions = []
+
+    let transactions: any[] = []
     if (Array.isArray(result.data)) {
       transactions = result.data
     } else if (Array.isArray(result)) {
       transactions = result
-    } else if (result && typeof result === 'object' && Array.isArray(result.transactions)) {
+    } else if (result && Array.isArray(result.transactions)) {
       transactions = result.transactions
     } else {
       console.error('[Smart Sync] Unexpected API response structure:', result)
       return NextResponse.json({
         success: false,
-        error: 'Invalid API response structure - expected array of transactions'
+        error: 'Invalid API response structure',
       }, { status: 500 })
     }
-    
+
     console.log(`[Smart Sync] Retrieved ${transactions.length} transactions`)
 
     let updatedCount = 0
@@ -71,15 +69,12 @@ export async function POST(req: NextRequest) {
 
     for (const tx of transactions) {
       try {
-        // Defensive check: Process only inbound payments with valid provider_reference (skip fees and top-ups)
-        if (!tx.provider_reference || 
-            tx.provider_reference.startsWith('cost_') || 
-            tx.transaction_type !== 'inbound_payment') {
-          console.log(`[Smart Sync] Skipping transaction: Not a valid inbound payment`, {
-            type: tx.transaction_type,
-            provider_ref: tx.provider_reference,
-            amount: tx.amount
-          })
+        // Only process inbound payments with a valid M-Pesa reference
+        if (
+          !tx.provider_reference ||
+          tx.provider_reference.startsWith('cost_') ||
+          tx.transaction_type !== 'inbound_payment'
+        ) {
           skippedCount++
           continue
         }
@@ -88,124 +83,126 @@ export async function POST(req: NextRequest) {
         const externalRef = tx.external_reference || ''
         const amount = Number(tx.amount)
 
-        console.log(`[Smart Sync] Processing transaction: ${mpesaCode} | Ref: ${externalRef} | Amount: ${amount}`)
+        console.log(`[Smart Sync] Processing: ${mpesaCode} | Ref: ${externalRef} | Amount: ${amount}`)
 
-        // 4. Check for existing record
-        const { data: alreadyInDb, error: existingError } = await supabase
+        // Skip if already recorded
+        const { data: alreadyInDb } = await supabase
           .from('payments')
           .select('id')
           .eq('mpesa_code', mpesaCode)
           .maybeSingle()
 
-        if (existingError) {
-          console.error(`[Smart Sync] Database error checking existing payment:`, existingError)
-          errorCount++
-          continue
-        }
-
         if (alreadyInDb) {
-          console.log(`[Smart Sync] Transaction already exists: ${mpesaCode}`)
           skippedCount++
           continue
         }
 
-        // 5. Try to find pending record to update (Priority 1)
-        const { data: pendingRecord, error: pendingError } = await supabase
-          .from('payments')
-          .select('id')
-          .eq('amount', amount)
-          .eq('status', 'pending')
-          .ilike('notes', `%${externalRef}%`)
-          .maybeSingle()
+        // Parse external reference: "RENT-{tenantId}-{YYYY-MM}" or "REPAIRS-{tenantId}-{YYYY-MM}"
+        let tenantId: string | null = null
+        let paymentMonth: string | null = null
 
-        if (pendingError) {
-          console.error(`[Smart Sync] Database error finding pending payment:`, pendingError)
-          errorCount++
-          continue
-        }
-
-        if (pendingRecord) {
-          console.log(`[Smart Sync] Found pending record to update: ${pendingRecord.id}`)
-          // Update existing pending record
-          const { error: updateError } = await supabase
-            .from('payments')
-            .update({
-              mpesa_code: mpesaCode,
-              status: 'complete',
-              payment_date: tx.transaction_date || new Date().toISOString(),
-              notes: `Updated via Smart Sync | Ref: ${externalRef}`
-            })
-            .eq('id', pendingRecord.id)
-
-          if (updateError) {
-            console.error(`[Smart Sync] Error updating ${mpesaCode}:`, updateError)
-            errorCount++
-          } else {
-            console.log(`[Smart Sync] Updated pending: ${mpesaCode}`)
-            updatedCount++
-          }
-        } else {
-          // 6. Create new record (Priority 2)
-          console.log(`[Smart Sync] Creating new record for: ${mpesaCode}`)
-          let tenantId = null
-          let paymentMonth = null
-          
-          // Parse external reference
+        if (externalRef) {
           const match = externalRef.match(/^(RENT|REPAIRS)-(.+)-(\d{4}-\d{2})$/i)
           if (match) {
             tenantId = match[2]
             paymentMonth = match[3]
           }
+        }
 
-          // Fallback: use transaction date month
-          if (!paymentMonth && tx.transaction_date) {
-            const txDate = new Date(tx.transaction_date)
-            paymentMonth = `${txDate.getFullYear()}-${String(txDate.getMonth() + 1).padStart(2, '0')}`
-          }
+        // Fallback: derive month from transaction date
+        if (!paymentMonth && tx.transaction_date) {
+          const txDate = new Date(tx.transaction_date)
+          paymentMonth = `${txDate.getFullYear()}-${String(txDate.getMonth() + 1).padStart(2, '0')}`
+        }
 
-          let landlordId: string | null = null
-          if (tenantId) {
-            const { data: existingPayment } = await supabase
+        // Try to find and update a pending record for this tenant + month
+        if (tenantId && paymentMonth) {
+          const { data: pendingRecord } = await supabase
+            .from('payments')
+            .select('id')
+            .eq('tenant_id', tenantId)
+            .eq('payment_month', paymentMonth)
+            .eq('status', 'pending')
+            .maybeSingle()
+
+          if (pendingRecord) {
+            const { error: updateError } = await supabase
               .from('payments')
-              .select('landlord_id')
-              .eq('tenant_id', tenantId)
-              .neq('landlord_id', null)
-              .limit(1)
-              .maybeSingle()
-            landlordId = existingPayment?.landlord_id || null
-          }
+              .update({
+                mpesa_code: mpesaCode,
+                status: 'complete',
+                payment_date: tx.transaction_date || new Date().toISOString(),
+                notes: 'Updated via Smart Sync ✅',
+              })
+              .eq('id', pendingRecord.id)
 
-          // Create new payment record with validation
-          const paymentData = {
-            tenant_id: tenantId,
-            landlord_id: landlordId,
-            amount: amount,
-            phone_number: tx.phone_number,
-            mpesa_code: mpesaCode,
-            payment_month: paymentMonth,
-            payment_method: 'mpesa',
-            logged_by: 'system',
-            status: 'complete',
-            payment_date: tx.transaction_date || new Date().toISOString(),
-            notes: `Created via Smart Sync | Ref: ${externalRef}`,
-          }
-
-          // Validate payment data before insert
-          if (!paymentData.tenant_id || !paymentData.payment_month) {
-            console.error(`[Smart Sync] Invalid payment data for ${mpesaCode}:`, paymentData)
-            errorCount++
+            if (updateError) {
+              console.error(`[Smart Sync] Update error for ${mpesaCode}:`, updateError)
+              errorCount++
+            } else {
+              console.log(`[Smart Sync] Updated pending → complete: ${mpesaCode}`)
+              updatedCount++
+            }
             continue
           }
+        }
 
-          const { error: insertError } = await supabase.from('payments').insert(paymentData)
+        // No pending record found — create a new one if we have enough data
+        if (!tenantId || !paymentMonth) {
+          console.warn(`[Smart Sync] Cannot create record for ${mpesaCode} — missing tenantId or month`)
+          errorCount++
+          continue
+        }
 
-          if (insertError) {
-            console.error(`[Smart Sync] Error creating ${mpesaCode}:`, insertError)
-            errorCount++
-          } else {
-            console.log(`[Smart Sync] Created: ${mpesaCode}`)
-            createdCount++
+        // Find landlord for this tenant
+        let landlordId: string | null = null
+        const { data: existingPayment } = await supabase
+          .from('payments')
+          .select('landlord_id')
+          .eq('tenant_id', tenantId)
+          .neq('landlord_id', null)
+          .limit(1)
+          .maybeSingle()
+        landlordId = existingPayment?.landlord_id || null
+
+        if (!landlordId) {
+          const { data: slot } = await supabase
+            .from('tenant_slots')
+            .select('landlord_block_id')
+            .eq('tenant_id', tenantId)
+            .maybeSingle()
+
+          if (slot?.landlord_block_id) {
+            const { data: landlordProfile } = await supabase
+              .from('profiles')
+              .select('id')
+              .eq('landlord_block_id', slot.landlord_block_id)
+              .eq('role', 'landlord')
+              .maybeSingle()
+            landlordId = landlordProfile?.id || null
           }
+        }
+
+        const { error: insertError } = await supabase.from('payments').insert({
+          tenant_id: tenantId,
+          landlord_id: landlordId,
+          amount,
+          phone_number: tx.phone_number || null,
+          mpesa_code: mpesaCode,
+          payment_month: paymentMonth,
+          payment_method: 'mpesa',
+          logged_by: 'system',
+          status: 'complete',
+          payment_date: tx.transaction_date || new Date().toISOString(),
+          notes: `Created via Smart Sync | Ref: ${externalRef}`,
+        })
+
+        if (insertError) {
+          console.error(`[Smart Sync] Insert error for ${mpesaCode}:`, insertError)
+          errorCount++
+        } else {
+          console.log(`[Smart Sync] Created: ${mpesaCode}`)
+          createdCount++
         }
       } catch (err: any) {
         console.error(`[Smart Sync] Error processing ${tx.provider_reference}:`, err.message)
@@ -221,15 +218,14 @@ export async function POST(req: NextRequest) {
         created: createdCount,
         skipped: skippedCount,
         errors: errorCount,
-        total: transactions.length
-      }
+        total: transactions.length,
+      },
     }, { status: 200 })
-
   } catch (err: any) {
     console.error('[Smart Sync] Error:', err.message)
-    return NextResponse.json({ 
+    return NextResponse.json({
       error: err.message,
-      success: false 
+      success: false,
     }, { status: 500 })
   }
 }

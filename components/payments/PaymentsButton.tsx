@@ -21,7 +21,8 @@ import {
   Zap, 
   Shield,
   Package,
-  AlertCircle
+  AlertCircle,
+  Building2
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 
@@ -70,7 +71,7 @@ export default function PayButton({
   const [landlordChannels, setLandlordChannels] = useState<any[]>([])
   const [selectedMethod, setSelectedMethod] = useState<'mpesa' | 'bank'>('mpesa')
   const [selectedChannel, setSelectedChannel] = useState<any>(null)
-  const [isLoadingChannels, setIsLoadingChannels] = useState(false)
+  const [isLoadingChannels, setIsLoadingChannels] = useState(true)
 
   const formatMoney = (n: number) => `KES ${n.toLocaleString('en-KE')}`
 
@@ -155,65 +156,65 @@ export default function PayButton({
     }
   }
 
-  const openModal = async () => {
-    if (disabled) return
-    setShowModal(true)
-    setIsLoadingChannels(true)
-    
-    try {
-      // 1. Get tenant's personal phone
-      if (user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('phone_number')
-          .eq('id', user.id)
-          .single()
-        if (profile?.phone_number) setPhone(profile.phone_number)
-      }
+ const openModal = async () => {
+  if (disabled) return
+  setShowModal(true)
+  setIsLoadingChannels(true)   // already there, but now initial state matches
+  setLandlordChannels([])      // ← ADD THIS to clear stale state on reopen
+  setSelectedChannel(null) 
 
-      // 2. Find landlord's channels
-      // First find which landlord this tenant belongs to
-      const { data: slot } = await supabase
-        .from('tenant_slots')
-        .select('landlord_block_id')
-        .eq('tenant_id', user?.id)
+  try {
+    if (user) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('phone_number')
+        .eq('id', user.id)
+        .single()
+      if (profile?.phone_number) setPhone(profile.phone_number)
+    }
+
+    const { data: slot } = await supabase
+      .from('tenant_slots')
+      .select('landlord_block_id')
+      .eq('tenant_id', user?.id)
+      .maybeSingle()
+
+    if (slot?.landlord_block_id) {
+      const { data: landlord } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('landlord_block_id', slot.landlord_block_id)
+        .eq('role', 'landlord')
         .maybeSingle()
 
-      if (slot?.landlord_block_id) {
-        const { data: landlord } = await supabase
-          .from('profiles')
-          .select('id')
-          .eq('landlord_block_id', slot.landlord_block_id)
-          .eq('role', 'landlord')
-          .maybeSingle()
+      if (landlord?.id) {
+        const { data: channels } = await supabase
+          .from('landlord_payment_settings')
+          .select('*')
+          .eq('landlord_id', landlord.id)
+          .eq('verified', true)
 
-        if (landlord?.id) {
-          const { data: channels } = await supabase
-            .from('landlord_payment_settings')
-            .select('*')
-            .eq('landlord_id', landlord.id)
-            .eq('verified', true)
-          
-          if (channels && channels.length > 0) {
-            setLandlordChannels(channels)
-            // Default to first M-Pesa one
-            const mpesa = channels.find(c => c.payment_type === 'paybill' || c.payment_type === 'till')
-            if (mpesa) {
-              setSelectedChannel(mpesa)
-              setSelectedMethod('mpesa')
-            } else {
-              setSelectedChannel(channels[0])
-              setSelectedMethod(channels[0].payment_type === 'bank' ? 'bank' : 'mpesa')
-            }
+        if (channels && channels.length > 0) {
+          setLandlordChannels(channels)
+          const mpesa = channels.find((c: any) => 
+            c.payment_type === 'paybill' || c.payment_type === 'till'
+          )
+          if (mpesa) {
+            setSelectedChannel(mpesa)
+            setSelectedMethod('mpesa')
+          } else {
+            setSelectedChannel(channels[0])
+            setSelectedMethod(channels[0].payment_type === 'bank' ? 'bank' : 'mpesa')
           }
         }
       }
-    } catch (err) {
-      console.error('Error fetching landlord channels:', err)
-    } finally {
-      setIsLoadingChannels(false)
     }
+  } catch (err) {
+    console.error('Error fetching landlord channels:', err)
+  } finally {
+    setIsLoadingChannels(false)  // ✅ keep here — runs after all state is set
   }
+}
 
   return (
     <>
@@ -523,7 +524,7 @@ export default function PayButton({
                   </Button>
                   <Button
                     onClick={handlePay}
-                    disabled={isSending || !selectedChannel || (selectedMethod === 'mpesa' && !phone) || getTotalAmount() <= 0 || (paymentType === 'repairs' && !selectedService)}
+                    disabled={isSending || (selectedMethod === 'mpesa' && !phone) || getTotalAmount() <= 0 || (paymentType === 'repairs' && !selectedService) || (landlordChannels.length > 0 && !selectedChannel)}
                     className="flex-1 bg-accent hover:bg-accent/90 text-accent-foreground rounded-xl h-12 gap-2 font-bold shadow-lg shadow-accent/20 disabled:opacity-50"
                   >
                     {isSending ? (
