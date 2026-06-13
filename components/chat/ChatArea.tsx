@@ -252,17 +252,31 @@ export default function ChatArea({ user }: ChatAreaProps) {
       }
 
       if (myParts?.length) {
-        const ids = myParts.map(p => p.conversation_id)
-        const { data: shared, error: sharedError } = await supabase
-          .from('conversation_participants').select('conversation_id')
-          .eq('user_id', otherId).in('conversation_id', ids).limit(1).maybeSingle()
-        
-        if (sharedError) {
-          console.error('Error checking shared conversation:', sharedError)
-        } else if (shared?.conversation_id) {
-          return shared.conversation_id
-        }
-      }
+  const ids = myParts.map(p => p.conversation_id)
+  
+  // Only match direct conversations — never group
+  const { data: directConvs } = await supabase
+    .from('conversations')
+    .select('id')
+    .in('id', ids)
+    .eq('type', 'direct')
+  
+  const directIds = (directConvs || []).map((c: any) => c.id)
+  
+  if (directIds.length) {
+    const { data: shared } = await supabase
+      .from('conversation_participants')
+      .select('conversation_id')
+      .eq('user_id', otherId)
+      .in('conversation_id', directIds)
+      .limit(1)
+      .maybeSingle()
+    
+    if (shared?.conversation_id) {
+      return shared.conversation_id
+    }
+  }
+}
 
       // Create new conversation
       const { data: newConv, error: convError } = await supabase
@@ -298,31 +312,24 @@ export default function ChatArea({ user }: ChatAreaProps) {
  const fetchTenantConversation = useCallback(async () => {
   if (!user) return null
 
-  // console.log('=== fetchTenantConversation DEBUG ===')
-  // console.log('tenant user.id:', user.id)
-
   // Step 1: Find tenant's slot
-  const { data: tenantSlot, error: slotError } = await supabase
+  const { data: tenantSlot } = await supabase
     .from('tenant_slots')
     .select('landlord_block_id, tenant_id')
     .eq('tenant_id', user.id)
     .maybeSingle()
 
-  // console.log('tenantSlot:', tenantSlot, 'slotError:', slotError)
-
   if (!tenantSlot?.landlord_block_id) {
-    console.log('NO SLOT FOUND — tenant_slots has no row for this user')
+    console.log('NO SLOT FOUND — tenant has no landlord yet')
     return null
   }
 
   // Step 2: Find landlord block
-  const { data: landlordBlock, error: blockError } = await supabase
+  const { data: landlordBlock } = await supabase
     .from('landlord_blocks')
     .select('landlord_id, id')
     .eq('id', tenantSlot.landlord_block_id)
     .single()
-
-  // console.log('landlordBlock:', landlordBlock, 'blockError:', blockError)
 
   if (!landlordBlock?.landlord_id) {
     console.log('NO LANDLORD BLOCK FOUND')
@@ -330,23 +337,19 @@ export default function ChatArea({ user }: ChatAreaProps) {
   }
 
   // Step 3: Get landlord profile
-  const { data: landlordProfile, error: profileError } = await supabase
+  const { data: landlordProfile } = await supabase
     .from('profiles')
     .select('id, full_name, avatar_url, role')
     .eq('id', landlordBlock.landlord_id)
     .single()
 
-  // console.log('landlordProfile:', landlordProfile, 'profileError:', profileError)
-
   if (!landlordProfile) return null
 
-  // Step 4: Get tenant's conversations
+  // Step 4: Get tenant's conversation IDs
   const { data: myParts } = await supabase
     .from('conversation_participants')
     .select('conversation_id')
     .eq('user_id', user.id)
-
-  // console.log('tenant conversation_ids:', myParts?.map((p: any) => p.conversation_id))
 
   const myConvIds = (myParts || []).map((p: any) => p.conversation_id)
 
@@ -359,17 +362,32 @@ export default function ChatArea({ user }: ChatAreaProps) {
     }
   }
 
-  // Step 5: Find shared conversation with this landlord
-  const { data: sharedConv, error: sharedError } = await supabase
+  // Step 5: Filter to DIRECT conversations only — never group/community
+  const { data: directConvs } = await supabase
+    .from('conversations')
+    .select('id')
+    .in('id', myConvIds)
+    .eq('type', 'direct')
+
+  const directConvIds = (directConvs || []).map((c: any) => c.id)
+
+  if (!directConvIds.length) {
+    return {
+      conversationId: null,
+      otherPersonId: landlordProfile.id,
+      otherPersonName: landlordProfile.full_name || 'Your Landlord',
+      otherPersonAvatar: landlordProfile.avatar_url || null,
+    }
+  }
+
+  // Step 6: Find shared direct conversation with this specific landlord
+  const { data: sharedConv } = await supabase
     .from('conversation_participants')
     .select('conversation_id')
     .eq('user_id', landlordBlock.landlord_id)
-    .in('conversation_id', myConvIds)
+    .in('conversation_id', directConvIds)
     .limit(1)
     .maybeSingle()
-
-  // console.log('sharedConv:', sharedConv, 'sharedError:', sharedError)
-  // console.log('=== END DEBUG ===')
 
   return {
     conversationId: sharedConv?.conversation_id || null,
@@ -625,28 +643,41 @@ const formatTime = (dateStr: string) => {
 
         {/* Empty state */}
         {!conversationId ? (
-          <div className="flex flex-col items-center justify-center h-full text-center p-8">
-            <div className="w-20 h-20 rounded-3xl bg-accent/10 flex items-center justify-center mb-5">
-              <MessageSquare className="w-9 h-9 text-accent" />
-            </div>
-            <h3 className="text-lg font-bold text-foreground mb-2">
-              {userRole === 'landlord' ? 'Select a Conversation' : 'No Conversation Yet'}
-            </h3>
-            <p className="text-sm text-muted-foreground max-w-xs">
-              {userRole === 'landlord'
-                ? 'Choose a tenant from the list to start chatting'
-                : 'Your landlord account is being set up'
-              }
-            </p>
-            {userRole === 'landlord' && (
-              <button
-                onClick={() => setShowTenantList(true)}
-                className="md:hidden mt-5 px-5 py-2.5 bg-accent text-white rounded-xl text-sm font-medium"
-              >
-                View Tenants
-              </button>
-            )}
-          </div>
+  <div className="flex flex-col items-center justify-center h-full text-center p-8">
+    <div className="w-20 h-20 rounded-3xl bg-accent/10 flex items-center justify-center mb-5">
+      <MessageSquare className="w-9 h-9 text-accent" />
+    </div>
+    <h3 className="text-lg font-bold text-foreground mb-2">
+      {userRole === 'landlord' ? 'Select a Conversation' : 'No Messages Yet'}
+    </h3>
+    <p className="text-sm text-muted-foreground max-w-xs">
+      {userRole === 'landlord'
+        ? 'Choose a tenant from the list to start chatting'
+        : otherPersonId
+          ? `Start your conversation with ${otherPersonName || 'your landlord'} by sending a message below`
+          : 'You have not been connected to a landlord yet. Ask your landlord for a referral link to get started.'
+      }
+    </p>
+    {userRole === 'landlord' && (
+      <button
+        onClick={() => setShowTenantList(true)}
+        className="md:hidden mt-5 px-5 py-2.5 bg-accent text-white rounded-xl text-sm font-medium"
+      >
+        View Tenants
+      </button>
+    )}
+    {userRole === 'tenant' && otherPersonId && (
+      <button
+        onClick={async () => {
+          const convId = await getOrCreateConversation(user!.id, otherPersonId)
+          setConversationId(convId)
+        }}
+        className="mt-5 px-5 py-2.5 bg-accent text-white rounded-xl text-sm font-medium"
+      >
+        Start Chatting
+      </button>
+    )}
+  </div>
         ) : (
           <>
             {/* Chat header */}

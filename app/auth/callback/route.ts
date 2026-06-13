@@ -7,25 +7,17 @@ import { createClient } from '@supabase/supabase-js'
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
+  const { searchParams, origin } = new URL(request.url)
+  const code = searchParams.get('code')
+  const ref = searchParams.get('ref') ?? searchParams.get('state')
+
+  if (!code) {
+    return NextResponse.redirect(`${origin}/login?error=auth_failed&message=no_authorization_code`)
+  }
+
   try {
-    const { searchParams, origin } = new URL(request.url)
-    const code = searchParams.get('code')
-    const nextParam = searchParams.get('next') ?? '/dashboard'
-    const next =
-      nextParam.startsWith('/') && !nextParam.startsWith('//')
-        ? nextParam
-        : '/dashboard'
-
-    // ref IS the landlord_block_id (landlord_blocks.id)
-    const ref = searchParams.get('ref') ?? searchParams.get('state')
-
-    if (!code) {
-      return NextResponse.redirect(
-        `${origin}/login?error=auth_failed&message=no_authorization_code`
-      )
-    }
-
-    const response = NextResponse.redirect(`${origin}${next}`)
+    // Need a mutable response to set cookies
+    const cookieResponse = NextResponse.next()
 
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -37,7 +29,7 @@ export async function GET(request: NextRequest) {
           },
           setAll(cookiesToSet) {
             cookiesToSet.forEach(({ name, value, options }) => {
-              response.cookies.set(name, value, options)
+              cookieResponse.cookies.set(name, value, options)
             })
           },
         },
@@ -45,62 +37,102 @@ export async function GET(request: NextRequest) {
     )
 
     const { data, error } = await supabase.auth.exchangeCodeForSession(code)
-    console.log('[OAuth Callback] ref from URL:', ref)
-console.log('[OAuth Callback] user id:', data.session?.user?.id)
+    console.log('[OAuth Callback] ref:', ref, '| user:', data.session?.user?.id)
+
+    if (error || !data.session?.user) {
+      console.error('[OAuth Callback] Error:', error?.message)
+      const friendlyError = getFriendlyAuthError(error?.message || 'Session exchange failed')
+      const msg = encodeURIComponent(`${friendlyError.title}\n\n${friendlyError.description}`)
+      return NextResponse.redirect(`${origin}/login?error=auth_failed&message=${msg}`)
+    }
+
+    const userId = data.session.user.id
+    const userEmail = data.session.user.email
+    const userName =
+      data.session.user.user_metadata?.full_name ||
+      data.session.user.user_metadata?.name ||
+      userEmail
 
     const supabaseAdmin = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     )
 
-    if (error) {
-      console.error('[OAuth Callback] Exchange error:', error.message)
-      const friendlyError = getFriendlyAuthError(error.message)
-      const errorMessage = encodeURIComponent(
-        `${friendlyError.title}\n\n${friendlyError.description}\n\n${friendlyError.action}`
-      )
-      return NextResponse.redirect(
-        `${origin}/login?error=auth_failed&message=${errorMessage}`
-      )
-    }
+    // Get profile
+    const { data: profile } = await supabaseAdmin
+      .from('profiles')
+      .select('role, landlord_block_id, property_setup_complete')
+      .eq('id', userId)
+      .maybeSingle()
 
-    // ref IS already the landlord_block_id — verify it exists and is active
-    // before writing to the tenant's profile
-    if (ref && data.session?.user) {
-      const { data: block, error: blockError } = await supabaseAdmin
+    console.log('[OAuth Callback] profile:', profile)
+
+    // Handle tenant joining via referral link
+    if (ref) {
+      console.log('[OAuth Callback] ref present, checking block...')
+      const { data: block } = await supabaseAdmin
         .from('landlord_blocks')
         .select('id')
         .eq('id', ref)
         .eq('is_active', true)
-        .single()
+        .maybeSingle()
 
-      if (blockError || !block) {
-        // Invalid or inactive block — log and skip, don't write bad data
-        console.error('[OAuth Callback] Invalid or inactive landlord_block_id:', ref)
-      } else {
-        // Valid block — write landlord_block_id and role to the tenant's profile
+      if (block) {
         await supabaseAdmin
           .from('profiles')
-          .update({
-            landlord_block_id: ref,
-            role: 'tenant',
-          })
-          .eq('id', data.session.user.id)
+          .update({ landlord_block_id: ref, role: 'tenant', property_setup_complete: true })
+          .eq('id', userId)
+
+        return redirect(origin, '/dashboard', request, cookieResponse)
       }
     }
 
-    return response
+    // New user — no role or trigger-created tenant with no landlord
+    const isNew =
+      !profile?.role ||
+      (profile.role === 'tenant' && !profile.landlord_block_id)
+
+    if (isNew) {
+      console.log('[OAuth Callback] New user — setting landlord')
+      await supabaseAdmin.from('profiles').upsert({
+        id: userId,
+        email: userEmail,
+        full_name: userName,
+        role: 'landlord',
+        blockchain_verified: false,
+        property_setup_complete: false,
+        kyc_verified: false,
+      })
+      return redirect(origin, '/complete-setup', request, cookieResponse)
+    }
+
+    // Returning user
+    console.log('[OAuth Callback] Returning user, role:', profile.role)
+
+    if (profile.role === 'developer') {
+      return redirect(origin, '/developer-dashboard', request, cookieResponse)
+    }
+
+    if (profile.role === 'landlord' && (!profile.landlord_block_id || !profile.property_setup_complete)) {
+      return redirect(origin, '/complete-setup', request, cookieResponse)
+    }
+
+    return redirect(origin, '/dashboard', request, cookieResponse)
+
   } catch (err) {
     console.error('[OAuth Callback] Unexpected error:', err)
-    const origin = new URL(request.url).origin
-    const friendlyError = getFriendlyAuthError(
-      err instanceof Error ? err.message : 'Unknown error'
-    )
-    const errorMessage = encodeURIComponent(
-      `${friendlyError.title}\n\n${friendlyError.description}\n\n${friendlyError.action}`
-    )
-    return NextResponse.redirect(
-      `${origin}/login?error=auth_failed&message=${errorMessage}`
-    )
+    const friendlyError = getFriendlyAuthError(err instanceof Error ? err.message : 'Unknown error')
+    const msg = encodeURIComponent(`${friendlyError.title}\n\n${friendlyError.description}`)
+    return NextResponse.redirect(`${origin}/login?error=auth_failed&message=${msg}`)
   }
+}
+
+// Helper to redirect while preserving cookies
+function redirect(origin: string, path: string, request: NextRequest, cookieResponse: NextResponse) {
+  const res = NextResponse.redirect(`${origin}${path}`)
+  cookieResponse.cookies.getAll().forEach(({ name, value, ...options }) => {
+    res.cookies.set(name, value, options)
+  })
+  console.log('[OAuth Callback] Redirecting to:', path)
+  return res
 }
