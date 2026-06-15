@@ -115,31 +115,13 @@ export default function CommunityPage({ user }: CommunityPageProps) {
   };
 
   useEffect(() => {
-    if (!user) return;
-    initCommunity();
-    fetchAnnouncements();
+  if (!user) return;
+  initCommunity();
+  fetchAnnouncements();
 
-    // ✅ Hot reload announcements
-    const channel = supabase
-      .channel("announcements-realtime")
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "policies",
-          filter: `category=eq.announcement`,
-        },
-        () => {
-          fetchAnnouncements();
-        },
-      )
-      .subscribe();
-
-    return () => {
-      channel.unsubscribe();
-    };
-  }, [user]);
+  const interval = setInterval(fetchAnnouncements, 60000);
+  return () => clearInterval(interval);
+}, [user]);
 
   const findOrCreateBlockGroupConversation = async (
     blockId: string,

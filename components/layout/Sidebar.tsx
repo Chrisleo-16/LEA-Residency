@@ -111,6 +111,7 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
     // { id: 'staff',      label: 'Staff Management',    icon: Users,         desc: 'Manage staff members' },
     { id: 'payments',   label: 'Rent Ledger',         icon: Receipt,       desc: 'Track all payments' },
     { id: 'policy',     label: 'Manage Policies',     icon: FileText,      desc: 'Publish documents' },
+    {id:'billing', label:"Subscription Billing", icon: Activity, desc:"Manage subscription & payments"},
     { id: 'settings',   label: 'Settings',            icon: Settings,      desc: 'Account preferences' },
   ]
 

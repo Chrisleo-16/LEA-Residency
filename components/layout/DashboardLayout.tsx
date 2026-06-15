@@ -14,6 +14,7 @@ import StaffManagementPage from '@/components/pages/StaffManagementPage'
 import PolicyPage from '@/components/pages/PolicyPage'
 import CommunityPage from '@/components/pages/CommunityPage'
 import PaymentsPage from '@/components/pages/PaymentsPage'
+import BillingPage from '@/components/pages/BillingPage'
 import { createClient } from '@/lib/supabase/client'
 // import DeveloperDashboardContent from '../developer/DeveloperDashboardContent'
 
@@ -25,6 +26,7 @@ export default function DashboardLayout({ user }: DashboardLayoutProps) {
   const [activeTab, setActiveTab] = useState('chat')
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [userRole, setUserRole] = useState<string | null>(null)
+  const [subscriptionActive, setSubscriptionActive] = useState<boolean | null>(null)
 
   useEffect(() => {
     if (user) {
@@ -51,7 +53,19 @@ export default function DashboardLayout({ user }: DashboardLayoutProps) {
 
       fetchRole()
     }
-  }, [user])
+    if (user && userRole === 'landlord') {
+    const checkSubscription = async () => {
+      const supabase = createClient()
+      const { data } = await supabase.rpc('is_subscription_active', {
+        p_landlord_id: user.id,
+      })
+      setSubscriptionActive(data ?? false)
+    }
+    checkSubscription()
+  } else {
+    setSubscriptionActive(true) // tenants aren't gated
+  }
+  }, [user, userRole])
 
   const handleTabChange = (tab: string) => {
     setActiveTab(tab)
@@ -68,6 +82,7 @@ export default function DashboardLayout({ user }: DashboardLayoutProps) {
       payments: 'Payments',
       settings: 'Settings',
       staff:"Staff Management",
+      billing: "Subscription Billing",
     }
     return titles[activeTab] || 'LEA Executive'
   }
@@ -83,6 +98,7 @@ export default function DashboardLayout({ user }: DashboardLayoutProps) {
       settings: 'Account & preferences',
       maintenance: 'Maintenance requests and tracking',
       staff: 'Staff management and information',
+      billing:"Subscription & payment management"
       // 'developer-dashboard': 'System monitoring & analytics'
     }
     return subtitles[activeTab] || ''
@@ -99,6 +115,7 @@ export default function DashboardLayout({ user }: DashboardLayoutProps) {
       case 'policy':     return <PolicyPage user={user} />
       case 'payments':   return <PaymentsPage user={user} />
       case 'settings':   return <SettingsPanel user={user} />
+      case 'billing':    return <BillingPage user={user} />
       // case 'developer-dashboard': return <DeveloperDashboardContent />
       default:           return <ChatArea user={user} />
     }

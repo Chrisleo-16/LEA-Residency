@@ -530,9 +530,9 @@ export default function SettingsPanel({ user }: SettingsPanelProps) {
               </span>
             </div>
           </div>
-          <p className="text-[10px] text-muted-foreground mt-3 font-mono bg-secondary px-2 py-1 rounded-lg truncate">
+          {/* <p className="text-[10px] text-muted-foreground mt-3 font-mono bg-secondary px-2 py-1 rounded-lg truncate">
             ID: {user?.id}
-          </p>
+          </p> */}
         </Section>
 
         {/* Update name + phone */}

@@ -1,489 +1,559 @@
-'use client'
+"use client";
 
-import { useState, useEffect, useRef, useCallback } from 'react'
-import { User } from '@supabase/supabase-js'
-import { supabase } from '@/lib/supabase'
-import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
-import { Send, Phone, MoreVertical, Users, X, Search, MessageSquare } from 'lucide-react'
-import { useChat, Message } from '@/hooks/useChat'
-import MessageBubble from '@/components/chat/MessageBubble'
+import { useState, useEffect, useRef, useCallback } from "react";
+import { User } from "@supabase/supabase-js";
+import { supabase } from "@/lib/supabase";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import {
+  Send,
+  Phone,
+  MoreVertical,
+  Users,
+  X,
+  Search,
+  MessageSquare,
+} from "lucide-react";
+import { useChat, Message } from "@/hooks/useChat";
+import MessageBubble from "@/components/chat/MessageBubble";
 
 interface ChatAreaProps {
-  user: User | null
+  user: User | null;
 }
 
 interface TenantConversation {
-  conversationId: string
-  tenantId: string
-  tenantName: string
-  tenantAvatar: string | null
-  lastMessage: string
-  lastMessageTime: string
-  unreadCount: number
+  conversationId: string;
+  tenantId: string;
+  tenantName: string;
+  tenantAvatar: string | null;
+  lastMessage: string;
+  lastMessageTime: string;
+  unreadCount: number;
 }
 
 export default function ChatArea({ user }: ChatAreaProps) {
-  const [conversationId, setConversationId] = useState<string | null>(null)
-  const [otherPersonName, setOtherPersonName] = useState('')
-  const [otherPersonRole, setOtherPersonRole] = useState('')
-  const [otherPersonAvatar, setOtherPersonAvatar] = useState<string | null>(null)
-  const [otherPersonId, setOtherPersonId] = useState<string | null>(null)
-  const [initLoading, setInitLoading] = useState(true)
-  const [newMessage, setNewMessage] = useState('')
-  const [userRole, setUserRole] = useState<string | null>(null)
-  const [tenantConversations, setTenantConversations] = useState<TenantConversation[]>([])
-  const [showTenantList, setShowTenantList] = useState(false)
-  const [replyingTo, setReplyingTo] = useState<Message | null>(null)
-  const [tenantSearch, setTenantSearch] = useState('')
-  const [deleteConfirm, setDeleteConfirm] = useState<{ show: boolean; messageId: string }>({ show: false, messageId: '' })
-  const [deleteError, setDeleteError] = useState('')
-  const bottomRef = useRef<HTMLDivElement>(null)
-  const inputRef = useRef<HTMLInputElement>(null)
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [otherPersonName, setOtherPersonName] = useState("");
+  const [otherPersonRole, setOtherPersonRole] = useState("");
+  const [otherPersonAvatar, setOtherPersonAvatar] = useState<string | null>(
+    null,
+  );
+  const [otherPersonId, setOtherPersonId] = useState<string | null>(null);
+  const [initLoading, setInitLoading] = useState(true);
+  const [newMessage, setNewMessage] = useState("");
+  const [userRole, setUserRole] = useState<string | null>(null);
+  const [tenantConversations, setTenantConversations] = useState<
+    TenantConversation[]
+  >([]);
+  const [showTenantList, setShowTenantList] = useState(false);
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null);
+  const [tenantSearch, setTenantSearch] = useState("");
+  const [deleteConfirm, setDeleteConfirm] = useState<{
+    show: boolean;
+    messageId: string;
+  }>({ show: false, messageId: "" });
+  const [deleteError, setDeleteError] = useState("");
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const {
-    messages, isLoading, sendMessage, editMessage, toggleReaction,
-    markAsSeen, sendTyping, typingUsers, onlineUsers,deleteMessage
-  } = useChat(conversationId, user)
+    messages,
+    isLoading,
+    sendMessage,
+    editMessage,
+    toggleReaction,
+    markAsSeen,
+    sendTyping,
+    typingUsers,
+    onlineUsers,
+    deleteMessage,
+  } = useChat(conversationId, user);
 
-  const isOtherPersonOnline = onlineUsers.some(u => u.userId === otherPersonId)
+  const isOtherPersonOnline = onlineUsers.some(
+    (u) => u.userId === otherPersonId,
+  );
 
   const handleDeleteMessage = (messageId: string) => {
-    setDeleteError('')
-    setDeleteConfirm({ show: true, messageId })
-  }
+    setDeleteError("");
+    setDeleteConfirm({ show: true, messageId });
+  };
 
   const confirmDelete = async () => {
     if (!deleteConfirm.messageId) {
-      setDeleteConfirm({ show: false, messageId: '' })
-      return
+      setDeleteConfirm({ show: false, messageId: "" });
+      return;
     }
-    setDeleteError('')
-    const err = await deleteMessage(deleteConfirm.messageId)
+    setDeleteError("");
+    const err = await deleteMessage(deleteConfirm.messageId);
     if (err) {
-      setDeleteError(err)
-      return
+      setDeleteError(err);
+      return;
     }
-    setDeleteConfirm({ show: false, messageId: '' })
-  }
+    setDeleteConfirm({ show: false, messageId: "" });
+  };
 
   const cancelDelete = () => {
-    setDeleteConfirm({ show: false, messageId: '' })
-  }
+    setDeleteConfirm({ show: false, messageId: "" });
+  };
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
 
   useEffect(() => {
-    if (!messages.length || !user) return
+    if (!messages.length || !user) return;
     const unseenIds = messages
       .filter(
-        m =>
-          m.status !== 'deleted' &&
+        (m) =>
+          m.status !== "deleted" &&
           m.sender_id !== user.id &&
-          !m.reads.find(r => r.user_id === user.id)
+          !m.reads.find((r) => r.user_id === user.id),
       )
-      .map(m => m.id)
-    if (unseenIds.length) markAsSeen(unseenIds)
-  }, [messages, user])
+      .map((m) => m.id);
+    if (unseenIds.length) markAsSeen(unseenIds);
+  }, [messages, user]);
 
   const fetchTenantConversations = useCallback(async () => {
-    if (!user) return
+    if (!user) return;
 
     const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('role, landlord_block_id')
-      .eq('id', user.id)
-      .single()
+      .from("profiles")
+      .select("role, landlord_block_id")
+      .eq("id", user.id)
+      .single();
 
-    if (profileError || profile?.role !== 'landlord') {
-      setTenantConversations([])
-      return
+    if (profileError || profile?.role !== "landlord") {
+      setTenantConversations([]);
+      return;
     }
 
     const { data: slotRows } = await supabase
-      .from('tenant_slots')
-      .select('tenant_id')
-      .eq('landlord_block_id', profile.landlord_block_id)
-      .not('tenant_id', 'is', null)
+      .from("tenant_slots")
+      .select("tenant_id")
+      .eq("landlord_block_id", profile.landlord_block_id)
+      .not("tenant_id", "is", null);
 
     const tenantIds = (slotRows || [])
       .map((slot: any) => slot.tenant_id)
-      .filter(Boolean)
+      .filter(Boolean);
 
     if (!tenantIds.length) {
-      setTenantConversations([])
-      return
+      setTenantConversations([]);
+      return;
     }
 
     const { data: allTenants } = await supabase
-      .from('profiles')
-      .select('id, full_name, avatar_url')
-      .in('id', tenantIds)
-      .eq('role', 'tenant')
+      .from("profiles")
+      .select("id, full_name, avatar_url")
+      .in("id", tenantIds)
+      .eq("role", "tenant");
 
     if (!allTenants?.length) {
-      setTenantConversations([])
-      return
+      setTenantConversations([]);
+      return;
     }
 
     const { data: myParticipations } = await supabase
-      .from('conversation_participants')
-      .select('conversation_id')
-      .eq('user_id', user.id)
-    const myConvIds = myParticipations?.map((p: any) => p.conversation_id) || []
+      .from("conversation_participants")
+      .select("conversation_id")
+      .eq("user_id", user.id);
+    const myConvIds =
+      myParticipations?.map((p: any) => p.conversation_id) || [];
 
     const { data: directConversations } = myConvIds.length
       ? await supabase
-          .from('conversations')
-          .select('id')
-          .in('id', myConvIds)
-          .eq('type', 'direct')
-      : { data: [] }
+          .from("conversations")
+          .select("id")
+          .in("id", myConvIds)
+          .eq("type", "direct")
+      : { data: [] };
 
-    const directConvIds = (directConversations || []).map((c: any) => c.id)
+    const directConvIds = (directConversations || []).map((c: any) => c.id);
 
     const { data: otherParticipants } = directConvIds.length
       ? await supabase
-          .from('conversation_participants')
-          .select('conversation_id, user_id')
-          .in('conversation_id', directConvIds)
-          .neq('user_id', user.id)
-      : { data: [] }
+          .from("conversation_participants")
+          .select("conversation_id, user_id")
+          .in("conversation_id", directConvIds)
+          .neq("user_id", user.id)
+      : { data: [] };
 
     const result: TenantConversation[] = await Promise.all(
       allTenants.map(async (tenant) => {
         const existingConv = otherParticipants
           ?.filter((p: any) => p.user_id === tenant.id)
-          .find((p: any) => directConvIds.includes(p.conversation_id))
-        const convId = existingConv?.conversation_id || ''
-        let lastMessage = 'No messages yet'
-        let lastMessageTime = ''
-        let unreadCount = 0
+          .find((p: any) => directConvIds.includes(p.conversation_id));
+        const convId = existingConv?.conversation_id || "";
+        let lastMessage = "No messages yet";
+        let lastMessageTime = "";
+        let unreadCount = 0;
 
         if (convId) {
           const { data: lastMsg } = await supabase
-            .from('messages')
-            .select('content, created_at')
-            .eq('conversation_id', convId)
-            .order('created_at', { ascending: false })
+            .from("messages")
+            .select("content, created_at")
+            .eq("conversation_id", convId)
+            .order("created_at", { ascending: false })
             .limit(1)
-            .maybeSingle()
-          lastMessage = lastMsg?.content || 'No messages yet'
-          lastMessageTime = lastMsg?.created_at || ''
+            .maybeSingle();
+          lastMessage = lastMsg?.content || "No messages yet";
+          lastMessageTime = lastMsg?.created_at || "";
 
           const { data: readIds } = await supabase
-            .from('message_reads')
-            .select('message_id')
-            .eq('user_id', user.id)
-          const readMessageIds = readIds?.map((r: any) => r.message_id) || []
+            .from("message_reads")
+            .select("message_id")
+            .eq("user_id", user.id);
+          const readMessageIds = readIds?.map((r: any) => r.message_id) || [];
 
           const { count } = await supabase
-            .from('messages')
-            .select('*', { count: 'exact', head: true })
-            .eq('conversation_id', convId)
-            .neq('sender_id', user.id)
+            .from("messages")
+            .select("*", { count: "exact", head: true })
+            .eq("conversation_id", convId)
+            .neq("sender_id", user.id)
             .not(
-              'id',
-              'in',
+              "id",
+              "in",
               readMessageIds.length
-                ? `(${readMessageIds.join(',')})`
-                : '(00000000-0000-0000-0000-000000000000)'
-            )
-          unreadCount = count || 0
+                ? `(${readMessageIds.join(",")})`
+                : "(00000000-0000-0000-0000-000000000000)",
+            );
+          unreadCount = count || 0;
         }
 
         return {
           conversationId: convId,
           tenantId: tenant.id,
-          tenantName: tenant.full_name || 'Unknown Tenant',
+          tenantName: tenant.full_name || "Unknown Tenant",
           tenantAvatar: tenant.avatar_url || null,
           lastMessage,
           lastMessageTime,
           unreadCount,
-        }
-      })
-    )
+        };
+      }),
+    );
 
     result.sort((a, b) => {
-      if (!a.lastMessageTime && !b.lastMessageTime) return 0
-      if (!a.lastMessageTime) return 1
-      if (!b.lastMessageTime) return -1
-      return new Date(b.lastMessageTime).getTime() - new Date(a.lastMessageTime).getTime()
-    })
-    setTenantConversations(result)
-  }, [user])
+      if (!a.lastMessageTime && !b.lastMessageTime) return 0;
+      if (!a.lastMessageTime) return 1;
+      if (!b.lastMessageTime) return -1;
+      return (
+        new Date(b.lastMessageTime).getTime() -
+        new Date(a.lastMessageTime).getTime()
+      );
+    });
+    setTenantConversations(result);
+  }, [user]);
 
-  const getOrCreateConversation = useCallback(async (userId: string, otherId: string): Promise<string | null> => {
-    try {
-      const { data: profileData, error: profileError } = await supabase
-        .from('profiles')
-        .select('role, landlord_block_id')
-        .eq('id', userId)
-        .single()
+  const getOrCreateConversation = useCallback(
+    async (userId: string, otherId: string): Promise<string | null> => {
+      try {
+        const { data: profileData, error: profileError } = await supabase
+          .from("profiles")
+          .select("role, landlord_block_id")
+          .eq("id", userId)
+          .single();
 
-      if (profileError) {
-        console.error('Error fetching profile for conversation security:', profileError)
-        return null
-      }
-
-      if (profileData?.role === 'landlord') {
-        const { data: slot } = await supabase
-          .from('tenant_slots')
-          .select('tenant_id')
-          .eq('tenant_id', otherId)
-          .eq('landlord_block_id', profileData.landlord_block_id)
-          .maybeSingle()
-
-        if (!slot) {
-          console.warn('Attempted conversation with tenant outside landlord block')
-          return null
+        if (profileError) {
+          console.error(
+            "Error fetching profile for conversation security:",
+            profileError,
+          );
+          return null;
         }
+
+        if (profileData?.role === "landlord") {
+          const { data: slot } = await supabase
+            .from("tenant_slots")
+            .select("tenant_id")
+            .eq("tenant_id", otherId)
+            .eq("landlord_block_id", profileData.landlord_block_id)
+            .maybeSingle();
+
+          if (!slot) {
+            console.warn(
+              "Attempted conversation with tenant outside landlord block",
+            );
+            return null;
+          }
+        }
+
+        // Check if conversation already exists
+        const { data: myParts, error: myPartsError } = await supabase
+          .from("conversation_participants")
+          .select("conversation_id")
+          .eq("user_id", userId);
+
+        if (myPartsError) {
+          console.error("Error fetching my conversations:", myPartsError);
+          return null;
+        }
+
+        if (myParts?.length) {
+          const ids = myParts.map((p) => p.conversation_id);
+
+          // Only match direct conversations — never group
+          const { data: directConvs } = await supabase
+            .from("conversations")
+            .select("id")
+            .in("id", ids)
+            .eq("type", "direct");
+
+          const directIds = (directConvs || []).map((c: any) => c.id);
+
+          if (directIds.length) {
+            const { data: shared } = await supabase
+              .from("conversation_participants")
+              .select("conversation_id")
+              .eq("user_id", otherId)
+              .in("conversation_id", directIds)
+              .limit(1)
+              .maybeSingle();
+
+            if (shared?.conversation_id) {
+              return shared.conversation_id;
+            }
+          }
+        }
+
+        // Create new conversation
+        const { data: newConv, error: convError } = await supabase
+          .from("conversations")
+          .insert({ type: "direct" })
+          .select()
+          .single();
+
+        if (convError) {
+          console.error("Error creating conversation:", convError);
+          return null;
+        }
+
+        if (newConv) {
+          const { error: partError } = await supabase
+            .from("conversation_participants")
+            .insert([
+              { conversation_id: newConv.id, user_id: userId },
+              { conversation_id: newConv.id, user_id: otherId },
+            ]);
+
+          if (partError) {
+            console.error("Error adding participants:", partError);
+            return null;
+          }
+
+          console.log("New conversation created:", newConv.id);
+          return newConv.id;
+        }
+      } catch (error) {
+        console.error("Unexpected error in getOrCreateConversation:", error);
+        return null;
       }
 
-      // Check if conversation already exists
-      const { data: myParts, error: myPartsError } = await supabase
-        .from('conversation_participants').select('conversation_id').eq('user_id', userId)
+      return null;
+    },
+    [],
+  );
 
-      if (myPartsError) {
-        console.error('Error fetching my conversations:', myPartsError)
-        return null
-      }
+  const fetchTenantConversation = useCallback(async () => {
+    if (!user) return null;
 
-      if (myParts?.length) {
-  const ids = myParts.map(p => p.conversation_id)
-  
-  // Only match direct conversations — never group
-  const { data: directConvs } = await supabase
-    .from('conversations')
-    .select('id')
-    .in('id', ids)
-    .eq('type', 'direct')
-  
-  const directIds = (directConvs || []).map((c: any) => c.id)
-  
-  if (directIds.length) {
-    const { data: shared } = await supabase
-      .from('conversation_participants')
-      .select('conversation_id')
-      .eq('user_id', otherId)
-      .in('conversation_id', directIds)
+    // Step 1: Find tenant's slot
+    const { data: tenantSlot } = await supabase
+      .from("tenant_slots")
+      .select("landlord_block_id, tenant_id")
+      .eq("tenant_id", user.id)
+      .maybeSingle();
+
+    if (!tenantSlot?.landlord_block_id) {
+      console.log("NO SLOT FOUND — tenant has no landlord yet");
+      return null;
+    }
+
+    // Step 2: Find landlord block
+    const { data: landlordBlock } = await supabase
+      .from("landlord_blocks")
+      .select("landlord_id, id")
+      .eq("id", tenantSlot.landlord_block_id)
+      .single();
+
+    if (!landlordBlock?.landlord_id) {
+      console.log("NO LANDLORD BLOCK FOUND");
+      return null;
+    }
+
+    // Step 3: Get landlord profile
+    const { data: landlordProfile } = await supabase
+      .from("profiles")
+      .select("id, full_name, avatar_url, role")
+      .eq("id", landlordBlock.landlord_id)
+      .single();
+
+    if (!landlordProfile) return null;
+
+    // Step 4: Get tenant's conversation IDs
+    const { data: myParts } = await supabase
+      .from("conversation_participants")
+      .select("conversation_id")
+      .eq("user_id", user.id);
+
+    const myConvIds = (myParts || []).map((p: any) => p.conversation_id);
+
+    if (!myConvIds.length) {
+      return {
+        conversationId: null,
+        otherPersonId: landlordProfile.id,
+        otherPersonName: landlordProfile.full_name || "Your Landlord",
+        otherPersonAvatar: landlordProfile.avatar_url || null,
+      };
+    }
+
+    // Step 5: Filter to DIRECT conversations only — never group/community
+    const { data: directConvs } = await supabase
+      .from("conversations")
+      .select("id")
+      .in("id", myConvIds)
+      .eq("type", "direct");
+
+    const directConvIds = (directConvs || []).map((c: any) => c.id);
+
+    if (!directConvIds.length) {
+      return {
+        conversationId: null,
+        otherPersonId: landlordProfile.id,
+        otherPersonName: landlordProfile.full_name || "Your Landlord",
+        otherPersonAvatar: landlordProfile.avatar_url || null,
+      };
+    }
+
+    // Step 6: Find shared direct conversation with this specific landlord
+    const { data: sharedConv } = await supabase
+      .from("conversation_participants")
+      .select("conversation_id")
+      .eq("user_id", landlordBlock.landlord_id)
+      .in("conversation_id", directConvIds)
       .limit(1)
-      .maybeSingle()
-    
-    if (shared?.conversation_id) {
-      return shared.conversation_id
-    }
-  }
-}
+      .maybeSingle();
 
-      // Create new conversation
-      const { data: newConv, error: convError } = await supabase
-        .from('conversations').insert({ type: 'direct' }).select().single()
-      
-      if (convError) {
-        console.error('Error creating conversation:', convError)
-        return null
-      }
-
-      if (newConv) {
-        const { error: partError } = await supabase.from('conversation_participants').insert([
-          { conversation_id: newConv.id, user_id: userId },
-          { conversation_id: newConv.id, user_id: otherId },
-        ])
-        
-        if (partError) {
-          console.error('Error adding participants:', partError)
-          return null
-        }
-        
-        console.log('New conversation created:', newConv.id)
-        return newConv.id
-      }
-    } catch (error) {
-      console.error('Unexpected error in getOrCreateConversation:', error)
-      return null
-    }
-    
-    return null
-  }, [])
-
- const fetchTenantConversation = useCallback(async () => {
-  if (!user) return null
-
-  // Step 1: Find tenant's slot
-  const { data: tenantSlot } = await supabase
-    .from('tenant_slots')
-    .select('landlord_block_id, tenant_id')
-    .eq('tenant_id', user.id)
-    .maybeSingle()
-
-  if (!tenantSlot?.landlord_block_id) {
-    console.log('NO SLOT FOUND — tenant has no landlord yet')
-    return null
-  }
-
-  // Step 2: Find landlord block
-  const { data: landlordBlock } = await supabase
-    .from('landlord_blocks')
-    .select('landlord_id, id')
-    .eq('id', tenantSlot.landlord_block_id)
-    .single()
-
-  if (!landlordBlock?.landlord_id) {
-    console.log('NO LANDLORD BLOCK FOUND')
-    return null
-  }
-
-  // Step 3: Get landlord profile
-  const { data: landlordProfile } = await supabase
-    .from('profiles')
-    .select('id, full_name, avatar_url, role')
-    .eq('id', landlordBlock.landlord_id)
-    .single()
-
-  if (!landlordProfile) return null
-
-  // Step 4: Get tenant's conversation IDs
-  const { data: myParts } = await supabase
-    .from('conversation_participants')
-    .select('conversation_id')
-    .eq('user_id', user.id)
-
-  const myConvIds = (myParts || []).map((p: any) => p.conversation_id)
-
-  if (!myConvIds.length) {
     return {
-      conversationId: null,
+      conversationId: sharedConv?.conversation_id || null,
       otherPersonId: landlordProfile.id,
-      otherPersonName: landlordProfile.full_name || 'Your Landlord',
+      otherPersonName: landlordProfile.full_name || "Your Landlord",
       otherPersonAvatar: landlordProfile.avatar_url || null,
-    }
-  }
-
-  // Step 5: Filter to DIRECT conversations only — never group/community
-  const { data: directConvs } = await supabase
-    .from('conversations')
-    .select('id')
-    .in('id', myConvIds)
-    .eq('type', 'direct')
-
-  const directConvIds = (directConvs || []).map((c: any) => c.id)
-
-  if (!directConvIds.length) {
-    return {
-      conversationId: null,
-      otherPersonId: landlordProfile.id,
-      otherPersonName: landlordProfile.full_name || 'Your Landlord',
-      otherPersonAvatar: landlordProfile.avatar_url || null,
-    }
-  }
-
-  // Step 6: Find shared direct conversation with this specific landlord
-  const { data: sharedConv } = await supabase
-    .from('conversation_participants')
-    .select('conversation_id')
-    .eq('user_id', landlordBlock.landlord_id)
-    .in('conversation_id', directConvIds)
-    .limit(1)
-    .maybeSingle()
-
-  return {
-    conversationId: sharedConv?.conversation_id || null,
-    otherPersonId: landlordProfile.id,
-    otherPersonName: landlordProfile.full_name || 'Your Landlord',
-    otherPersonAvatar: landlordProfile.avatar_url || null,
-  }
-}, [user])
+    };
+  }, [user]);
 
   useEffect(() => {
-    if (!user) return
+    if (!user) return;
     const init = async () => {
-      setInitLoading(true)
+      setInitLoading(true);
       const { data: myProfile, error: profileError } = await supabase
-        .from('profiles').select('role').eq('id', user.id).single()
-      if (profileError) { setInitLoading(false); return }
-
-      const role = myProfile?.role
-      setUserRole(role)
-
-      if (role === 'tenant') {
-        const tenantConversation = await fetchTenantConversation()
-        if (tenantConversation) {
-          setOtherPersonName(tenantConversation.otherPersonName)
-          setOtherPersonAvatar(tenantConversation.otherPersonAvatar)
-          setOtherPersonRole('Landlord')
-          setOtherPersonId(tenantConversation.otherPersonId)
-          setConversationId(tenantConversation.conversationId)
-        }
-      } else if (role === 'landlord') {
-        await fetchTenantConversations()
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .single();
+      if (profileError) {
+        setInitLoading(false);
+        return;
       }
-      setInitLoading(false)
-    }
-    init()
-  }, [user, fetchTenantConversations, fetchTenantConversation, getOrCreateConversation])
 
-  useEffect(() => {
-    if (userRole !== 'landlord' || !user) return
-    fetchTenantConversations()
-    const channel = supabase.channel('landlord-message-watcher')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, () => {
-        fetchTenantConversations()
-      }).subscribe()
-    return () => { channel.unsubscribe() }
-  }, [userRole, user, fetchTenantConversations])
+      const role = myProfile?.role;
+      setUserRole(role);
+
+      if (role === "tenant") {
+        const tenantConversation = await fetchTenantConversation();
+        if (tenantConversation) {
+          setOtherPersonName(tenantConversation.otherPersonName);
+          setOtherPersonAvatar(tenantConversation.otherPersonAvatar);
+          setOtherPersonRole("Landlord");
+          setOtherPersonId(tenantConversation.otherPersonId);
+          setConversationId(tenantConversation.conversationId);
+        }
+      } else if (role === "landlord") {
+        await fetchTenantConversations();
+      }
+      setInitLoading(false);
+    };
+    init();
+  }, [
+    user,
+    fetchTenantConversations,
+    fetchTenantConversation,
+    getOrCreateConversation,
+  ]);
+
+ useEffect(() => {
+  if (userRole !== 'landlord' || !user) return
+  fetchTenantConversations()
+  const channel = supabase.channel(`landlord-watcher:${user.id}`)
+    .on('postgres_changes', {
+      event: 'INSERT', schema: 'public', table: 'messages',
+      filter: `landlord_id=eq.${user.id}`
+    }, () => {
+      fetchTenantConversations()
+    }).subscribe()
+  return () => { channel.unsubscribe() }
+}, [userRole, user, fetchTenantConversations])
 
   const selectTenant = async (tenant: TenantConversation) => {
-    setOtherPersonName(tenant.tenantName)
-    setOtherPersonAvatar(tenant.tenantAvatar)
-    setOtherPersonRole('Tenant')
-    setOtherPersonId(tenant.tenantId)
-    setShowTenantList(false)
-    setReplyingTo(null)
+    setOtherPersonName(tenant.tenantName);
+    setOtherPersonAvatar(tenant.tenantAvatar);
+    setOtherPersonRole("Tenant");
+    setOtherPersonId(tenant.tenantId);
+    setShowTenantList(false);
+    setReplyingTo(null);
     if (tenant.conversationId) {
-      setConversationId(tenant.conversationId)
+      setConversationId(tenant.conversationId);
     } else {
-      const convId = await getOrCreateConversation(user!.id, tenant.tenantId)
-      setConversationId(convId)
+      const convId = await getOrCreateConversation(user!.id, tenant.tenantId);
+      setConversationId(convId);
     }
-  }
+  };
 
   const handleSend = async () => {
-    if (!newMessage.trim()) return
-    const content = newMessage
-    const replyId = replyingTo?.id
-    setNewMessage('')
-    setReplyingTo(null)
-    inputRef.current?.focus()
-    await sendMessage(content, replyId)
-  }
+    if (!newMessage.trim()) return;
+    const content = newMessage;
+    const replyId = replyingTo?.id;
+    setNewMessage("");
+    setReplyingTo(null);
+    inputRef.current?.focus();
+    await sendMessage(content, replyId);
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setNewMessage(e.target.value)
-    if (e.target.value.trim()) sendTyping()
-  }
+    setNewMessage(e.target.value);
+    if (e.target.value.trim()) sendTyping();
+  };
 
   const toUTC = (dateStr: string) =>
-  new Date(dateStr.endsWith('Z') ? dateStr : dateStr + 'Z')
+    new Date(dateStr.endsWith("Z") ? dateStr : dateStr + "Z");
 
-const formatTime = (dateStr: string) => {
-  if (!dateStr) return ''
-  const date = toUTC(dateStr)
-  const now = new Date()
-  // Compare dates in Nairobi timezone
-  const nairobiNow = new Date(now.toLocaleString('en-US', { timeZone: 'Africa/Nairobi' }))
-  const nairobiDate = new Date(date.toLocaleString('en-US', { timeZone: 'Africa/Nairobi' }))
-  const isToday = nairobiDate.toDateString() === nairobiNow.toDateString()
-  return isToday
-    ? date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Nairobi' })
-    : date.toLocaleDateString([], { day: 'numeric', month: 'short', timeZone: 'Africa/Nairobi' })
-}
+  const formatTime = (dateStr: string) => {
+    if (!dateStr) return "";
+    const date = toUTC(dateStr);
+    const now = new Date();
+    // Compare dates in Nairobi timezone
+    const nairobiNow = new Date(
+      now.toLocaleString("en-US", { timeZone: "Africa/Nairobi" }),
+    );
+    const nairobiDate = new Date(
+      date.toLocaleString("en-US", { timeZone: "Africa/Nairobi" }),
+    );
+    const isToday = nairobiDate.toDateString() === nairobiNow.toDateString();
+    return isToday
+      ? date.toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+          timeZone: "Africa/Nairobi",
+        })
+      : date.toLocaleDateString([], {
+          day: "numeric",
+          month: "short",
+          timeZone: "Africa/Nairobi",
+        });
+  };
 
-  const filteredTenants = tenantConversations.filter(t =>
-    t.tenantName.toLowerCase().includes(tenantSearch.toLowerCase())
-  )
+  const filteredTenants = tenantConversations.filter((t) =>
+    t.tenantName.toLowerCase().includes(tenantSearch.toLowerCase()),
+  );
 
   if (initLoading) {
     return (
@@ -495,35 +565,39 @@ const formatTime = (dateStr: string) => {
           <p className="text-sm text-muted-foreground">Loading messages...</p>
         </div>
       </div>
-    )
+    );
   }
 
   return (
     <div className="flex h-full overflow-hidden bg-background">
-
       {/* ── Landlord tenant sidebar ───────────────────────── */}
-      {userRole === 'landlord' && (
+      {userRole === "landlord" && (
         <>
           {showTenantList && (
-            <div className="fixed inset-0 bg-black/50 z-10 md:hidden"
-              onClick={() => setShowTenantList(false)} />
+            <div
+              className="fixed inset-0 bg-black/50 z-10 md:hidden"
+              onClick={() => setShowTenantList(false)}
+            />
           )}
 
-          <div className={`
+          <div
+            className={`
             fixed md:relative inset-y-0 left-0 z-20
             w-80 bg-card border-r border-border
             flex flex-col h-full
             transition-transform duration-300 ease-in-out
-            ${showTenantList ? 'translate-x-0' : '-translate-x-full'}
+            ${showTenantList ? "translate-x-0" : "-translate-x-full"}
             md:translate-x-0
-          `}>
+          `}
+          >
             {/* Sidebar header */}
             <div className="p-4 border-b border-border shrink-0">
               <div className="flex items-center justify-between mb-3">
                 <div>
                   <h2 className="font-bold text-foreground">Conversations</h2>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    {tenantConversations.length} tenant{tenantConversations.length !== 1 ? 's' : ''}
+                    {tenantConversations.length} tenant
+                    {tenantConversations.length !== 1 ? "s" : ""}
                   </p>
                 </div>
                 <button
@@ -539,7 +613,7 @@ const formatTime = (dateStr: string) => {
                 <input
                   placeholder="Search tenants..."
                   value={tenantSearch}
-                  onChange={e => setTenantSearch(e.target.value)}
+                  onChange={(e) => setTenantSearch(e.target.value)}
                   className="w-full pl-8 pr-3 py-2 bg-secondary border border-border rounded-lg text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-accent/50"
                 />
               </div>
@@ -551,14 +625,20 @@ const formatTime = (dateStr: string) => {
                   <div className="w-12 h-12 rounded-2xl bg-secondary flex items-center justify-center mx-auto mb-3">
                     <Users className="w-6 h-6 text-muted-foreground" />
                   </div>
-                  <p className="text-sm font-medium text-foreground">No tenants yet</p>
-                  <p className="text-xs text-muted-foreground mt-1">Tenants will appear here</p>
+                  <p className="text-sm font-medium text-foreground">
+                    No tenants yet
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Tenants will appear here
+                  </p>
                 </div>
               ) : (
                 <div className="p-2 space-y-1">
                   {filteredTenants.map((tenant) => {
-                    const isOnline = onlineUsers.some(u => u.userId === tenant.tenantId)
-                    const isSelected = conversationId === tenant.conversationId
+                    const isOnline = onlineUsers.some(
+                      (u) => u.userId === tenant.tenantId,
+                    );
+                    const isSelected = conversationId === tenant.conversationId;
                     return (
                       <button
                         key={tenant.tenantId}
@@ -566,20 +646,27 @@ const formatTime = (dateStr: string) => {
                         className={`
                           w-full p-3 flex items-center gap-3 rounded-xl text-left
                           transition-all duration-150
-                          ${isSelected
-                            ? 'bg-accent/10 border border-accent/20'
-                            : 'hover:bg-secondary border border-transparent'
+                          ${
+                            isSelected
+                              ? "bg-accent/10 border border-accent/20"
+                              : "hover:bg-secondary border border-transparent"
                           }
                         `}
                       >
                         <div className="relative shrink-0">
-                          <div className={`
+                          <div
+                            className={`
                             w-11 h-11 rounded-full flex items-center justify-center overflow-hidden
-                            ${isSelected ? 'ring-2 ring-accent ring-offset-1' : ''}
+                            ${isSelected ? "ring-2 ring-accent ring-offset-1" : ""}
                             bg-accent/10
-                          `}>
+                          `}
+                          >
                             {tenant.tenantAvatar ? (
-                              <img src={tenant.tenantAvatar} alt="" className="w-full h-full object-cover" />
+                              <img
+                                src={tenant.tenantAvatar}
+                                alt=""
+                                className="w-full h-full object-cover"
+                              />
                             ) : (
                               <span className="text-sm font-bold text-accent">
                                 {tenant.tenantName.charAt(0).toUpperCase()}
@@ -593,7 +680,9 @@ const formatTime = (dateStr: string) => {
 
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between gap-2">
-                            <p className={`text-sm font-semibold truncate ${isSelected ? 'text-accent' : 'text-foreground'}`}>
+                            <p
+                              className={`text-sm font-semibold truncate ${isSelected ? "text-accent" : "text-foreground"}`}
+                            >
                               {tenant.tenantName}
                             </p>
                             {tenant.lastMessageTime && (
@@ -613,7 +702,7 @@ const formatTime = (dateStr: string) => {
                           </div>
                         )}
                       </button>
-                    )
+                    );
                   })}
                 </div>
               )}
@@ -624,9 +713,8 @@ const formatTime = (dateStr: string) => {
 
       {/* ── Main Chat Area ────────────────────────────────── */}
       <div className="flex-1 flex flex-col h-full min-w-0 overflow-hidden">
-
         {/* Mobile tenant toggle */}
-        {userRole === 'landlord' && (
+        {userRole === "landlord" && (
           <div className="md:hidden flex items-center justify-between px-4 py-3 border-b border-border bg-background shrink-0">
             <button
               onClick={() => setShowTenantList(true)}
@@ -635,7 +723,7 @@ const formatTime = (dateStr: string) => {
               <Users className="w-5 h-5" />
             </button>
             <h1 className="font-bold text-foreground text-sm truncate px-2">
-              {otherPersonName || 'Select a tenant'}
+              {otherPersonName || "Select a tenant"}
             </h1>
             <div className="w-9" />
           </div>
@@ -643,41 +731,45 @@ const formatTime = (dateStr: string) => {
 
         {/* Empty state */}
         {!conversationId ? (
-  <div className="flex flex-col items-center justify-center h-full text-center p-8">
-    <div className="w-20 h-20 rounded-3xl bg-accent/10 flex items-center justify-center mb-5">
-      <MessageSquare className="w-9 h-9 text-accent" />
-    </div>
-    <h3 className="text-lg font-bold text-foreground mb-2">
-      {userRole === 'landlord' ? 'Select a Conversation' : 'No Messages Yet'}
-    </h3>
-    <p className="text-sm text-muted-foreground max-w-xs">
-      {userRole === 'landlord'
-        ? 'Choose a tenant from the list to start chatting'
-        : otherPersonId
-          ? `Start your conversation with ${otherPersonName || 'your landlord'} by sending a message below`
-          : 'You have not been connected to a landlord yet. Ask your landlord for a referral link to get started.'
-      }
-    </p>
-    {userRole === 'landlord' && (
-      <button
-        onClick={() => setShowTenantList(true)}
-        className="md:hidden mt-5 px-5 py-2.5 bg-accent text-white rounded-xl text-sm font-medium"
-      >
-        View Tenants
-      </button>
-    )}
-    {userRole === 'tenant' && otherPersonId && (
-      <button
-        onClick={async () => {
-          const convId = await getOrCreateConversation(user!.id, otherPersonId)
-          setConversationId(convId)
-        }}
-        className="mt-5 px-5 py-2.5 bg-accent text-white rounded-xl text-sm font-medium"
-      >
-        Start Chatting
-      </button>
-    )}
-  </div>
+          <div className="flex flex-col items-center justify-center h-full text-center p-8">
+            <div className="w-20 h-20 rounded-3xl bg-accent/10 flex items-center justify-center mb-5">
+              <MessageSquare className="w-9 h-9 text-accent" />
+            </div>
+            <h3 className="text-lg font-bold text-foreground mb-2">
+              {userRole === "landlord"
+                ? "Select a Conversation"
+                : "No Messages Yet"}
+            </h3>
+            <p className="text-sm text-muted-foreground max-w-xs">
+              {userRole === "landlord"
+                ? "Choose a tenant from the list to start chatting"
+                : otherPersonId
+                  ? `Start your conversation with ${otherPersonName || "your landlord"} by sending a message below`
+                  : "You have not been connected to a landlord yet. Ask your landlord for a referral link to get started."}
+            </p>
+            {userRole === "landlord" && (
+              <button
+                onClick={() => setShowTenantList(true)}
+                className="md:hidden mt-5 px-5 py-2.5 bg-accent text-white rounded-xl text-sm font-medium"
+              >
+                View Tenants
+              </button>
+            )}
+            {userRole === "tenant" && otherPersonId && (
+              <button
+                onClick={async () => {
+                  const convId = await getOrCreateConversation(
+                    user!.id,
+                    otherPersonId,
+                  );
+                  setConversationId(convId);
+                }}
+                className="mt-5 px-5 py-2.5 bg-accent text-white rounded-xl text-sm font-medium"
+              >
+                Start Chatting
+              </button>
+            )}
+          </div>
         ) : (
           <>
             {/* Chat header */}
@@ -686,7 +778,11 @@ const formatTime = (dateStr: string) => {
                 <div className="relative shrink-0">
                   <div className="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center overflow-hidden">
                     {otherPersonAvatar ? (
-                      <img src={otherPersonAvatar} alt="" className="w-full h-full object-cover" />
+                      <img
+                        src={otherPersonAvatar}
+                        alt=""
+                        className="w-full h-full object-cover"
+                      />
                     ) : (
                       <span className="text-sm font-bold text-accent">
                         {otherPersonName.charAt(0).toUpperCase()}
@@ -698,15 +794,22 @@ const formatTime = (dateStr: string) => {
                   )}
                 </div>
                 <div>
-                  <p className="font-semibold text-foreground text-sm leading-tight">{otherPersonName}</p>
+                  <p className="font-semibold text-foreground text-sm leading-tight">
+                    {otherPersonName}
+                  </p>
                   {typingUsers.length > 0 ? (
-                    <p className="text-xs text-accent animate-pulse mt-0.5">{typingUsers[0]} is typing...</p>
+                    <p className="text-xs text-accent animate-pulse mt-0.5">
+                      {typingUsers[0]} is typing...
+                    </p>
                   ) : (
                     <p className="text-xs text-muted-foreground mt-0.5">
-                      {isOtherPersonOnline
-                        ? <span className="text-green-500 font-medium">● Online</span>
-                        : `${otherPersonRole} · LEA Executive`
-                      }
+                      {isOtherPersonOnline ? (
+                        <span className="text-green-500 font-medium">
+                          ● Online
+                        </span>
+                      ) : (
+                        `${otherPersonRole} · LEA Executive`
+                      )}
                     </p>
                   )}
                 </div>
@@ -726,9 +829,9 @@ const formatTime = (dateStr: string) => {
               className="flex-1 overflow-y-auto px-4 sm:px-6 py-5 space-y-3"
               style={{
                 backgroundImage: `url('/images/best.jpg')`,
-                backgroundSize: 'cover',
-                backgroundPosition: 'center',
-                backgroundAttachment: 'local',
+                backgroundSize: "cover",
+                backgroundPosition: "center",
+                backgroundAttachment: "local",
               }}
             >
               {isLoading ? (
@@ -745,12 +848,12 @@ const formatTime = (dateStr: string) => {
                   </p>
                 </div>
               ) : (
-                messages.map(msg => (
+                messages.map((msg) => (
                   <MessageBubble
                     key={msg.id}
                     message={msg}
                     isMe={msg.sender_id === user?.id}
-                    currentUserId={user?.id || ''}
+                    currentUserId={user?.id || ""}
                     onReact={toggleReaction}
                     onReply={setReplyingTo}
                     onEdit={editMessage}
@@ -768,9 +871,18 @@ const formatTime = (dateStr: string) => {
                   </div>
                   <div className="bg-card/90 backdrop-blur px-4 py-3 rounded-2xl rounded-bl-sm shadow-sm">
                     <div className="flex gap-1 items-center h-4">
-                      <span className="w-1.5 h-1.5 bg-accent rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
-                      <span className="w-1.5 h-1.5 bg-accent rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
-                      <span className="w-1.5 h-1.5 bg-accent rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                      <span
+                        className="w-1.5 h-1.5 bg-accent rounded-full animate-bounce"
+                        style={{ animationDelay: "0ms" }}
+                      />
+                      <span
+                        className="w-1.5 h-1.5 bg-accent rounded-full animate-bounce"
+                        style={{ animationDelay: "150ms" }}
+                      />
+                      <span
+                        className="w-1.5 h-1.5 bg-accent rounded-full animate-bounce"
+                        style={{ animationDelay: "300ms" }}
+                      />
                     </div>
                   </div>
                 </div>
@@ -784,9 +896,11 @@ const formatTime = (dateStr: string) => {
                 <div className="w-0.5 h-9 bg-accent rounded-full shrink-0" />
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-semibold text-accent">
-                    Replying to {replyingTo.profiles?.full_name || 'Unknown'}
+                    Replying to {replyingTo.profiles?.full_name || "Unknown"}
                   </p>
-                  <p className="text-xs text-muted-foreground truncate mt-0.5">{replyingTo.content}</p>
+                  <p className="text-xs text-muted-foreground truncate mt-0.5">
+                    {replyingTo.content}
+                  </p>
                 </div>
                 <button
                   onClick={() => setReplyingTo(null)}
@@ -805,9 +919,9 @@ const formatTime = (dateStr: string) => {
                 value={newMessage}
                 onChange={handleInputChange}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault()
-                    handleSend()
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSend();
                   }
                 }}
                 className="flex-1 bg-secondary border-border text-foreground h-11 text-sm rounded-xl"
@@ -828,9 +942,12 @@ const formatTime = (dateStr: string) => {
       {deleteConfirm.show && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-card rounded-2xl p-6 max-w-sm w-full shadow-2xl">
-            <h3 className="text-lg font-bold text-foreground mb-2">Delete for everyone?</h3>
+            <h3 className="text-lg font-bold text-foreground mb-2">
+              Delete for everyone?
+            </h3>
             <p className="text-sm text-muted-foreground mb-6">
-              This message will be removed for everyone in the chat. You can only delete messages within 24 hours of sending.
+              This message will be removed for everyone in the chat. You can
+              only delete messages within 24 hours of sending.
             </p>
             {deleteError && (
               <p className="text-sm text-red-600 mb-4">{deleteError}</p>
@@ -854,5 +971,5 @@ const formatTime = (dateStr: string) => {
         </div>
       )}
     </div>
-  )
+  );
 }

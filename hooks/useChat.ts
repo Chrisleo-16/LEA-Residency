@@ -505,248 +505,236 @@ export function useChat(conversationId: string | null, currentUser: User | null)
     },
     [conversationId, messages, applyMessageDeletedLocally, broadcastMessageDeleted]
   )
-  // Presence channel
-  useEffect(() => {
-    if (!conversationId || !currentUser) return
+  // Combined presence + chat channel
+useEffect(() => {
+  if (!conversationId || !currentUser) return
 
-    if (presenceChannelRef.current) {
-      presenceChannelRef.current.unsubscribe()
-      presenceChannelRef.current = null
-    }
+  setIsLoading(true)
+  fetchMessages()
 
-    const presenceChannel = supabase
-      .channel(`presence:${conversationId}`, {
-        config: { presence: { key: currentUser.id } },
-      })
-      .on('presence', { event: 'sync' }, () => {
-        const state = presenceChannel.presenceState<{
-          userId: string
-          fullName: string
-          avatarUrl: string | null
-          onlineAt: string
-        }>()
+  if (channelRef.current) {
+    channelRef.current.unsubscribe()
+    channelRef.current = null
+  }
 
-        const online: PresenceUser[] = Object.values(state)
-          .flat()
-          .filter(u => u.userId !== currentUser.id)
+  const channel = supabase
+    .channel(`chat-room:${conversationId}`, {
+      config: { presence: { key: currentUser.id } },
+    })
+    // ── Presence ──
+    .on('presence', { event: 'sync' }, () => {
+      const state = channel.presenceState<{
+        userId: string
+        fullName: string
+        avatarUrl: string | null
+        onlineAt: string
+      }>()
 
-        setOnlineUsers(online)
-      })
-      .on('broadcast', { event: 'typing' }, (payload) => {
-        const { userId, isTyping } = payload.payload
-        if (userId === currentUser.id) return
+      const online: PresenceUser[] = Object.values(state)
+        .flat()
+        .filter(u => u.userId !== currentUser.id)
 
-        supabase
-          .from('profiles')
-          .select('full_name')
-          .eq('id', userId)
-          .single()
-          .then(({ data: profile }) => {
-            if (!profile) return
-            const name = profile.full_name || 'Someone'
-            setTypingUsers(prev =>
-              isTyping
-                ? prev.includes(name) ? prev : [...prev, name]
-                : prev.filter(n => n !== name)
+      setOnlineUsers(online)
+    })
+    // ── Typing broadcast ──
+    .on('broadcast', { event: 'typing' }, (payload) => {
+      const { userId, isTyping } = payload.payload
+      if (userId === currentUser.id) return
+
+      supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', userId)
+        .single()
+        .then(({ data: profile }) => {
+          if (!profile) return
+          const name = profile.full_name || 'Someone'
+          setTypingUsers(prev =>
+            isTyping
+              ? prev.includes(name) ? prev : [...prev, name]
+              : prev.filter(n => n !== name)
+          )
+        })
+    })
+    // ── New messages ──
+    .on('postgres_changes', {
+      event: 'INSERT',
+      schema: 'public',
+      table: 'messages',
+      filter: `conversation_id=eq.${conversationId}`,
+    }, (payload) => {
+      if (payload.new.sender_id === currentUserRef.current?.id) return
+
+      supabase
+        .from('messages')
+        .select('*, profiles(id, full_name, avatar_url)')
+        .eq('id', payload.new.id)
+        .single()
+        .then(async ({ data: fullMsg }) => {
+          if (!fullMsg) return
+
+          if (fullMsg.profiles?.full_name) {
+            setTypingUsers(prev => prev.filter(n => n !== fullMsg.profiles?.full_name))
+          }
+
+          let replyTo = null
+          if (fullMsg.reply_to_id) {
+            const { data } = await supabase
+              .from('messages')
+              .select('*, profiles(id, full_name, avatar_url)')
+              .eq('id', fullMsg.reply_to_id)
+              .single()
+            replyTo = data
+          }
+
+          const normalized = normalizeMessageRow(fullMsg as Record<string, unknown>)
+          if (isMessageDeleted(normalized)) return
+
+          setMessages(prev => {
+            if (prev.find(m => m.id === normalized.id)) return prev
+            return [
+              ...prev,
+              {
+                ...normalized,
+                reactions: {},
+                reads: [],
+                reply_to: replyTo
+                  ? {
+                      ...normalizeMessageRow(replyTo as Record<string, unknown>),
+                      reactions: {},
+                      reads: [],
+                      reply_to: null,
+                    }
+                  : null,
+              },
+            ]
+          })
+
+          if (currentUserRef.current) {
+            supabase.from('message_reads').upsert(
+              [{ message_id: fullMsg.id, user_id: currentUserRef.current.id }],
+              { onConflict: 'message_id,user_id', ignoreDuplicates: true }
             )
-          })
-      })
-      .subscribe(async (status) => {
-        if (status === 'SUBSCRIBED') {
-          await presenceChannel.track({
-            userId: currentUser.id,
-            fullName: currentUser.user_metadata?.full_name || 'Unknown',
-            avatarUrl: currentUser.user_metadata?.avatar_url || null,
-            onlineAt: new Date().toISOString(),
-          })
-        }
-      })
+          }
 
-    presenceChannelRef.current = presenceChannel
-
-    return () => {
-      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current)
-      presenceChannel.unsubscribe()
-      presenceChannelRef.current = null
-    }
-  }, [conversationId, currentUser?.id || ''])
-
-  // Messages realtime channel
-  useEffect(() => {
-    if (!conversationId) return
-
-    setIsLoading(true)
-    fetchMessages()
-
-    if (channelRef.current) {
-      channelRef.current.unsubscribe()
-      channelRef.current = null
-    }
-
-    const channel = supabase
-      .channel(`chat-room:${conversationId}`)
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'messages',
-        filter: `conversation_id=eq.${conversationId}`,
-      }, (payload) => {
-        if (payload.new.sender_id === currentUserRef.current?.id) return
-
-        supabase
-          .from('messages')
-          .select('*, profiles(id, full_name, avatar_url)')
-          .eq('id', payload.new.id)
-          .single()
-          .then(async ({ data: fullMsg }) => {
-            if (!fullMsg) return
-
-            if (fullMsg.profiles?.full_name) {
-              setTypingUsers(prev => prev.filter(n => n !== fullMsg.profiles?.full_name))
-            }
-
-            let replyTo = null
-            if (fullMsg.reply_to_id) {
-              const { data } = await supabase
-                .from('messages')
-                .select('*, profiles(id, full_name, avatar_url)')
-                .eq('id', fullMsg.reply_to_id)
-                .single()
-              replyTo = data
-            }
-
-            const normalized = normalizeMessageRow(fullMsg as Record<string, unknown>)
-            if (isMessageDeleted(normalized)) return
-
-            setMessages(prev => {
-              if (prev.find(m => m.id === normalized.id)) return prev
-              return [
-                ...prev,
+          if (
+            'Notification' in window &&
+            Notification.permission === 'granted' &&
+            document.visibilityState === 'hidden'
+          ) {
+            navigator.serviceWorker.ready.then(reg => {
+              reg.showNotification(
+                `New message from ${fullMsg.profiles?.full_name || 'Someone'}`,
                 {
-                  ...normalized,
-                  reactions: {},
-                  reads: [],
-                  reply_to: replyTo
-                    ? {
-                        ...normalizeMessageRow(replyTo as Record<string, unknown>),
-                        reactions: {},
-                        reads: [],
-                        reply_to: null,
-                      }
-                    : null,
-                },
-              ]
-            })
-
-            if (currentUserRef.current) {
-              supabase.from('message_reads').upsert(
-                [{ message_id: fullMsg.id, user_id: currentUserRef.current.id }],
-                { onConflict: 'message_id,user_id', ignoreDuplicates: true }
-              )
-            }
-
-            if (
-              'Notification' in window &&
-              Notification.permission === 'granted' &&
-              document.visibilityState === 'hidden'
-            ) {
-              navigator.serviceWorker.ready.then(reg => {
-                reg.showNotification(
-                  `New message from ${fullMsg.profiles?.full_name || 'Someone'}`,
-                  {
-                    body: normalized.content,
-                    icon: '/icons/icon-192x192.png',
-                    badge: '/icons/icon-72x72.png',
-                    tag: `msg-${fullMsg.conversation_id}`,
-                    data: { url: '/dashboard' },
-                  }
-                )
-              })
-            }
-          })
-      })
-      .on('broadcast', { event: MESSAGE_DELETED_BROADCAST_EVENT }, ({ payload }) => {
-        const data = payload as MessageDeletedBroadcastPayload
-        if (!data?.message_id || data.chat_id !== conversationId || data.status !== 'deleted') {
-          return
-        }
-        applyMessageDeletedLocally(data.message_id, new Date().toISOString())
-      })
-      .on('postgres_changes', {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'messages',
-        filter: `conversation_id=eq.${conversationId}`,
-      }, (payload) => {
-        const updated = payload.new as {
-          id: string
-          status?: MessageStatus
-          deleted_at?: string | null
-          content?: string
-          is_edited?: boolean
-          edited_at?: string | null
-        }
-
-        if (updated.status === 'deleted') {
-          applyMessageDeletedLocally(
-            updated.id,
-            updated.deleted_at || new Date().toISOString()
-          )
-          return
-        }
-
-        setMessages(prev =>
-          prev.map(m => m.id === updated.id
-            ? {
-                ...m,
-                content: updated.content ?? m.content,
-                is_edited: updated.is_edited ?? m.is_edited,
-                edited_at: updated.edited_at ?? m.edited_at,
-              }
-            : m
-          )
-        )
-      })
-      .on('postgres_changes', {
-        event: '*', schema: 'public', table: 'message_reactions',
-      }, (payload) => {
-        const messageId = (payload.new as any)?.message_id || (payload.old as any)?.message_id
-        if (messageId) refreshReactions(messageId)
-      })
-      .on('postgres_changes', {
-        event: 'INSERT', schema: 'public', table: 'message_reads',
-      }, (payload) => {
-        supabase
-          .from('profiles')
-          .select('id, full_name, avatar_url')
-          .eq('id', payload.new.user_id)
-          .single()
-          .then(({ data: profile }) => {
-            setMessages(prev =>
-              prev.map(m => {
-                if (m.id !== payload.new.message_id) return m
-                if (m.reads.find(r => r.user_id === payload.new.user_id)) return m
-                return {
-                  ...m,
-                  reads: [...m.reads, {
-                    user_id: payload.new.user_id,
-                    seen_at: payload.new.seen_at,
-                    profiles: profile || undefined,
-                  }],
+                  body: normalized.content,
+                  icon: '/icons/icon-192x192.png',
+                  badge: '/icons/icon-72x72.png',
+                  tag: `msg-${fullMsg.conversation_id}`,
+                  data: { url: '/dashboard' },
                 }
-              })
-            )
-          })
-      })
-      .subscribe()
+              )
+            })
+          }
+        })
+    })
+    // ── Deleted messages ──
+    .on('broadcast', { event: MESSAGE_DELETED_BROADCAST_EVENT }, ({ payload }) => {
+      const data = payload as MessageDeletedBroadcastPayload
+      if (!data?.message_id || data.chat_id !== conversationId || data.status !== 'deleted') {
+        return
+      }
+      applyMessageDeletedLocally(data.message_id, new Date().toISOString())
+    })
+    // ── Edited messages ──
+    .on('postgres_changes', {
+      event: 'UPDATE',
+      schema: 'public',
+      table: 'messages',
+      filter: `conversation_id=eq.${conversationId}`,
+    }, (payload) => {
+      const updated = payload.new as {
+        id: string
+        status?: MessageStatus
+        deleted_at?: string | null
+        content?: string
+        is_edited?: boolean
+        edited_at?: string | null
+      }
 
-    channelRef.current = channel
+      if (updated.status === 'deleted') {
+        applyMessageDeletedLocally(
+          updated.id,
+          updated.deleted_at || new Date().toISOString()
+        )
+        return
+      }
 
-    return () => {
-      channel.unsubscribe()
-      channelRef.current = null
-    }
-  }, [conversationId, currentUser?.id, fetchMessages, applyMessageDeletedLocally])
+      setMessages(prev =>
+        prev.map(m => m.id === updated.id
+          ? {
+              ...m,
+              content: updated.content ?? m.content,
+              is_edited: updated.is_edited ?? m.is_edited,
+              edited_at: updated.edited_at ?? m.edited_at,
+            }
+          : m
+        )
+      )
+    })
+    // ── Reactions ──
+    .on('postgres_changes', {
+      event: '*', schema: 'public', table: 'message_reactions',
+    }, (payload) => {
+      const messageId = (payload.new as any)?.message_id || (payload.old as any)?.message_id
+      if (messageId) refreshReactions(messageId)
+    })
+    // ── Read receipts ──
+    .on('postgres_changes', {
+      event: 'INSERT', schema: 'public', table: 'message_reads',
+    }, (payload) => {
+      supabase
+        .from('profiles')
+        .select('id, full_name, avatar_url')
+        .eq('id', payload.new.user_id)
+        .single()
+        .then(({ data: profile }) => {
+          setMessages(prev =>
+            prev.map(m => {
+              if (m.id !== payload.new.message_id) return m
+              if (m.reads.find(r => r.user_id === payload.new.user_id)) return m
+              return {
+                ...m,
+                reads: [...m.reads, {
+                  user_id: payload.new.user_id,
+                  seen_at: payload.new.seen_at,
+                  profiles: profile || undefined,
+                }],
+              }
+            })
+          )
+        })
+    })
+    .subscribe(async (status) => {
+      if (status === 'SUBSCRIBED') {
+        await channel.track({
+          userId: currentUser.id,
+          fullName: currentUser.user_metadata?.full_name || 'Unknown',
+          avatarUrl: currentUser.user_metadata?.avatar_url || null,
+          onlineAt: new Date().toISOString(),
+        })
+      }
+    })
+
+  channelRef.current = channel
+  presenceChannelRef.current = channel // same channel now handles both
+
+  return () => {
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current)
+    channel.unsubscribe()
+    channelRef.current = null
+    presenceChannelRef.current = null
+  }
+}, [conversationId, currentUser?.id, fetchMessages, applyMessageDeletedLocally])
 
   return {
     messages,

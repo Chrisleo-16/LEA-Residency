@@ -28,7 +28,7 @@ import { Progress } from '@/components/ui/progress'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useToast } from '@/components/ui/use-toast'
 import { cn } from '@/lib/utils'
-
+import InstallPrompt from '@/components/pwa/InstallPrompt'
 
 interface LuxuryHamburgerMenuProps {
   user: null | any; // can be replaced with actual SupabaseUser type
@@ -1344,6 +1344,7 @@ export default function Home() {
           </div>
         </div>
       </footer>
+      <InstallPrompt/>
     </div>
   )
 }
