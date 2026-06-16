@@ -7,9 +7,19 @@ const serviceClient = createServiceClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
+const getPayHeroAuth = () =>
+  Buffer.from(
+    `${process.env.PAYHERO_USERNAME}:${process.env.PAYHERO_PASSWORD}`
+  ).toString('base64')
+
+const CHANNEL_ID = parseInt(process.env.PAYHERO_CHANNEL_ID || '6731')
+const PAYHERO_API = 'https://backend.payhero.co.ke/api/v2'
+
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
   const { data: { user }, error: authError } = await supabase.auth.getUser()
+  const body = await req.json().catch(() => ({}))
+  const phoneFromBody = body?.phone
 
   if (authError || !user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -31,8 +41,17 @@ export async function POST(req: NextRequest) {
     .eq('id', user.id)
     .single()
 
-  if (!profile?.phone_number) {
-    return NextResponse.json({ error: 'No phone number on file' }, { status: 400 })
+  const rawPhone = phoneFromBody || profile?.phone_number
+
+  if (!rawPhone) {
+    return NextResponse.json({ error: 'No phone number available' }, { status: 400 })
+  }
+
+  // Normalize phone to 07XXXXXXXXX
+  let phone = rawPhone.toString().trim()
+  phone = phone.replace(/^254/, '0').replace(/^\+254/, '0')
+  if (!phone.startsWith('0')) {
+    phone = '0' + phone
   }
 
   const isSetup = !subscription.setup_fee_paid
@@ -51,8 +70,12 @@ export async function POST(req: NextRequest) {
     .maybeSingle()
 
   if (existingPending) {
-    return NextResponse.json({ error: 'A payment is already pending for this period' }, { status: 400 })
-  }
+  // Delete the stale pending record and allow retry
+  await serviceClient
+    .from('subscription_payments')
+    .delete()
+    .eq('id', existingPending.id)
+}
 
   await serviceClient.from('subscription_payments').insert({
     subscription_id: subscription.id,
@@ -64,24 +87,28 @@ export async function POST(req: NextRequest) {
   })
 
   try {
-    const stkResponse = await fetch('https://backend.payhero.co.ke/api/v2/payments', {
+    const stkResponse = await fetch(`${PAYHERO_API}/payments`, {  // ✅ /payments endpoint
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Basic ${process.env.PAYHERO_AUTH}`,
+        Authorization: `Basic ${getPayHeroAuth()}`,  // ✅ built from USERNAME:PASSWORD
       },
       body: JSON.stringify({
-        amount,
-        phone_number: profile.phone_number,
-        channel_id: process.env.PAYHERO_CHANNEL_ID,
+        amount: Number(amount),
+        phone_number: phone,                          // ✅ normalized phone
+        channel_id: CHANNEL_ID,                      // ✅ parsed as int
         provider: 'm-pesa',
+        network_code: '63902',                        // ✅ added
         external_reference: reference,
-        callback_url: `${process.env.NEXT_PUBLIC_APP_URL}/api/payments/payhero-callback`,
+        callback_url: `${process.env.NEXT_PUBLIC_SITE_URL}/api/mpesa/callback`, // ✅ correct env var
       }),
     })
 
+    const data = await stkResponse.json()
+
     if (!stkResponse.ok) {
-      return NextResponse.json({ error: 'Failed to initiate payment' }, { status: 502 })
+      console.error('[Billing Pay] STK push failed:', data)
+      return NextResponse.json({ error: 'Failed to initiate payment', details: data }, { status: 502 })
     }
 
     return NextResponse.json({ success: true, message: 'Check your phone for the M-Pesa prompt' })

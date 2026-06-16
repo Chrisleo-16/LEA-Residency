@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { waitUntil } from '@vercel/functions'
+import { sendPushToUser } from '@/lib/pushServer'
+import { generateCoupon } from '@/lib/coupon'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -129,12 +131,20 @@ async function processPayment(body: any) {
     }
 
     await supabase
-      .from('landlord_subscriptions')
-      .update(updateFields)
-      .eq('id', payment.subscription_id)
+  .from('landlord_subscriptions')
+  .update(updateFields)
+  .eq('id', payment.subscription_id)
 
-    console.log(`✅ Subscription payment confirmed for landlord ${landlordId}, period: ${billingPeriod}`)
-    return
+// ── Push notification to landlord ──
+await sendPushToUser(
+  landlordId,
+  '✅ Subscription payment confirmed',
+  `KES ${Number(amount).toLocaleString()} received. Your LEA account is active for another 30 days. Code: ${generateCoupon(landlordId, billingPeriod)}`,
+  '/dashboard?tab=billing'
+)
+
+console.log(`✅ Subscription payment confirmed for landlord ${landlordId}, period: ${billingPeriod}`)
+return
   }
 
   // ── Rent / repairs payments (existing logic, unchanged) ──

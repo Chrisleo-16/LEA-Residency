@@ -9,14 +9,13 @@ import SettingsPanel from '@/components/settings/SettingsPanel'
 import InstallPrompt from '@/components/pwa/InstallPrompt'
 import ComplaintsPage from '@/components/pages/ComplaintsPage'
 import RequestsPage from '@/components/pages/RequestsPage'
-// import MaintenancePage from '@/components/pages/MaintenancePage'
 import StaffManagementPage from '@/components/pages/StaffManagementPage'
 import PolicyPage from '@/components/pages/PolicyPage'
 import CommunityPage from '@/components/pages/CommunityPage'
 import PaymentsPage from '@/components/pages/PaymentsPage'
 import BillingPage from '@/components/pages/BillingPage'
+import SubscriptionModal from '@/components/billing/SubscriptionModal'
 import { createClient } from '@/lib/supabase/client'
-// import DeveloperDashboardContent from '../developer/DeveloperDashboardContent'
 
 interface DashboardLayoutProps {
   user: User | null
@@ -26,48 +25,67 @@ export default function DashboardLayout({ user }: DashboardLayoutProps) {
   const [activeTab, setActiveTab] = useState('chat')
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [userRole, setUserRole] = useState<string | null>(null)
-  const [subscriptionActive, setSubscriptionActive] = useState<boolean | null>(null)
+  const [subscription, setSubscription] = useState<any>(null)
+  const [subscriptionChecked, setSubscriptionChecked] = useState(false)
 
+  // Step 1: fetch role
   useEffect(() => {
-    if (user) {
-      const fetchRole = async () => {
-        try {
-          const supabase = createClient()
-          const { data, error } = await supabase
-            .from('profiles')
-            .select('role')
-            .eq('id', user.id)
-            .maybeSingle()
-
-          if (error) {
-            console.error('Error fetching role:', error)
-            setUserRole(null)
-          } else {
-            setUserRole(data?.role || null)
-          }
-        } catch (err: any) {
-          console.error('Unexpected error fetching role:', err)
+    if (!user) return
+    const fetchRole = async () => {
+      try {
+        const supabase = createClient()
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', user.id)
+          .maybeSingle()
+        if (error) {
+          console.error('Error fetching role:', error)
           setUserRole(null)
+        } else {
+          setUserRole(data?.role || null)
+        }
+      } catch (err: any) {
+        console.error('Unexpected error fetching role:', err)
+        setUserRole(null)
+      }
+    }
+    fetchRole()
+  }, [user])
+
+  // Step 2: check subscription ONLY after role is known
+  useEffect(() => {
+    if (!user || userRole === null) return
+
+    if (userRole === 'landlord') {
+      const checkSubscription = async () => {
+        try {
+          const res = await fetch('/api/billing/status')
+          const data = await res.json()
+          setSubscription(data.subscription || null)
+        } catch (err) {
+          console.error('Error checking subscription:', err)
+          setSubscription(null)
+        } finally {
+          setSubscriptionChecked(true)
         }
       }
-
-      fetchRole()
+      checkSubscription()
+    } else {
+      // Tenants are never gated
+      setSubscriptionChecked(true)
     }
-    if (user && userRole === 'landlord') {
-    const checkSubscription = async () => {
-      const supabase = createClient()
-      const { data } = await supabase.rpc('is_subscription_active', {
-        p_landlord_id: user.id,
-      })
-      setSubscriptionActive(data ?? false)
-    }
-    checkSubscription()
-  } else {
-    setSubscriptionActive(true) // tenants aren't gated
-  }
   }, [user, userRole])
 
+  const showModal =
+    userRole === 'landlord' &&
+    subscriptionChecked &&
+    subscription !== null &&
+    subscription.status !== 'active' &&
+    subscription.status !== 'exempt'
+
   const handleTabChange = (tab: string) => {
+    if (showModal) return // block navigation while unpaid
     setActiveTab(tab)
     setSidebarOpen(false)
   }
@@ -81,8 +99,8 @@ export default function DashboardLayout({ user }: DashboardLayoutProps) {
       policy: 'Policy & Docs',
       payments: 'Payments',
       settings: 'Settings',
-      staff:"Staff Management",
-      billing: "Subscription Billing",
+      staff: 'Staff Management',
+      billing: 'Subscription Billing',
     }
     return titles[activeTab] || 'LEA Executive'
   }
@@ -98,8 +116,7 @@ export default function DashboardLayout({ user }: DashboardLayoutProps) {
       settings: 'Account & preferences',
       maintenance: 'Maintenance requests and tracking',
       staff: 'Staff management and information',
-      billing:"Subscription & payment management"
-      // 'developer-dashboard': 'System monitoring & analytics'
+      billing: 'Subscription & payment management',
     }
     return subtitles[activeTab] || ''
   }
@@ -110,13 +127,11 @@ export default function DashboardLayout({ user }: DashboardLayoutProps) {
       case 'community':  return <CommunityPage user={user} />
       case 'complaints': return <ComplaintsPage user={user} />
       case 'requests':   return <RequestsPage user={user} />
-      // case 'maintenance': return <MaintenancePage user={user} />
       case 'staff':      return <StaffManagementPage user={user} />
       case 'policy':     return <PolicyPage user={user} />
       case 'payments':   return <PaymentsPage user={user} />
       case 'settings':   return <SettingsPanel user={user} />
       case 'billing':    return <BillingPage user={user} />
-      // case 'developer-dashboard': return <DeveloperDashboardContent />
       default:           return <ChatArea user={user} />
     }
   }
@@ -126,25 +141,30 @@ export default function DashboardLayout({ user }: DashboardLayoutProps) {
       <div className="flex h-dvh bg-background overflow-hidden">
 
         {/* Mobile overlay */}
-        {sidebarOpen && (
+        {sidebarOpen && !showModal && (
           <div
             className="fixed inset-0 bg-black/60 backdrop-blur-sm z-20 md:hidden"
             onClick={() => setSidebarOpen(false)}
           />
         )}
 
-        {/* Sidebar */}
+        {/* Sidebar — blurred and disabled when modal showing */}
         <div className={`
           fixed md:relative inset-y-0 left-0 z-30 h-full
-          transition-transform duration-300 ease-in-out
+          transition-all duration-300 ease-in-out
           ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
           md:translate-x-0 md:flex md:shrink-0
+          ${showModal ? 'blur-sm pointer-events-none select-none' : ''}
         `}>
           <Sidebar activeTab={activeTab} setActiveTab={handleTabChange} />
         </div>
 
-        {/* Main content */}
-        <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+        {/* Main content — blurred and disabled when modal showing */}
+        <div className={`
+          flex-1 flex flex-col overflow-hidden min-w-0
+          transition-all duration-300
+          ${showModal ? 'blur-sm pointer-events-none select-none' : ''}
+        `}>
 
           {/* Desktop top bar */}
           <div className="hidden md:flex items-center justify-between px-6 py-4 border-b border-border bg-background/80 backdrop-blur-sm shrink-0">
@@ -161,7 +181,7 @@ export default function DashboardLayout({ user }: DashboardLayoutProps) {
           {/* Mobile top navbar */}
           <div className="md:hidden flex items-center justify-between px-4 py-3 border-b border-border bg-background shrink-0">
             <button
-              onClick={() => setSidebarOpen(true)}
+              onClick={() => !showModal && setSidebarOpen(true)}
               className="p-2 rounded-xl hover:bg-secondary text-foreground transition-colors"
             >
               <Menu className="w-5 h-5" />
@@ -179,6 +199,16 @@ export default function DashboardLayout({ user }: DashboardLayoutProps) {
           </div>
         </div>
       </div>
+
+      {/* Subscription modal — sits above everything */}
+      {showModal && subscription && (
+        <SubscriptionModal
+          subscription={subscription}
+          onPaid={() =>
+            setSubscription((prev: any) => ({ ...prev, status: 'active' }))
+          }
+        />
+      )}
 
       <InstallPrompt />
     </>
