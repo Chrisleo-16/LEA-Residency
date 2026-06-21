@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { Suspense, useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,12 +12,12 @@ import {
 } from "@/lib/auth-errors";
 import Link from "next/link";
 
-export default function LoginPage() {
+function LoginPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const isDemoMode = searchParams.get("demo") === "true";
 
-  const [isLogin, setIsLogin] = useState(!isDemoMode); // demo always starts on "signup-like" form
+  const [isLogin, setIsLogin] = useState(!isDemoMode);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
@@ -27,9 +27,8 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const supabase = createClient();
 
-  // Redirect if already authenticated and profile setup is complete
   useEffect(() => {
-    if (isDemoMode) return; // skip session check entirely in demo mode
+    if (isDemoMode) return;
 
     const params = new URLSearchParams(window.location.search);
     const authError = params.get("error");
@@ -126,7 +125,6 @@ export default function LoginPage() {
     }
   };
 
-  // ── Demo submission — no real auth, just starts a demo cookie session ──
   const handleDemoSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -233,14 +231,7 @@ export default function LoginPage() {
   };
 
   return (
-    <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin" />
-      </div>
-    }>
-
     <div className="min-h-screen flex">
-      {/* ── Left Panel ─────────────────────────────────────────── */}
       <div className="hidden lg:flex lg:w-[52%] relative overflow-hidden">
         <div
           className="absolute inset-0 bg-cover bg-center"
@@ -305,7 +296,6 @@ export default function LoginPage() {
         </div>
       </div>
 
-      {/* ── Right Panel ────────────────────────────────────────── */}
       <div className="flex-1 flex items-center justify-center bg-background px-6 py-12 lg:px-16">
         <div className="w-full max-w-105">
           <div className="flex items-center gap-3 mb-10 lg:hidden">
@@ -348,7 +338,6 @@ export default function LoginPage() {
             </div>
           )}
 
-          {/* ── DEMO FORM ─────────────────────────────────────── */}
           {isDemoMode ? (
             <form onSubmit={handleDemoSubmit} className="space-y-4">
               <div className="space-y-1.5">
@@ -379,7 +368,7 @@ export default function LoginPage() {
                         : "border-border text-muted-foreground hover:border-accent/30"
                     }`}
                   >
-                     Tenant
+                    Tenant
                   </button>
                   <button
                     type="button"
@@ -390,7 +379,7 @@ export default function LoginPage() {
                         : "border-border text-muted-foreground hover:border-accent/30"
                     }`}
                   >
-                     Landlord
+                    Landlord
                   </button>
                 </div>
               </div>
@@ -422,7 +411,6 @@ export default function LoginPage() {
               </p>
             </form>
           ) : (
-            /* ── REAL LOGIN/SIGNUP FORM (unchanged) ──────────── */
             <>
               <form
                 onSubmit={isLogin ? handleLogin : handleRegister}
@@ -461,7 +449,7 @@ export default function LoginPage() {
                         onClick={() => setRole("landlord")}
                         className="h-11 rounded-xl border text-sm font-medium transition-all border-accent bg-accent/10 text-accent shadow-sm cursor-default"
                       >
-                         Landlord
+                        Landlord
                       </button>
                     </div>
                     <p className="text-xs text-muted-foreground mt-1">
@@ -622,6 +610,19 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center bg-background">
+          <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+        </div>
+      }
+    >
+      <LoginPageContent />
     </Suspense>
   );
 }
