@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -233,6 +233,12 @@ export default function LoginPage() {
   };
 
   return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+      </div>
+    }>
+
     <div className="min-h-screen flex">
       {/* ── Left Panel ─────────────────────────────────────────── */}
       <div className="hidden lg:flex lg:w-[52%] relative overflow-hidden">
@@ -616,5 +622,6 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+    </Suspense>
   );
 }
