@@ -8,26 +8,6 @@ import {
   Zap, CheckCircle, ArrowRight, ArrowUpRight,
   Star, Phone, Mail, MapPin, Menu, X
 } from 'lucide-react'
-// import LuxuryHamburgerMenu from '@/components/ui/LuxuryHamburgerMenu'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Separator } from '@/components/ui/separator'
-import { Switch } from '@/components/ui/switch'
-import { Label } from '@/components/ui/label'
-import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
-import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-import { ScrollArea } from '@/components/ui/scroll-area'
-import { Progress } from '@/components/ui/progress'
-import { Skeleton } from '@/components/ui/skeleton'
-import { useToast } from '@/components/ui/use-toast'
-import { cn } from '@/lib/utils'
 import InstallPrompt from '@/components/pwa/InstallPrompt'
 
 interface LuxuryHamburgerMenuProps {
@@ -68,564 +48,20 @@ const IMAGES = [
   "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?q=80&w=600", // Fitness center
 ];
 
-function LuxuryHamburgerMenu({
-  user,
-  currentPage,
-  onNavigate,
-}: LuxuryHamburgerMenuProps) {
-  const [open, setOpen] = useState(false);
-  const [hovered, setHovered] = useState<number | null>(null);
-  const [visible, setVisible] = useState(false);
-  const router = useRouter();
 
-  useEffect(() => {
-    document.body.style.overflow = open ? "hidden" : "";
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, [open]);
-
-  const openMenu = () => {
-    setOpen(true);
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => setVisible(true));
-    });
-  };
-
-  const closeMenu = () => {
-    setVisible(false);
-    setTimeout(() => setOpen(false), 600);
-  };
-
-  const handleNav = (path: string) => {
-    closeMenu();
-    setTimeout(() => {
-      if (onNavigate) onNavigate(path);
-      else {
-        const el = document.getElementById(path);
-        el?.scrollIntoView({ behavior: "smooth" });
-      }
-    }, 650);
-  };
-
-  const activeImage = hovered !== null ? IMAGES[hovered] : IMAGES[0];
-
-  return (
-    <>
-      <style>{`
-        @keyframes lea-line-in {
-          from { transform: scaleX(0); }
-          to   { transform: scaleX(1); }
-        }
-        @keyframes lea-fade-up {
-          from { opacity: 0; transform: translateY(28px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes lea-img-in {
-          from { opacity: 0; transform: scale(1.08); }
-          to   { opacity: 1; transform: scale(1); }
-        }
-        @keyframes lea-curtain-open {
-          from { clip-path: inset(0 0 100% 0); }
-          to   { clip-path: inset(0 0 0% 0); }
-        }
-        .lea-overlay {
-          opacity: 0;
-          transition: opacity 0.55s cubic-bezier(.16,1,.3,1);
-        }
-        .lea-overlay.visible {
-          opacity: 1;
-        }
-        .lea-panel {
-          transform: translateX(100%);
-          transition: transform 0.6s cubic-bezier(.16,1,.3,1);
-        }
-        .lea-panel.visible {
-          transform: translateX(0);
-        }
-        .lea-img-panel {
-          transform: translateX(80px);
-          opacity: 0;
-          transition: transform 0.7s 0.15s cubic-bezier(.16,1,.3,1),
-                      opacity   0.7s 0.15s cubic-bezier(.16,1,.3,1);
-        }
-        .lea-img-panel.visible {
-          transform: translateX(0);
-          opacity: 1;
-        }
-        .lea-nav-item {
-          opacity: 0;
-          transform: translateY(30px);
-          transition: opacity 0.5s, transform 0.5s;
-        }
-        .lea-nav-item.visible {
-          opacity: 1;
-          transform: translateY(0);
-        }
-        .lea-nav-label {
-          position: relative;
-          display: inline-block;
-          color: rgba(245,240,232,0.55);
-          transition: color 0.3s;
-          cursor: pointer;
-        }
-        .lea-nav-label::after {
-          content: '';
-          position: absolute;
-          left: 0; bottom: -4px;
-          width: 100%; height: 1px;
-          background: #c9a96e;
-          transform: scaleX(0);
-          transform-origin: left;
-          transition: transform 0.4s cubic-bezier(.16,1,.3,1);
-        }
-        .lea-nav-label:hover { color: #f5f0e8; }
-        .lea-nav-label:hover::after { transform: scaleX(1); }
-        .lea-nav-row:hover .lea-nav-num { color: #c9a96e; }
-        .lea-prop-img {
-          transition: transform 0.7s cubic-bezier(.16,1,.3,1), opacity 0.5s;
-        }
-        .lea-burger-line {
-          display: block;
-          height: 1px;
-          background: #c9a96e;
-          transition: transform 0.4s cubic-bezier(.16,1,.3,1),
-                      opacity   0.3s,
-                      width     0.3s;
-          transform-origin: center;
-        }
-        .lea-close-x {
-          position: relative;
-          width: 24px; height: 24px;
-          cursor: pointer;
-          flex-shrink: 0;
-        }
-        .lea-close-x::before,
-        .lea-close-x::after {
-          content: '';
-          position: absolute;
-          top: 50%; left: 0;
-          width: 100%; height: 1px;
-          background: #c9a96e;
-          transform-origin: center;
-          transition: transform 0.35s cubic-bezier(.16,1,.3,1);
-        }
-        .lea-close-x::before { transform: translateY(-50%) rotate(45deg);  }
-        .lea-close-x::after  { transform: translateY(-50%) rotate(-45deg); }
-        .lea-close-x:hover::before { transform: translateY(-50%) rotate(135deg);  }
-        .lea-close-x:hover::after  { transform: translateY(-50%) rotate(45deg);   }
-        @media (min-width: 769px) {
-        .mobile-only-menu {
-            display: none !important;
-        }
-        }
-      `}</style>
-
-      {/* Hamburger trigger */}
-      <button
-          onClick={openMenu}
-          aria-label="Open menu"
-          className="mobile-only-menu"
-          style={{
-            position: "fixed",
-            top: "20px",
-            right: "20px",
-            zIndex: 10001,
-            background: "none",
-            border: "none",
-            cursor: "pointer",
-            padding: "10px 8px",
-            display: "flex",
-            flexDirection: "column",
-            gap: 6,
-            alignItems: "flex-end",
-          }}
-        >
-        <span className="lea-burger-line" style={{ width: 24 }} />
-        <span className="lea-burger-line" style={{ width: 16 }} />
-        <span className="lea-burger-line" style={{ width: 20 }} />
-      </button>
-
-      {/* Overlay */}
-      {open && (
-        <div
-          className={`lea-overlay${visible ? " visible" : ""}`}
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 9999,
-            background: "rgba(10,10,10,0.55)",
-            backdropFilter: "blur(2px)",
-          }}
-          onClick={closeMenu}
-        />
-      )}
-
-      {/* Sliding panel */}
-      {open && (
-        <div
-          className={`lea-panel${visible ? " visible" : ""}`}
-          style={{
-            position: "fixed",
-            top: 0,
-            right: 0,
-            bottom: 0,
-            zIndex: 10000,
-            width: "100%",
-            maxWidth: 900,
-            display: "flex",
-            flexDirection: "row",
-            background: "#111",
-            borderLeft: "1px solid rgba(201,169,110,0.12)",
-          }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          {/* Left image panel (desktop only) */}
-          <div
-            className={`lea-img-panel${visible ? " visible" : ""}`}
-            style={{
-              width: "40%",
-              position: "relative",
-              overflow: "hidden",
-              display: "none",
-            }}
-            ref={(el) => {
-              if (el)
-                el.style.display = window.innerWidth >= 640 ? "block" : "none";
-            }}
-          >
-            <img
-              src={activeImage}
-              alt=""
-              className="lea-prop-img"
-              style={{ width: "100%", height: "100%", objectFit: "cover" }}
-            />
-            <div
-              style={{
-                position: "absolute",
-                inset: 0,
-                background:
-                  "linear-gradient(to right, rgba(10,10,10,.7) 0%, rgba(10,10,10,.1) 100%)",
-              }}
-            />
-            <div
-              style={{
-                position: "absolute",
-                top: 32,
-                left: 32,
-                width: 40,
-                height: 40,
-              }}
-            >
-              <div
-                style={{
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                  width: 24,
-                  height: 1,
-                  background: "#c9a96e",
-                }}
-              />
-              <div
-                style={{
-                  position: "absolute",
-                  top: 0,
-                  left: 0,
-                  width: 1,
-                  height: 24,
-                  background: "#c9a96e",
-                }}
-              />
-            </div>
-            <div
-              style={{
-                position: "absolute",
-                bottom: 32,
-                right: 32,
-                width: 40,
-                height: 40,
-              }}
-            >
-              <div
-                style={{
-                  position: "absolute",
-                  bottom: 0,
-                  right: 0,
-                  width: 24,
-                  height: 1,
-                  background: "#c9a96e",
-                }}
-              />
-              <div
-                style={{
-                  position: "absolute",
-                  bottom: 0,
-                  right: 0,
-                  width: 1,
-                  height: 24,
-                  background: "#c9a96e",
-                }}
-              />
-            </div>
-          </div>
-
-          {/* Right nav panel */}
-          <div
-            style={{
-              flex: 1,
-              display: "flex",
-              flexDirection: "column",
-              padding: "40px 48px",
-              overflowY: "auto",
-              background: "#0f0f0f",
-            }}
-          >
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-                marginBottom: 56,
-              }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                <div
-                  style={{
-                    width: 32,
-                    height: 32,
-                    border: "1px solid #c9a96e",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <Building2 size={14} color="#c9a96e" />
-                </div>
-                <div>
-                  <div
-                    style={{
-                      fontFamily: "'Cormorant Garamond', serif",
-                      fontSize: 16,
-                      fontWeight: 500,
-                      color: "#f5f0e8",
-                      letterSpacing: ".04em",
-                      lineHeight: 1.1,
-                    }}
-                  >
-                    LEA Executive
-                  </div>
-                  <div
-                    style={{
-                      fontFamily: "'DM Sans', sans-serif",
-                      fontSize: 8,
-                      letterSpacing: ".2em",
-                      textTransform: "uppercase",
-                      color: "rgba(201,169,110,.7)",
-                    }}
-                  >
-                    Luxury Residences
-                  </div>
-                </div>
-              </div>
-              <div
-                className="lea-close-x"
-                onClick={closeMenu}
-                aria-label="Close menu"
-              />
-            </div>
-
-            <nav style={{ flex: 1 }}>
-              <div
-                style={{
-                  fontFamily: "'DM Sans', sans-serif",
-                  fontSize: 10,
-                  letterSpacing: ".22em",
-                  textTransform: "uppercase",
-                  color: "rgba(201,169,110,.5)",
-                  marginBottom: 28,
-                }}
-              >
-                Navigation
-              </div>
-
-              {NAV_ITEMS.map((item, i) => (
-                <div
-                  key={item.path}
-                  className={`lea-nav-item lea-nav-row${visible ? " visible" : ""}`}
-                  style={{
-                    transitionDelay: visible ? `${0.12 + i * 0.07}s` : "0s",
-                    display: "flex",
-                    alignItems: "baseline",
-                    gap: 20,
-                    padding: "18px 0",
-                    borderBottom: "1px solid rgba(245,240,232,0.05)",
-                    cursor: "pointer",
-                  }}
-                  onClick={() => handleNav(item.path)}
-                  onMouseEnter={() => setHovered(i)}
-                  onMouseLeave={() => setHovered(null)}
-                >
-                  <span
-                    className="lea-nav-num"
-                    style={{
-                      fontFamily: "'DM Sans', sans-serif",
-                      fontSize: 11,
-                      letterSpacing: ".1em",
-                      color: "rgba(245,240,232,0.22)",
-                      minWidth: 28,
-                      transition: "color 0.3s",
-                    }}
-                  >
-                    {item.num}
-                  </span>
-                  <div style={{ flex: 1 }}>
-                    <div
-                      className="lea-nav-label"
-                      style={{
-                        fontFamily: "'Cormorant Garamond', serif",
-                        fontSize: "clamp(28px, 4.5vw, 44px)",
-                        fontWeight: 300,
-                        lineHeight: 1.1,
-                        letterSpacing: "-.01em",
-                        color:
-                          hovered === i ? "#f5f0e8" : "rgba(245,240,232,0.55)",
-                        transition: "color 0.3s",
-                      }}
-                    >
-                      {item.label}
-                    </div>
-                    <div
-                      style={{
-                        fontFamily: "'DM Sans', sans-serif",
-                        fontSize: 12,
-                        color: "rgba(245,240,232,0.3)",
-                        marginTop: 3,
-                        letterSpacing: ".04em",
-                        opacity: hovered === i ? 1 : 0,
-                        transform:
-                          hovered === i ? "translateX(0)" : "translateX(-8px)",
-                        transition: "opacity 0.3s, transform 0.3s",
-                      }}
-                    >
-                      {item.sub}
-                    </div>
-                  </div>
-                  <ArrowUpRight
-                    size={18}
-                    color="#c9a96e"
-                    style={{
-                      opacity: hovered === i ? 1 : 0,
-                      transform:
-                        hovered === i
-                          ? "translate(0,0)"
-                          : "translate(-6px, 6px)",
-                      transition: "opacity 0.3s, transform 0.3s",
-                      flexShrink: 0,
-                    }}
-                  />
-                </div>
-              ))}
-            </nav>
-
-            <div
-              className={`lea-nav-item${visible ? " visible" : ""}`}
-              style={{
-                transitionDelay: visible ? "0.5s" : "0s",
-                marginTop: 48,
-              }}
-            >
-              <button
-                onClick={() => {
-                  closeMenu();
-                  setTimeout(() => router.push("/login"), 600);
-                }}
-                style={{
-                  fontFamily: "'DM Sans', sans-serif",
-                  fontSize: 11,
-                  fontWeight: 500,
-                  letterSpacing: ".14em",
-                  textTransform: "uppercase",
-                  background: "#c9a96e",
-                  color: "#0f0f0f",
-                  border: "none",
-                  cursor: "pointer",
-                  padding: "14px 32px",
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: 8,
-                  marginBottom: 36,
-                  transition: "background 0.25s",
-                }}
-                onMouseOver={(e) =>
-                  (e.currentTarget.style.background = "#b8914f")
-                }
-                onMouseOut={(e) =>
-                  (e.currentTarget.style.background = "#c9a96e")
-                }
-              >
-                {user ? "Go to Dashboard" : "Sign In / List Property"}
-                <ArrowUpRight size={13} />
-              </button>
-
-              <div
-                style={{
-                  height: 1,
-                  background: "rgba(245,240,232,0.08)",
-                  marginBottom: 28,
-                }}
-              />
-
-              <div style={{ display: "flex", gap: 32, flexWrap: "wrap" }}>
-                {[
-                  { icon: <Phone size={12} />, text: "+254 748 333 763" },
-                  { icon: <Mail size={12} />, text: "hello@leaexecutive.com" },
-                  { icon: <MapPin size={12} />, text: "Nairobi, Kenya" },
-                ].map(({ icon, text }) => (
-                  <div
-                    key={text}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 8,
-                      fontFamily: "'DM Sans', sans-serif",
-                      fontSize: 11,
-                      color: "rgba(245,240,232,0.35)",
-                      letterSpacing: ".04em",
-                    }}
-                  >
-                    <span style={{ color: "#c9a96e", display: "flex" }}>
-                      {icon}
-                    </span>
-                    {text}
-                  </div>
-                ))}
-              </div>
-
-              <div
-                style={{
-                  fontFamily: "'DM Sans', sans-serif",
-                  fontSize: 10,
-                  letterSpacing: ".12em",
-                  textTransform: "uppercase",
-                  color: "rgba(245,240,232,0.2)",
-                  marginTop: 28,
-                }}
-              >
-                © 2025 LEA Executive — Luxury Rentals & Residences
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </>
-  );
-}
 
 export default function Home() {
   const [scrolled, setScrolled] = useState(false)
-  const [menuOpen, setMenuOpen] = useState(false)
   const router = useRouter()
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+  const navLinks = [
+    ['How It Works', 'howitworks'], 
+    ['Features', 'features'], 
+    ['Gallery', 'gallery'], 
+    ['Payments', 'payments'], 
+    ['Contact', 'contact']
+  ];
 
   useEffect(() => {
     const fn = () => setScrolled(window.scrollY > 50)
@@ -732,17 +168,17 @@ export default function Home() {
 
   const howItWorks = [
     {
-      step: '01',
+      step: '1',
       title: 'You get an account',
       desc: 'Your property manager registers you in the system. You receive a login link and set up your account in under 2 minutes.',
     },
     {
-      step: '02',
+      step: '2',
       title: 'Set up your profile',
       desc: 'Add your name, photo, and phone number. Link your M-Pesa number so payments can be tracked automatically when you pay rent.',
     },
     {
-      step: '03',
+      step: '3',
       title: 'Manage everything from one place',
       desc: 'Chat with management, pay rent, submit requests, read policies, and stay connected with your building community — all in one app.',
     },
@@ -817,212 +253,538 @@ export default function Home() {
           .footer-grid { grid-template-columns: 1fr !important; }
         }
       `}</style>
+{/* ── NAV ─────────────────────────────────────────────── */}
+     <style>{`
+  @media (max-width: 768px) {
+    .hide-mobile { display: none !important; }
+    .show-mobile { display: block !important; }
+  }
+  @media (min-width: 769px) {
+    .show-mobile { display: none !important; }
+  }
+`}</style>
 
-      {/* ── NAV ─────────────────────────────────────────────── */}
-      <nav style={{
-        position: 'fixed', top: 0, left: 0, right: 0, zIndex: 100,
-        height: 70, display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        padding: '0 20px',
-        background: scrolled ? 'rgba(10,10,10,.97)' : 'transparent',
-        backdropFilter: scrolled ? 'blur(16px)' : 'none',
-        borderBottom: scrolled ? '1px solid rgba(242,237,228,.07)' : 'none',
-        transition: 'all .35s',
+<nav style={{
+  position: 'fixed',
+  top: 24, 
+  left: '50%',
+  transform: 'translateX(-50%)', 
+  zIndex: 100,
+  height: 60,
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+  padding: '0 8px 0 24px', 
+  // background: '#ffffff', 
+  borderRadius: 999, 
+  boxShadow: '0 4px 20px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04)',
+  border: '1px solid #f0f0f0',
+  width: '90%',
+  maxWidth: 1000, 
+  transition: 'all .35s',
+}} className='bg-background'>
+  
+  {/* Logo Section */}
+  <div style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}
+    onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
+    <div style={{ width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff', border: "1px solid #ff5a36", borderRadius: '50%'  }}>
+      <Building2 size={16} color="#ff5a36" />
+    </div>
+    <div style={{ display: 'flex', flexDirection: 'column' }}>
+      <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 18, fontWeight: 600, color: '#111', lineHeight: 1.1 }}>LEA Executive</div>
+    </div>
+  </div>
+
+  {/* Center Links (Hidden on Mobile) */}
+  <div className="hide-mobile" style={{ display: 'flex', gap: 32, alignItems: 'center' }}>
+    {[['How It Works', 'howitworks'], ['Features', 'features'], ['Gallery', 'gallery'], ['Payments', 'payments'], ['Contact', 'contact']].map(([l, id]) => (
+      <button key={id} className="nav-btn" 
+        onClick={() => id === 'contact' ? router.push('/contact') : scrollTo(id)}
+        style={{
+          background: 'none', border: 'none', cursor: 'pointer', padding: 0,
+          fontFamily: "'DM Sans', sans-serif", fontSize: 14, fontWeight: 500, color: '#444'
+        }}>
+        {l}
+      </button>
+    ))}
+  </div>
+
+  {/* Right Action Buttons */}
+  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+    <button className="nav-btn hide-mobile" onClick={() => router.push('/login')} 
+      style={{
+        background: 'none', border: 'none', cursor: 'pointer',
+        fontFamily: "'DM Sans', sans-serif", fontSize: 14, fontWeight: 500, color: '#444',
+        padding: '10px 16px'
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}
-          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
-          <div style={{ width: 36, height: 36, border: '1px solid #c9a96e', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Building2 size={16} color="#c9a96e" />
-          </div>
-          <div>
-            <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 19, fontWeight: 500, color: '#f2ede4', letterSpacing: '.04em', lineHeight: 1.1 }}>LEA Executive</div>
-            <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 9, letterSpacing: '.22em', textTransform: 'uppercase', color: 'rgba(201,169,110,.7)', lineHeight: 1 }}>Residency · Property Management</div>
-          </div>
-        </div>
+      Login
+    </button>
+    
+    <button className="btn-primary hide-mobile" onClick={() => router.push('/login')} 
+      style={{ 
+        padding: '10px 20px', 
+        fontSize: 14,
+        fontWeight: 500,
+        fontFamily: "'DM Sans', sans-serif",
+        background: '#ff5a36', 
+        color: '#fff',
+        border: 'none',
+        borderRadius: 999, 
+        display: 'flex',
+        alignItems: 'center',
+        gap: 6,
+        cursor: 'pointer'
+      }}>
+      Sign Up <ArrowUpRight size={14} />
+    </button>
+    
+    {/* Mobile Hamburger Trigger (Replaces LuxuryHamburgerMenu) */}
+    <button 
+      className="show-mobile" 
+      onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+      style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 8, display: 'flex' }}
+    >
+      {isMobileMenuOpen ? <X size={24} color="#111" /> : <Menu size={24} color="#111" />}
+    </button>
+  </div>
+</nav>
+{/* Mobile Menu Overlay */}
+{isMobileMenuOpen && (
+  <div style={{
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    width: '100vw',
+    height: '100vh',
+    background: 'rgba(255, 255, 255, 0.7)', // Semi-transparent white
+    backdropFilter: 'blur(20px)',           // The glassmorphism effect
+    WebkitBackdropFilter: 'blur(20px)',      // Safari support
+    zIndex: 99,
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: '32px',
+    padding: '24px'
+  }}>
+    
+    {/* Close Icon (positioned absolute) */}
+    <button 
+      onClick={() => setIsMobileMenuOpen(false)}
+      style={{ position: 'absolute', top: 42, right: 32, background: 'none', border: 'none', cursor: 'pointer' }}
+    >
+      <X size={32} color="#111" />
+    </button>
 
-        <div className="hide-mobile" style={{ display: 'flex', gap: 36 }}>
-          {[['How It Works', 'howitworks'], ['Features', 'features'], ['Gallery', 'gallery'], ['Payments', 'payments'], ['Contact', 'contact']].map(([l, id]) => (
-            <button key={id} className="nav-btn" onClick={() => id === 'contact' ? router.push('/contact') : scrollTo(id)}>{l}</button>
-          ))}
-        </div>
+    {/* Menu Links */}
+    {[['How It Works', 'howitworks'], ['Features', 'features'], ['Gallery', 'gallery'], ['Payments', 'payments'], ['Contact', 'contact']].map(([l, id]) => (
+      <button 
+        key={id} 
+        onClick={() => {
+          setIsMobileMenuOpen(false);
+          id === 'contact' ? router.push('/contact') : document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
+        }}
+        style={{
+          background: 'none', border: 'none', textAlign: 'center',
+          fontFamily: "'Nunito', serif", fontSize: '32px', fontWeight: 600, color: '#111', cursor: 'pointer'
+        }}
+      >
+        {l}
+      </button>
+    ))}
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <button className="nav-btn hide-mobile" onClick={() => router.push('/login')}>Login</button>
-          <button className="btn-gold hide-mobile" onClick={() => router.push('/login')} style={{ padding: '10px 20px', fontSize: 10 }}>
-            Sign Up <ArrowUpRight size={11} />
-          </button>
-          <LuxuryHamburgerMenu
-            user={null}
-            currentPage="/"
-            onNavigate={(path) => {
-              if (path === '/') window.scrollTo({ top: 0, behavior: 'smooth' })
-              else { const el = document.getElementById(path); if (el) el.scrollIntoView({ behavior: 'smooth' }); else router.push('/login') }
-            }}
-          />
-        </div>
-      </nav>
+    <div style={{ marginTop: '24px' }}>
+      <button 
+        onClick={() => { setIsMobileMenuOpen(false); router.push('/login'); }}
+        style={{
+          padding: '16px 150px', borderRadius: '999px',
+          background: '#ff5a36', color: '#fff', border: 'none', 
+          fontFamily: "'DM Sans', sans-serif", fontSize: '16px', fontWeight: 500, cursor: 'pointer'
+        }}
+      >
+        Sign Up
+      </button>
+    </div>
+  </div>
+)}
+<section style={{ 
+  position: 'relative', 
+  minHeight: '100vh', 
+  display: 'flex', 
+  flexDirection: 'column',
+  justifyContent: 'center',
+  backgroundColor: '#fafffa', // Linen Canvas
+  overflow: 'hidden',
+  padding: '120px 50px',
+  fontFamily: "'TWK Lausanne', 'Inter', ui-sans-serif, system-ui, sans-serif"
+}}>
+  
+  <div style={{ maxWidth: '1440px', margin: '0 auto', width: '100%', position: 'relative', zIndex: 1 }}>
+    
+    {/* Decorative Accent Tick */}
+    <div className="fade-up fade-up-1" style={{ 
+      width: '50px', 
+      height: '2px', 
+      backgroundColor: '#ff5a36', // Voltage
+      marginBottom: '45px' 
+    }} />
 
-      {/* ── HERO ─────────────────────────────────────────────── */}
-      <section style={{ position: 'relative', minHeight: '100vh', display: 'flex', alignItems: 'center', overflow: 'hidden' }}>
-        {/* Background */}
-        <div style={{
-          position: 'absolute', inset: 0,
-          backgroundImage: 'url(/images/licensed-image.jpg)',
-          backgroundSize: 'cover', backgroundPosition: 'center top',
-        }} />
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(105deg, rgba(10,10,10,.97) 0%, rgba(10,10,10,.85) 50%, rgba(10,10,10,.5) 100%)' }} />
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(10,10,10,1) 0%, transparent 40%)' }} />
+    {/* Metadata / Tag */}
+    <div className="fade-up fade-up-1" style={{ 
+      fontSize: '11px', 
+      fontWeight: 350, 
+      textTransform: 'uppercase', 
+      letterSpacing: '0.11px',
+      color: '#516254', // Sage
+      marginBottom: '30px'
+    }}>
+      Property Management Platform · Nairobi
+    </div>
 
-        {/* Decorative vertical line */}
-        <div style={{ position: 'absolute', left: 40, top: 120, bottom: 120, width: 1, background: 'linear-gradient(to bottom, transparent, rgba(201,169,110,.3), transparent)', display: 'none' }} className="hide-mobile" />
+    {/* Display Headline */}
+    <h1 className="fade-up fade-up-2" style={{
+      fontFamily: "'Editorial New', 'Playfair Display', 'Canela', serif",
+      fontSize: 'clamp(80px, 10vw, 160px)',
+      fontWeight: 300, 
+      lineHeight: 0.90, 
+      letterSpacing: '-0.02em',
+      color: '#121613', // Obsidian Ink
+      margin: '0 0 60px 0',
+      position: 'relative',
+      zIndex: 2,
+      maxWidth: '1100px'
+    }}>
+      Your Home.<br />
+      Managed Digitally.<br />
+      From One App.
+    </h1>
 
-        <div style={{ position: 'relative', maxWidth: 860, padding: '100px 20px 120px', zIndex: 1, marginBottom: '200px', marginTop: '50px' }}>
-          <div className="fade-up fade-up-1">
-            <div className="sec-label" style={{ marginBottom: 20 }}>Property Management Platform · Nairobi</div>
-          </div>
+    {/* B&W Editorial Image (Floating/Asymmetric) */}
+    <div className="hide-mobile" style={{
+      position: 'absolute',
+      right: '5%',
+      top: '15%',
+      width: '340px',
+      height: '460px',
+      backgroundImage: 'url(/images/licensed-image.jpg)',
+      backgroundSize: 'cover', 
+      backgroundPosition: 'center',
+      borderRadius: '14px',
+      filter: 'grayscale(100%) contrast(110%)', // Forces B&W editorial look
+      zIndex: 1,
+    }} />
 
-          <h1 className="fade-up fade-up-2" style={{
-            fontSize: 'clamp(44px, 6.5vw, 80px)',
-            fontWeight: 300, lineHeight: 1.05, letterSpacing: '-.01em',
-            color: '#f2ede4', marginBottom: 12,
+    {/* Body & CTAs Container */}
+    <div style={{ 
+      display: 'flex', 
+      flexDirection: 'column', 
+      gap: '40px', 
+      maxWidth: '480px',
+      marginLeft: '15%' // Asymmetric push
+    }}>
+      
+      <div className="fade-up fade-up-3">
+        <p style={{ 
+          fontSize: '16px', 
+          fontWeight: 400, 
+          lineHeight: 1.4, 
+          letterSpacing: '-0.32px',
+          color: '#121613', // Obsidian Ink
+          marginBottom: '15px' 
+        }}>
+          LEA Executive Residency gives every tenant a digital dashboard to pay rent via M-Pesa, chat with management, log maintenance requests, access all house policies, and stay connected with building announcements.
+        </p>
+        <p style={{ 
+          fontSize: '14px', 
+          fontWeight: 350, 
+          color: '#516254' // Sage
+        }}>
+          No more calling. No more confusion. Everything on record.
+        </p>
+      </div>
+
+      <div className="fade-up fade-up-4 hero-ctas" style={{ display: 'flex', gap: '30px', alignItems: 'center', flexWrap: 'wrap' }}>
+        
+        {/* Voltage Primary CTA */}
+        <button onClick={() => router.push('/login')} style={{
+          padding: '20px 50px',
+          fontSize: 14,
+          fontFamily: "'DM Sans', sans-serif",
+          background: '#ff5a36', // Koala Orange (change to #c9a96e to keep your original gold)
+          color: '#fff',
+          border: 'none',
+          borderRadius: 999, // Pill shape for button
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+          fontWeight: 550,
+          textTransform: 'uppercase',
+          letterSpacing: '0.01em',
+          cursor: 'pointer',
+
+          transition: 'transform 0.2s ease'
+        }}>
+          Get Started <span>→</span>
+        </button>
+
+        {/* Ghost Link Secondary */}
+        <button onClick={() => router.push('/login?demo=true')} style={{
+          backgroundColor: 'transparent',
+          color: '#121613',
+          fontSize: '14px',
+          fontWeight: 350,
+          border: 'none',
+          cursor: 'pointer',
+          textDecoration: 'underline',
+          textUnderlineOffset: '4px'
+        }}>
+          Request Demo
+        </button>
+
+      </div>
+    </div>
+
+    {/* Editorial "Stats" Row replacing the bottom grid */}
+    <div style={{
+      display: 'flex', 
+      gap: '80px', 
+      marginTop: '120px',
+      flexWrap: 'wrap'
+    }}>
+      {[
+        ['6+', 'Dashboard Features'],
+        ['M-Pesa', 'Instant Payments'],
+        ['Real-time', 'Chat & Notifications'],
+      ].map(([num, label]) => (
+        <div key={label} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <div style={{ 
+            fontFamily: "'TWK Lausanne', 'Inter', sans-serif", 
+            fontSize: '18px', 
+            fontWeight: 400, 
+            color: '#121613' 
           }}>
-            Your Home.<br />
-            <em style={{ color: '#c9a96e', fontStyle: 'italic' }}>Managed Digitally.</em><br />
-            <span style={{ fontSize: '85%', fontWeight: 300, color: 'rgba(242,237,228,.72)' }}>From One App.</span>
-          </h1>
-
-          <div className="fade-up fade-up-3">
-            <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 16, fontWeight: 300, lineHeight: 1.8, color: 'rgba(242,237,228,.65)', maxWidth: 540, marginBottom: 12, marginTop: 24 }}>
-              LEA Executive Residency gives every tenant a digital dashboard to pay rent via M-Pesa, chat with management, log maintenance requests, access all house policies, and stay connected with building announcements.
-            </p>
-            <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 14, fontWeight: 400, color: 'rgba(242,237,228,.45)', marginBottom: 40 }}>
-              No more calling. No more confusion. Everything on record.
-            </p>
+            {num}
           </div>
-
-          <div className="fade-up fade-up-4 hero-ctas" style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
-            <button className="btn-gold" onClick={() => router.push('/login')}>
-              Get Started <ArrowRight size={14} />
-            </button>
-            <button className="btn-outline" onClick={() => scrollTo('features')}>
-              See All Features
-            </button>
+          <div style={{ 
+            fontSize: '11px', 
+            fontWeight: 350, 
+            letterSpacing: '0.11px', 
+            textTransform: 'uppercase', 
+            color: '#516254' 
+          }}>
+            {label}
           </div>
         </div>
+      ))}
+    </div>
 
-        {/* Stats strip */}
-        <div style={{
-          position: 'absolute', bottom: 0, left: 0, right: 0,
-          display: 'grid', gridTemplateColumns: 'repeat(3,1fr)',
-          borderTop: '1px solid rgba(242,237,228,.1)',
-          background: 'rgba(10,10,10,.7)', backdropFilter: 'blur(16px)',
-        }} className="stats-grid">
-          {[
-            ['6+', 'Dashboard Features'],
-            ['M-Pesa', 'Instant Payments'],
-            ['Real-time', 'Chat & Notifications'],
-          ].map(([num, label], i) => (
-            <div key={label} style={{ padding: '22px 32px', borderRight: i < 2 ? '1px solid rgba(242,237,228,.08)' : 'none', textAlign: 'center' }}>
-              <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 26, fontWeight: 400, color: '#c9a96e' }}>{num}</div>
-              <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 10, letterSpacing: '.1em', textTransform: 'uppercase', color: 'rgba(242,237,228,.42)', marginTop: 6 }}>{label}</div>
-            </div>
-          ))}
-        </div>
-      </section>
+  </div>
+</section>
 
       {/* ── WHAT'S ON THE DASHBOARD ───────────────────────────── */}
-      <section style={{ background: '#0f0f0f', padding: '60px 20px' }}>
-        <div style={{ maxWidth: 1100, margin: '0 auto' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 40, flexWrap: 'wrap', gap: 20 }}>
+{/* ── WHAT YOU GET ─────────────────────────────────────────────── */}
+      <section style={{ backgroundColor: '#fafffa', padding: '120px 50px', fontFamily: "'TWK Lausanne', 'Inter', ui-sans-serif, system-ui, sans-serif" }}>
+        <div style={{ maxWidth: '1440px', margin: '0 auto' }}>
+          
+          <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: '80px', flexWrap: 'wrap', gap: '40px' }}>
             <div>
-              <div className="sec-label">What You Get</div>
-              <div className="gold-line" />
-              <h2 style={{ fontSize: 'clamp(24px, 4vw, 36px)', fontWeight: 300 }}>
-                Your Dashboard Has<br /><em style={{ color: '#c9a96e' }}>6 Sections</em>
+              {/* Voltage Accent Tick */}
+              <div style={{ width: '50px', height: '2px', backgroundColor: '#ff5a36', marginBottom: '45px' }} />
+              
+              <div style={{ fontSize: '11px', fontWeight: 350, textTransform: 'uppercase', letterSpacing: '0.11px', color: '#516254', marginBottom: '20px' }}>
+                What You Get
+              </div>
+              
+              <h2 style={{ 
+                fontFamily: "'Editorial New', 'Playfair Display', 'Canela', serif", 
+                fontSize: 'clamp(60px, 8vw, 96px)', 
+                fontWeight: 300, 
+                lineHeight: 0.90, 
+                letterSpacing: '-0.02em', 
+                color: '#121613', 
+                margin: 0 
+              }}>
+                Your Dashboard Has<br />6 Sections.
               </h2>
             </div>
-            <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 13, color: 'rgba(242,237,228,.5)', maxWidth: 340, lineHeight: 1.75 }}>
+
+            <p style={{ fontSize: '16px', fontWeight: 400, color: '#121613', maxWidth: '340px', lineHeight: 1.4, margin: 0, paddingBottom: '10px' }}>
               When you log in, this is your navigation. Every section is built specifically for tenants and property managers.
             </p>
           </div>
 
-          <div className="tab-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>
+          {/* Tab Grid - Borderless, defined by typography and spacing */}
+          <div className="tab-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '60px 40px' }}>
             {dashboardTabs.map(({ label, icon: Icon, desc }) => (
-              <div key={label} className="tab-chip">
-                <div style={{ width: 32, height: 32, background: 'rgba(13,148,136,.1)', border: '1px solid rgba(13,148,136,.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <Icon size={14} color="#0d9488" />
+              <div key={label} style={{ display: 'flex', gap: '20px', alignItems: 'flex-start' }}>
+                {/* Minimalist icon container */}
+                <div style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <Icon size={24} color="#121613" strokeWidth={1.5} />
                 </div>
                 <div>
-                  <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 12, fontWeight: 600, color: '#f2ede4' }}>{label}</div>
-                  <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, color: 'rgba(242,237,228,.4)', marginTop: 1 }}>{desc}</div>
+                  <div style={{ fontSize: '18px', fontWeight: 400, color: '#121613', marginBottom: '8px' }}>
+                    {label}
+                  </div>
+                  <div style={{ fontSize: '14px', fontWeight: 350, color: '#516254', lineHeight: 1.4, maxWidth: '280px' }}>
+                    {desc}
+                  </div>
                 </div>
               </div>
             ))}
           </div>
+
         </div>
       </section>
 
       {/* ── HOW IT WORKS ──────────────────────────────────────── */}
-      <section id="howitworks" style={{ background: '#0a0a0a', padding: '100px 40px' }}>
-        <div style={{ maxWidth: 1100, margin: '0 auto' }}>
-          <div style={{ textAlign: 'center', marginBottom: 72 }}>
-            <div className="sec-label">Getting Started</div>
-            <div className="gold-line-center" />
-            <h2 style={{ fontSize: 'clamp(28px, 3.5vw, 48px)', fontWeight: 300 }}>
-              How <em style={{ color: '#c9a96e' }}>It Works</em>
+      <section id="howitworks" style={{ backgroundColor: '#fafffa', padding: '120px 50px', fontFamily: "'TWK Lausanne', 'Inter', ui-sans-serif, system-ui, sans-serif" }}>
+        <div style={{ maxWidth: '1440px', margin: '0 auto' }}>
+          
+          {/* Asymmetric Left-Aligned Header */}
+          <div style={{ marginBottom: '100px' }}>
+            {/* Voltage Accent Tick */}
+            <div style={{ width: '50px', height: '2px', backgroundColor: '#ff5a36', marginBottom: '45px' }} />
+            
+            <div style={{ fontSize: '11px', fontWeight: 350, textTransform: 'uppercase', letterSpacing: '0.11px', color: '#516254', marginBottom: '20px' }}>
+              Getting Started
+            </div>
+            
+            <h2 style={{ 
+              fontFamily: "'Editorial New', 'Playfair Display', 'Canela', serif", 
+              fontSize: 'clamp(80px, 10vw, 140px)', 
+              fontWeight: 300, 
+              lineHeight: 0.90, 
+              letterSpacing: '-0.02em', 
+              color: '#121613', 
+              margin: 0 
+            }}>
+              How It Works.
             </h2>
           </div>
 
-          <div className="how-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 10 }}>
+          {/* Steps Grid - Editorial layout dropping the heavy borders */}
+          <div className="how-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '80px 40px' }}>
             {howItWorks.map(({ step, title, desc }) => (
-              <div key={step} style={{ padding: '48px 36px', border: '1px solid rgba(242,237,228,.07)', position: 'relative', overflow: 'hidden' }}>
-                <div className="step-num" style={{padding:"0 20px"}}>{step}</div>
-                <div style={{ position: 'relative', zIndex: 1 }}>
-                  <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 10, letterSpacing: '.18em', textTransform: 'uppercase', color: '#c9a96e', marginBottom: 16 }}>Step {step}</div>
-                  <h3 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 26, fontWeight: 400, color: '#f2ede4', marginBottom: 16, lineHeight: 1.2 }}>{title}</h3>
-                  <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 14, color: 'rgba(242,237,228,.55)', lineHeight: 1.8 }}>{desc}</p>
+              <div key={step} style={{ position: 'relative', display: 'flex', flexDirection: 'column' }}>
+                
+                {/* Secondary Display Voice for Numbers */}
+                <div style={{ 
+                  fontFamily: "'PP Mondwest', 'GT Sectra', serif", 
+                  fontSize: '96px', 
+                  fontWeight: 400, 
+                  lineHeight: 0.90, 
+                  color: '#c8d2c8', // Mist
+                  marginBottom: '30px', 
+                  letterSpacing: '-0.04em' 
+                }}>
+                  0{step}
                 </div>
+                
+                <h3 style={{ fontSize: '18px', fontWeight: 400, color: '#121613', marginBottom: '15px' }}>
+                  {title}
+                </h3>
+                <p style={{ fontSize: '16px', fontWeight: 350, color: '#516254', lineHeight: 1.4, maxWidth: '90%' }}>
+                  {desc}
+                </p>
               </div>
             ))}
           </div>
 
-          <div style={{ textAlign: 'center', marginTop: 56 }}>
-            <button className="btn-gold" onClick={() => router.push('/login')}>
-              Get Access <ArrowRight size={14} />
+          {/* CTA Area */}
+          <div style={{ marginTop: '120px', display: 'flex', justifyContent: 'flex-start' }}>
+            <button onClick={() => router.push('/login')} style={{
+              padding: '20px 50px',
+          fontSize: 14,
+          fontFamily: "'DM Sans', sans-serif",
+          background: '#ff5a36', // Koala Orange (change to #c9a96e to keep your original gold)
+          color: '#fff',
+          border: 'none',
+          borderRadius: 999, // Pill shape for button
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+          fontWeight: 550,
+          textTransform: 'uppercase',
+          letterSpacing: '0.01em',
+          cursor: 'pointer',
+
+          transition: 'transform 0.2s ease'
+            }}>
+              Get Access <span>→</span>
             </button>
           </div>
+
         </div>
       </section>
 
-      {/* ── FEATURES ─────────────────────────────────────────── */}
-      <section id="features" style={{ background: '#0f0f0f', padding: '100px 40px' }}>
-        <div style={{ maxWidth: 1100, margin: '0 auto' }}>
-          <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: 64, flexWrap: 'wrap', gap: 24 }}>
+     {/* ── FEATURES ─────────────────────────────────────────── */}
+      <section id="features" style={{ backgroundColor: '#fafffa', padding: '120px 50px', fontFamily: "'TWK Lausanne', 'Inter', ui-sans-serif, system-ui, sans-serif" }}>
+        <div style={{ maxWidth: '1440px', margin: '0 auto' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: '80px', flexWrap: 'wrap', gap: '40px' }}>
             <div>
-              <div className="sec-label">Platform Features</div>
-              <div className="gold-line" />
-              <h2 style={{ fontSize: 'clamp(28px, 3.5vw, 48px)', fontWeight: 300, lineHeight: 1.1 }}>
-                Everything a Tenant<br /><em style={{ color: '#c9a96e' }}>Could Need</em>
+              {/* Voltage Accent Tick */}
+              <div style={{ width: '50px', height: '2px', backgroundColor: '#ff5a36', marginBottom: '45px' }} />
+              
+              <div style={{ fontSize: '11px', fontWeight: 350, textTransform: 'uppercase', letterSpacing: '0.11px', color: '#516254', marginBottom: '20px' }}>
+                Platform Features
+              </div>
+              
+              <h2 style={{ 
+                fontFamily: "'Editorial New', 'Playfair Display', 'Canela', serif", 
+                fontSize: 'clamp(60px, 8vw, 96px)', 
+                fontWeight: 300, 
+                lineHeight: 0.90, 
+                letterSpacing: '-0.02em', 
+                color: '#121613', 
+                margin: 0 
+              }}>
+                Everything a Tenant<br />Could Need.
               </h2>
             </div>
-            <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 14, color: 'rgba(242,237,228,.45)', maxWidth: 320, lineHeight: 1.8 }}>
+            
+            <p style={{ fontSize: '16px', fontWeight: 400, color: '#516254', maxWidth: '340px', lineHeight: 1.4, margin: 0, paddingBottom: '10px' }}>
               All features are live and functional at lea-residency.vercel.app. Log in to access your dashboard.
             </p>
           </div>
 
-          <div className="feat-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 10, border: '1px solid rgba(242,237,228,.06)' }}>
-            {features.map(({ icon: Icon, title, desc, color, num }) => (
-              <div key={num} className="feat-card">
-                <div style={{ display: 'flex', alignItems: 'flex-start', gap: 20 }}>
-                  <div style={{ width: 44, height: 44, background: `${color}14`, border: `1px solid ${color}28`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                    <Icon size={20} color={color} />
+          <div className="feat-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '40px' }}>
+            {features.map(({ icon: Icon, title, desc, num }) => (
+              <div 
+                key={num} 
+                className="feat-card bg-background" 
+                style={{ 
+                  display: 'flex', 
+                  gap: '24px', 
+                  alignItems: 'flex-start',
+                  backgroundColor: '#FffffA', // Linen Canvas
+                  padding: '48px 40px',
+                  borderRadius: '24px',
+                  boxShadow: '0 24px 48px rgba(18, 22, 19, 0.04)',
+                  border: '1px solid rgba(18, 22, 19, 0.03)',
+                  transition: 'transform 0.3s ease, box-shadow 0.3s ease'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'translateY(-4px)';
+                  e.currentTarget.style.boxShadow = '0 32px 64px rgba(18, 22, 19, 0.08)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = '0 24px 48px rgba(18, 22, 19, 0.04)';
+                }}
+              >
+                <div style={{ width: '48px', height: '48px', backgroundColor: '#fafffa', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, border: '1px solid #eef2ef' }}>
+                  <Icon size={24} color="#121613" strokeWidth={1.5} />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: '15px', marginBottom: '16px' }}>
+                    <h3 style={{ fontFamily: "'Editorial New', 'Playfair Display', serif", fontSize: '28px', fontWeight: 400, color: '#121613', lineHeight: 1.1, margin: 0 }}>
+                      {title}
+                    </h3>
+                    <span style={{ fontSize: '12px', fontWeight: 500, color: '#c8d2c8', letterSpacing: '0.05em' }}>{num}</span>
                   </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
-                      <h3 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 22, fontWeight: 400, color: '#f2ede4', lineHeight: 1.2 }}>{title}</h3>
-                      <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 10, color: 'rgba(201,169,110,.3)', letterSpacing: '.1em' }}>{num}</span>
-                    </div>
-                    <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 13, fontWeight: 300, color: 'rgba(242,237,228,.52)', lineHeight: 1.8 }}>{desc}</p>
-                  </div>
+                  <p style={{ fontSize: '15px', fontWeight: 350, color: '#516254', lineHeight: 1.6, margin: 0, maxWidth: '95%' }}>
+                    {desc}
+                  </p>
                 </div>
               </div>
             ))}
@@ -1031,60 +793,68 @@ export default function Home() {
       </section>
 
       {/* ── PAYMENTS SECTION ─────────────────────────────────── */}
-      <section id="payments" style={{ background: '#0a0a0a', padding: '100px 40px' }}>
-        <div style={{ maxWidth: 1100, margin: '0 auto' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 80, alignItems: 'center' }} className="how-grid">
+      <section id="payments" style={{ backgroundColor: '#fafffa', padding: '120px 50px', fontFamily: "'TWK Lausanne', 'Inter', ui-sans-serif, system-ui, sans-serif" }}>
+        <div style={{ maxWidth: '1440px', margin: '0 auto' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(450px, 1fr))', gap: '100px', alignItems: 'center' }}>
+            
             {/* Left — content */}
             <div>
-              <div className="sec-label">Rent Payments</div>
-              <div className="gold-line" />
-              <h2 style={{ fontSize: 'clamp(28px, 3.5vw, 44px)', fontWeight: 300, lineHeight: 1.15, marginBottom: 24 }}>
-                Pay Rent Via<br /><em style={{ color: '#c9a96e' }}>M-Pesa</em><br />
-                <span style={{ fontSize: '75%', fontWeight: 300, color: 'rgba(242,237,228,.55)' }}>Logged Automatically</span>
+              {/* Voltage Accent Tick */}
+              <div style={{ width: '50px', height: '2px', backgroundColor: '#ff5a36', marginBottom: '45px' }} />
+              
+              <div style={{ fontSize: '11px', fontWeight: 350, textTransform: 'uppercase', letterSpacing: '0.11px', color: '#516254', marginBottom: '20px' }}>
+                Rent Payments
+              </div>
+              
+              <h2 style={{ 
+                fontFamily: "'Editorial New', 'Playfair Display', 'Canela', serif", 
+                fontSize: 'clamp(50px, 6vw, 80px)', 
+                fontWeight: 300, 
+                lineHeight: 0.90, 
+                letterSpacing: '-0.02em', 
+                color: '#121613', 
+                margin: '0 0 30px 0' 
+              }}>
+                Pay Rent Via<br />M-Pesa.<br />
+                <span style={{ fontSize: '50%', color: '#c8d2c8', display: 'block', marginTop: '15px' }}>Logged Automatically</span>
               </h2>
-              <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 15, fontWeight: 300, color: 'rgba(242,237,228,.6)', lineHeight: 1.8, marginBottom: 36 }}>
+              
+              <p style={{ fontSize: '16px', fontWeight: 400, color: '#516254', lineHeight: 1.5, marginBottom: '40px', maxWidth: '480px' }}>
                 Use M-Pesa Paybill to pay rent. Your payment is recognised by the system automatically, logged against your account, and your landlord is notified instantly. No manual confirmation needed.
               </p>
 
               {/* Payment flow */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
-                <CheckCircle size={14} color="#c9a96e" style={{ flexShrink: 0 }} />
-                <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 13, color: 'rgba(242,237,228,.72)' }}>Tenant initiates payment from their M-Pesa menu</span>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {[
+                  'Tenant initiates payment from their M-Pesa menu',
+                  'Payment goes through as usual via M-Pesa',
+                  'Our system detects the payment in real time via M-Pesa APIs',
+                  'Payment received and logged in real time',
+                  'Tenant gets immediate confirmation in-app',
+                  'Landlord receives instant notification',
+                  'Monthly history and receipts saved forever'
+                ].map((item, idx) => (
+                  <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{ width: '6px', height: '6px', backgroundColor: '#ff5a36', borderRadius: '50%' }} />
+                    <span style={{ fontSize: '14px', color: '#121613', fontWeight: 400 }}>{item}</span>
+                  </div>
+                ))}
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
-                <CheckCircle size={14} color="#c9a96e" style={{ flexShrink: 0 }} />
-                <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 13, color: 'rgba(242,237,228,.72)' }}>Payment goes through as usual via M-Pesa</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
-                <CheckCircle size={14} color="#c9a96e" style={{ flexShrink: 0 }} />
-                <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 13, color: 'rgba(242,237,228,.72)' }}>Our system detects the payment in real time via M-Pesa APIs</span>
-              </div>
-
-              {/* What happens after payment */}
-              {[
-                'Payment received and logged in real time',
-                'Tenant gets immediate confirmation in-app',
-                'Landlord receives instant notification',
-                'Monthly history and receipts saved forever',
-              ].map(item => (
-                <div key={item} style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 14 }}>
-                  <CheckCircle size={14} color="#c9a96e" style={{ flexShrink: 0 }} />
-                  <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 13, color: 'rgba(242,237,228,.72)' }}>{item}</span>
-                </div>
-              ))}
             </div>
 
             {/* Right — visual */}
-            <div style={{ position: 'relative', background: '#131313', border: '1px solid rgba(242,237,228,.07)', padding: '40px 36px' }}>
-              {/* Mock payment status card */}
-              <div style={{ marginBottom: 28 }}>
-                <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 10, letterSpacing: '.16em', textTransform: 'uppercase', color: 'rgba(242,237,228,.35)', marginBottom: 16 }}>April 2026 · Rent Status</div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-                  <span style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 36, fontWeight: 400, color: '#4ade80' }}>PAID</span>
-                  <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 12, color: 'rgba(242,237,228,.45)' }}>KES 22,000</span>
+            <div style={{ backgroundColor: '#ffffff', border: '1px solid #eef2ef', padding: '60px 50px', boxShadow: '0 30px 60px rgba(18, 22, 19, 0.03)' }}>
+              
+              <div style={{ marginBottom: '40px' }}>
+                <div style={{ fontSize: '11px', letterSpacing: '0.11px', textTransform: 'uppercase', color: '#516254', marginBottom: '16px' }}>
+                  April 2026 · Rent Status
                 </div>
-                <div style={{ height: 6, background: 'rgba(242,237,228,.07)', borderRadius: 3, overflow: 'hidden' }}>
-                  <div style={{ height: '100%', width: '100%', background: 'linear-gradient(to right, #16a34a, #4ade80)', borderRadius: 3 }} />
+                <div style={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', marginBottom: '16px' }}>
+                  <span style={{ fontFamily: "'Editorial New', serif", fontSize: '48px', lineHeight: 0.8, color: '#ff5a36' }}>PAID</span>
+                  <span style={{ fontSize: '14px', fontWeight: 500, color: '#121613' }}>KES 22,000</span>
+                </div>
+                <div style={{ height: '4px', backgroundColor: '#eef2ef', overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: '100%', backgroundColor: '#ff5a36' }} />
                 </div>
               </div>
 
@@ -1093,40 +863,53 @@ export default function Home() {
                 { month: 'March 2026', amount: 'KES 22,000', code: 'RGR0012345', status: 'PAID' },
                 { month: 'February 2026', amount: 'KES 22,000', code: 'RGR0098231', status: 'PAID' },
                 { month: 'January 2026', amount: 'KES 22,000', code: 'RGR0076654', status: 'PAID' },
-              ].map(p => (
-                <div key={p.month} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 0', borderTop: '1px solid rgba(242,237,228,.06)' }}>
+              ].map((p, idx) => (
+                <div key={p.month} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 0', borderTop: idx === 0 ? '1px solid #121613' : '1px solid #eef2ef' }}>
                   <div>
-                    <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 12, color: '#f2ede4', fontWeight: 500 }}>{p.month}</div>
-                    <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 10, color: 'rgba(242,237,228,.35)', marginTop: 2 }}>{p.code}</div>
+                    <div style={{ fontSize: '14px', color: '#121613', fontWeight: 500 }}>{p.month}</div>
+                    <div style={{ fontSize: '12px', color: '#516254', marginTop: '4px' }}>{p.code}</div>
                   </div>
                   <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 12, color: 'rgba(242,237,228,.6)' }}>{p.amount}</div>
-                    <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 9, color: '#4ade80', letterSpacing: '.1em', fontWeight: 600 }}>{p.status}</div>
+                    <div style={{ fontSize: '14px', color: '#121613', fontWeight: 500 }}>{p.amount}</div>
+                    <div style={{ fontSize: '10px', color: '#ff5a36', letterSpacing: '0.05em', fontWeight: 600, marginTop: '4px' }}>{p.status}</div>
                   </div>
                 </div>
               ))}
 
-              <div style={{ marginTop: 24, padding: '14px', background: 'rgba(13,148,136,.08)', border: '1px solid rgba(13,148,136,.2)' }}>
-                <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, color: 'rgba(242,237,228,.5)', lineHeight: 1.7 }}>
-                  💡 The app also supports STK Push — tap to trigger an M-Pesa prompt directly to your phone without opening the M-Pesa menu.
+              <div style={{ marginTop: '40px', padding: '20px', backgroundColor: 'rgba(43, 238, 75, 0.05)', borderLeft: '2px solid #ff5a36' }}>
+                <p style={{ fontSize: '13px', color: '#121613', lineHeight: 1.5, margin: 0 }}>
+                  <strong>Note:</strong> The app also supports STK Push — tap to trigger an M-Pesa prompt directly to your phone without opening the M-Pesa menu.
                 </p>
               </div>
             </div>
+            
           </div>
         </div>
       </section>
 
       {/* ── BUILDING AMENITIES ───────────────────────────────── */}
-      <section style={{ background: '#0f0f0f', padding: '80px 40px', borderTop: '1px solid rgba(242,237,228,.05)' }}>
-        <div style={{ maxWidth: 1100, margin: '0 auto' }}>
-          <div style={{ textAlign: 'center', marginBottom: 52 }}>
-            <div className="sec-label">What's Included</div>
-            <div className="gold-line-center" />
-            <h2 style={{ fontSize: 'clamp(24px, 2.5vw, 36px)', fontWeight: 300 }}>
-              Building <em style={{ color: '#c9a96e' }}>Facilities</em>
+      <section style={{ backgroundColor: '#fafffa', padding: '120px 50px', fontFamily: "'TWK Lausanne', 'Inter', ui-sans-serif, system-ui, sans-serif" }}>
+        <div style={{ maxWidth: '1440px', margin: '0 auto' }}>
+          
+          <div style={{ marginBottom: '80px' }}>
+            <div style={{ width: '50px', height: '2px', backgroundColor: '#ff5a36', marginBottom: '45px' }} />
+            <div style={{ fontSize: '11px', fontWeight: 350, textTransform: 'uppercase', letterSpacing: '0.11px', color: '#516254', marginBottom: '20px' }}>
+              What's Included
+            </div>
+            <h2 style={{ 
+              fontFamily: "'Editorial New', 'Playfair Display', 'Canela', serif", 
+              fontSize: 'clamp(50px, 6vw, 80px)', 
+              fontWeight: 300, 
+              lineHeight: 0.90, 
+              letterSpacing: '-0.02em', 
+              color: '#121613', 
+              margin: 0 
+            }}>
+              Building Facilities.
             </h2>
           </div>
-          <div className="amen-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: 10 }}>
+
+          <div className="amen-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '60px 40px' }}>
             {[
               { icon: Wifi, label: 'High-Speed WiFi', desc: 'Fibre connection in all units' },
               { icon: Car, label: 'Secure Parking', desc: 'Controlled access parking bay' },
@@ -1135,13 +918,13 @@ export default function Home() {
               { icon: Wifi, label: 'Water Supply', desc: 'Consistent water, storage tanks' },
               { icon: CheckCircle, label: 'Digital Management', desc: 'Everything handled through the app' },
             ].map(({ icon: Icon, label, desc }) => (
-              <div key={label} className="amen-item">
-                <div style={{ width: 38, height: 38, background: 'rgba(201,169,110,.08)', border: '1px solid rgba(201,169,110,.18)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                  <Icon size={16} color="#c9a96e" />
+              <div key={label} style={{ display: 'flex', alignItems: 'flex-start', gap: '20px' }}>
+                <div style={{ width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                  <Icon size={24} color="#121613" strokeWidth={1.5} />
                 </div>
                 <div>
-                  <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 13, fontWeight: 600, color: '#f2ede4' }}>{label}</div>
-                  <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, color: 'rgba(242,237,228,.4)', marginTop: 2 }}>{desc}</div>
+                  <div style={{ fontSize: '16px', fontWeight: 500, color: '#121613', marginBottom: '8px' }}>{label}</div>
+                  <div style={{ fontSize: '14px', color: '#516254', lineHeight: 1.4 }}>{desc}</div>
                 </div>
               </div>
             ))}
@@ -1150,29 +933,54 @@ export default function Home() {
       </section>
 
       {/* ── TESTIMONIALS ─────────────────────────────────────── */}
-      <section style={{ background: '#0a0a0a', padding: '100px 40px' }}>
-        <div style={{ maxWidth: 1100, margin: '0 auto' }}>
-          <div style={{ marginBottom: 64 }}>
-            <div className="sec-label">From Our Residents</div>
-            <div className="gold-line" />
-            <h2 style={{ fontSize: 'clamp(28px, 3.5vw, 48px)', fontWeight: 300 }}>
-              What Tenants<br /><em style={{ color: '#c9a96e' }}>Are Saying</em>
+      <section style={{ backgroundColor: '#fafffa', padding: '120px 50px', fontFamily: "'TWK Lausanne', 'Inter', ui-sans-serif, system-ui, sans-serif" }}>
+        <div style={{ maxWidth: '1440px', margin: '0 auto' }}>
+          
+          <div style={{ marginBottom: '100px' }}>
+            <div style={{ width: '50px', height: '2px', backgroundColor: '#ff5a36', marginBottom: '45px' }} />
+            <div style={{ fontSize: '11px', fontWeight: 350, textTransform: 'uppercase', letterSpacing: '0.11px', color: '#516254', marginBottom: '20px' }}>
+              From Our Residents
+            </div>
+            <h2 style={{ 
+              fontFamily: "'Editorial New', 'Playfair Display', 'Canela', serif", 
+              fontSize: 'clamp(60px, 8vw, 96px)', 
+              fontWeight: 300, 
+              lineHeight: 0.90, 
+              letterSpacing: '-0.02em', 
+              color: '#121613', 
+              margin: 0 
+            }}>
+              What Tenants<br />Are Saying.
             </h2>
           </div>
-          <div className="testi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 24 }}>
-            {testimonials.map(t => (
-              <div key={t.name} className="testi-card">
-                <div style={{ display: 'flex', gap: 3, marginBottom: 24 }}>
-                  {[...Array(t.rating)].map((_, i) => <Star key={i} size={13} fill="#c9a96e" color="#c9a96e" />)}
-                </div>
-                <p style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 18, fontWeight: 300, lineHeight: 1.7, color: 'rgba(242,237,228,.8)', marginBottom: 28, fontStyle: 'italic' }}>
+
+          <div className="testi-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '60px' }}>
+            {testimonials.map((t, idx) => (
+              <div key={t.name} style={{ display: 'flex', flexDirection: 'column' }}>
+                <p style={{ 
+                  fontFamily: "'Editorial New', 'Playfair Display', serif", 
+                  fontSize: '24px', 
+                  fontWeight: 400, 
+                  lineHeight: 1.3, 
+                  color: '#121613', 
+                  marginBottom: '30px', 
+                  fontStyle: 'italic' 
+                }}>
                   "{t.text}"
                 </p>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, borderTop: '1px solid rgba(242,237,228,.07)', paddingTop: 20 }}>
-                  <div style={{ width: 40, height: 40, background: 'rgba(201,169,110,.1)', border: '1px solid rgba(201,169,110,.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: "'DM Sans', sans-serif", fontSize: 12, fontWeight: 600, color: '#c9a96e', flexShrink: 0 }}>{t.avatar}</div>
+                
+                <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', gap: '16px' }}>
+                  <div style={{ 
+                    width: '48px', height: '48px', 
+                    backgroundColor: '#eef2ef', 
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', 
+                    fontSize: '14px', fontWeight: 500, color: '#121613' 
+                  }}>
+                    {t.avatar}
+                  </div>
                   <div>
-                    <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 13, fontWeight: 600, color: '#f2ede4' }}>{t.name}</div>
-                    <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 10, color: 'rgba(242,237,228,.38)', marginTop: 2, letterSpacing: '.04em' }}>{t.role}</div>
+                    <div style={{ fontSize: '14px', fontWeight: 500, color: '#121613' }}>{t.name}</div>
+                    <div style={{ fontSize: '12px', color: '#516254', marginTop: '2px' }}>{t.role}</div>
                   </div>
                 </div>
               </div>
@@ -1182,40 +990,102 @@ export default function Home() {
       </section>
 
       {/* ── CTA ─────────────────────────────────────────────── */}
-      <section style={{ position: 'relative', overflow: 'hidden', padding: '100px 40px' }}>
-        <div style={{ position: 'absolute', inset: 0, backgroundImage: 'url(https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?q=80&w=2072)', backgroundSize: 'cover', backgroundPosition: 'center' }} />
-        <div style={{ position: 'absolute', inset: 0, background: 'rgba(10,10,10,.88)' }} />
-        <div style={{ position: 'relative', maxWidth: 680, margin: '0 auto', textAlign: 'center' }}>
-          <div className="sec-label" style={{ marginBottom: 16 }}>Ready to Get Started</div>
-          <div className="gold-line-center" />
-          <h2 style={{ fontSize: 'clamp(28px, 4vw, 52px)', fontWeight: 300, marginBottom: 20, lineHeight: 1.15 }}>
-            Your Property Management<br /><em style={{ color: '#c9a96e' }}>Dashboard Awaits</em>
+      <section style={{ backgroundColor: '#fafffa', padding: '150px 50px', borderTop: '1px solid #eef2ef', borderBottom: '1px solid #eef2ef', fontFamily: "'TWK Lausanne', 'Inter', ui-sans-serif, system-ui, sans-serif" }}>
+        <div style={{ maxWidth: '800px', margin: '0 auto', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          
+          <div style={{ width: '2px', height: '50px', backgroundColor: '#ff5a36', marginBottom: '45px' }} />
+          
+          <div style={{ fontSize: '11px', fontWeight: 350, textTransform: 'uppercase', letterSpacing: '0.11px', color: '#516254', marginBottom: '20px' }}>
+            Ready to Get Started
+          </div>
+          
+          <h2 style={{ 
+            fontFamily: "'Editorial New', 'Playfair Display', 'Canela', serif", 
+            fontSize: 'clamp(50px, 6vw, 80px)', 
+            fontWeight: 300, 
+            lineHeight: 0.90, 
+            letterSpacing: '-0.02em', 
+            color: '#121613', 
+            marginBottom: '30px'
+          }}>
+            Your Dashboard Awaits.
           </h2>
-          <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 15, color: 'rgba(242,237,228,.55)', marginBottom: 44, lineHeight: 1.8 }}>
+          
+          <p style={{ fontSize: '16px', color: '#516254', marginBottom: '50px', lineHeight: 1.5, maxWidth: '500px' }}>
             If you are a resident at LEA Executive Residency, log in to access your full tenant dashboard. New residents are registered by management.
           </p>
-          <div style={{ display: 'flex', gap: 14, justifyContent: 'center', flexWrap: 'wrap' }}>
-            <button className="btn-gold" onClick={() => router.push('/login')}>Tenant Login <ArrowRight size={14} /></button>
-            <button className="btn-outline" onClick={() => router.push('/contact')}> Contact Management</button>
+          
+          <div style={{ display: 'flex', gap: '20px', justifyContent: 'center', flexWrap: 'wrap' }}>
+            <button onClick={() => router.push('/login')} style={{
+              padding: '20px 50px',
+          fontSize: 14,
+          fontFamily: "'DM Sans', sans-serif",
+           // Koala Orange (change to #c9a96e to keep your original gold)
+          color: '#ff5a36',
+          border: '1px solid #ff5a36',
+          borderRadius: 999, // Pill shape for button
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+          fontWeight: 550,
+          textTransform: 'uppercase',
+          letterSpacing: '0.01em',
+          cursor: 'pointer',
+
+          transition: 'transform 0.2s ease'
+            }}>
+              Tenant Login <span>→</span>
+            </button>
+            <button onClick={() => router.push('/contact')} style={{
+              padding: '20px 50px',
+          fontSize: 14,
+          fontFamily: "'DM Sans', sans-serif",
+          background: '#ff5a36', // Koala Orange (change to #c9a96e to keep your original gold)
+          color: '#fff',
+          border: 'none',
+          borderRadius: 999, // Pill shape for button
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+          fontWeight: 550,
+          textTransform: 'uppercase',
+          letterSpacing: '0.01em',
+          cursor: 'pointer',
+
+          transition: 'transform 0.2s ease'
+            }}>
+              Contact Management
+            </button>
           </div>
         </div>
       </section>
 
       {/* ── GALLERY ─────────────────────────────────────────── */}
-      <section id="gallery" style={{ background: '#0a0a0a', padding: '100px 40px 80px' }}>
-        <div style={{ maxWidth: 1200, margin: '0 auto' }}>
-          <div className="fade-up">
-            <div className="sec-label" style={{ marginBottom: 16 }}>Property Gallery</div>
-            <div className="gold-line-center" />
-            <h2 style={{ fontSize: 'clamp(32px, 4vw, 56px)', fontWeight: 300, marginBottom: 16, lineHeight: 1.15 }}>
-              Virtual Tours of <em style={{ color: '#c9a96e' }}>LEA Executive</em>
+      <section id="gallery" style={{ backgroundColor: '#fafffa', padding: '120px 50px', fontFamily: "'TWK Lausanne', 'Inter', ui-sans-serif, system-ui, sans-serif" }}>
+        <div style={{ maxWidth: '1440px', margin: '0 auto' }}>
+          
+          <div style={{ marginBottom: '100px' }}>
+            <div style={{ width: '50px', height: '2px', backgroundColor: '#ff5a36', marginBottom: '45px' }} />
+            <div style={{ fontSize: '11px', fontWeight: 350, textTransform: 'uppercase', letterSpacing: '0.11px', color: '#516254', marginBottom: '20px' }}>
+              Property Gallery
+            </div>
+            <h2 style={{ 
+              fontFamily: "'Editorial New', 'Playfair Display', 'Canela', serif", 
+              fontSize: 'clamp(60px, 8vw, 96px)', 
+              fontWeight: 300, 
+              lineHeight: 0.90, 
+              letterSpacing: '-0.02em', 
+              color: '#121613', 
+              marginBottom: '30px'
+            }}>
+              Virtual Tours.
             </h2>
-            <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 16, color: 'rgba(242,237,228,.6)', marginBottom: 60, lineHeight: 1.8, maxWidth: 600 }}>
+            <p style={{ fontSize: '16px', color: '#516254', lineHeight: 1.5, maxWidth: '600px', margin: 0 }}>
               Take a virtual tour through our luxury residences. Experience the modern living spaces, premium amenities, and elegant design that make LEA Executive the perfect place to call home.
             </p>
           </div>
 
-          <div className="gallery-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 24 }}>
+          <div className="gallery-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '40px' }}>
             {[
               { img: IMAGES[0], title: 'Modern Living Room', desc: 'Spacious living area with premium furnishings and city views' },
               { img: IMAGES[1], title: 'Executive Kitchen', desc: 'State-of-the-art kitchen with high-end appliances' },
@@ -1224,96 +1094,121 @@ export default function Home() {
               { img: IMAGES[4], title: 'Rooftop Terrace', desc: 'Private rooftop with panoramic views and outdoor seating' },
               { img: IMAGES[5], title: 'Fitness Center', desc: 'Fully equipped gym facilities for resident wellness' }
             ].map((item, i) => (
-              <div key={i} className="gallery-item fade-up" style={{
-                position: 'relative', overflow: 'hidden', borderRadius: 12, cursor: 'pointer',
-                transition: 'transform .3s ease, box-shadow .3s ease',
-                animationDelay: `${i * 0.1}s`
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = 'scale(1.02)';
-                e.currentTarget.style.boxShadow = '0 20px 40px rgba(201,169,110,.15)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'scale(1)';
-                e.currentTarget.style.boxShadow = 'none';
-              }}
-              onClick={() => {
-                // Open modal or navigate to full gallery
-                const modal = document.createElement('div');
-                modal.style.position = 'fixed';
-                modal.style.inset = '0';
-                modal.style.background = 'rgba(0,0,0,0.9)';
-                modal.style.zIndex = '10000';
-                modal.style.display = 'flex';
-                modal.style.alignItems = 'center';
-                modal.style.justifyContent = 'center';
-                modal.innerHTML = `
-                  <div style="position: relative; max-width: 90vw; max-height: 90vh;">
-                    <img src="${item.img}" style="max-width: 100%; max-height: 100%; border-radius: 8px;" />
-                    <button onclick="this.parentElement.parentElement.remove()" style="position: absolute; top: -40px; right: 0; background: none; border: none; color: white; font-size: 24px; cursor: pointer;">×</button>
-                    <div style="position: absolute; bottom: 0; left: 0; right: 0; background: linear-gradient(to top, rgba(0,0,0,0.8), transparent); padding: 20px; border-radius: 0 0 8px 8px;">
-                      <h3 style="color: white; font-size: 24px; margin: 0 0 8px 0;">${item.title}</h3>
-                      <p style="color: rgba(255,255,255,0.8); margin: 0;">${item.desc}</p>
+              <div key={i} style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column', gap: '16px' }}
+                onClick={() => {
+                  const modal = document.createElement('div');
+                  modal.style.position = 'fixed';
+                  modal.style.inset = '0';
+                  modal.style.background = 'rgba(18,22,19,0.95)';
+                  modal.style.zIndex = '10000';
+                  modal.style.display = 'flex';
+                  modal.style.alignItems = 'center';
+                  modal.style.justifyContent = 'center';
+                  modal.innerHTML = `
+                    <div style="position: relative; max-width: 90vw; max-height: 90vh;">
+                      <img src="${item.img}" style="max-width: 100%; max-height: 100%;" />
+                      <button onclick="this.parentElement.parentElement.remove()" style="position: absolute; top: -50px; right: 0; background: none; border: none; color: #fafffa; font-size: 32px; cursor: pointer; font-weight: 300;">×</button>
+                      <div style="margin-top: 16px; text-align: left;">
+                        <h3 style="color: #fafffa; font-family: 'Editorial New', serif; font-size: 24px; font-weight: 300; margin: 0 0 8px 0;">${item.title}</h3>
+                        <p style="color: #c8d2c8; font-family: 'TWK Lausanne', sans-serif; font-size: 14px; margin: 0;">${item.desc}</p>
+                      </div>
                     </div>
-                  </div>
-                `;
-                document.body.appendChild(modal);
-                modal.onclick = (e) => {
-                  if (e.target === modal) modal.remove();
-                };
-              }}>
-                <div style={{ height: 250, overflow: 'hidden' }}>
-                  <img src={item.img} alt={item.title} style={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'transform .3s ease' }}
-                    onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
-                    onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'} />
+                  `;
+                  document.body.appendChild(modal);
+                  modal.onclick = (e) => { if (e.target === modal) modal.remove(); };
+                }}>
+                
+                <div style={{ height: '300px', overflow: 'hidden' }}>
+                  <img src={item.img} alt={item.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                 </div>
-                <div style={{ padding: 20, background: 'rgba(242,237,228,.02)', borderTop: '1px solid rgba(242,237,228,.05)' }}>
-                  <h3 style={{ fontSize: 18, fontWeight: 500, color: '#f2ede4', marginBottom: 8 }}>{item.title}</h3>
-                  <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 14, color: 'rgba(242,237,228,.5)', lineHeight: 1.5 }}>{item.desc}</p>
+                <div>
+                  <h3 style={{ fontSize: '16px', fontWeight: 500, color: '#121613', margin: '0 0 4px 0' }}>{item.title}</h3>
+                  <p style={{ fontSize: '14px', color: '#516254', margin: 0 }}>{item.desc}</p>
                 </div>
               </div>
             ))}
           </div>
 
-          <div style={{ textAlign: 'center', display:'flex', marginTop: 60, gap:14, alignItems:'center', justifyContent:'center' }}>
-            <button className="btn-gold" onClick={() => router.push('/viewing')} style={{ padding: '14px 28px' }}>
-              Schedule a Viewing <ArrowRight size={14} />
+          <div style={{ marginTop: '80px', display: 'flex', gap: '20px', alignItems: 'center' }}>
+            <button onClick={() => router.push('/viewing')} style={{
+               padding: '20px 50px',
+          fontSize: 14,
+          fontFamily: "'DM Sans', sans-serif",
+           // Koala Orange (change to #c9a96e to keep your original gold)
+          color: '#ff5a36',
+          border: '1px solid #ff5a36',
+          borderRadius: 999, // Pill shape for button
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+          fontWeight: 550,
+          textTransform: 'uppercase',
+          letterSpacing: '0.01em',
+          cursor: 'pointer',
+
+          transition: 'transform 0.2s ease'
+            }}>
+              Schedule a Viewing <span>→</span>
             </button>
-            <button className="btn-outline" onClick={() => router.push('/gallery')} style={{ padding: '14px 28px' }}>
-              View More <ArrowRight size={14} />
+            <button onClick={() => router.push('/gallery')} style={{
+             padding: '20px 50px',
+          fontSize: 14,
+          fontFamily: "'DM Sans', sans-serif",
+          background: '#ff5a36', // Koala Orange (change to #c9a96e to keep your original gold)
+          color: '#fff',
+          border: 'none',
+          borderRadius: 999, // Pill shape for button
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+          fontWeight: 550,
+          textTransform: 'uppercase',
+          letterSpacing: '0.01em',
+          cursor: 'pointer',
+
+          transition: 'transform 0.2s ease'
+            }}>
+              View More
             </button>
           </div>
         </div>
       </section>
 
       {/* ── FOOTER ──────────────────────────────────────────── */}
-      <footer id="contact" style={{ background: '#131313', borderTop: '1px solid rgba(242,237,228,.07)', padding: '72px 40px 36px' }}>
-        <div style={{ maxWidth: 1100, margin: '0 auto' }}>
-          <div className="footer-grid" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: 48, marginBottom: 56 }}>
+      <footer id="contact" style={{ backgroundColor: '#fafffa', borderTop: '1px solid #121613', padding: '100px 50px 40px', fontFamily: "'TWK Lausanne', 'Inter', ui-sans-serif, system-ui, sans-serif" }}>
+        <div style={{ maxWidth: '1440px', margin: '0 auto' }}>
+          
+          <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr 1fr', gap: '80px', marginBottom: '100px' }}>
             {/* Brand */}
             <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
-                <div style={{ width: 36, height: 36, border: '1px solid #c9a96e', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <Building2 size={16} color="#c9a96e" />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '24px' }}>
+                <div style={{ width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff', border: "1px solid #ff5a36", borderRadius: '50%' }}>
+                  <Building2 size={20} color="#ff5a36" strokeWidth={1.5} />
                 </div>
                 <div>
-                  <div style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 18, fontWeight: 500, color: '#f2ede4' }}>LEA Executive</div>
-                  <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 9, letterSpacing: '.2em', textTransform: 'uppercase', color: 'rgba(201,169,110,.65)' }}>Residency · Property Management</div>
+                  <div style={{ fontFamily: "'Editorial New', 'Playfair Display', serif", fontSize: '24px', fontWeight: 400, color: '#121613', lineHeight: 1 }}>
+                    LEA Executive
+                  </div>
+                  <div style={{ fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase', color: '#516254', marginTop: '6px' }}>
+                    Residency
+                  </div>
                 </div>
               </div>
-              <p style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 13, color: 'rgba(242,237,228,.4)', lineHeight: 1.8, maxWidth: 280, marginBottom: 24 }}>
+              <p style={{ fontSize: '14px', color: '#516254', lineHeight: 1.5, maxWidth: '320px', marginBottom: '30px' }}>
                 A digital-first residential property in Nairobi. Tenants manage their entire tenancy — rent, requests, communication and documents — from one platform.
               </p>
-              {/* Contact */}
-              {[
-                { icon: <Phone size={12} />, text: '+254 748 333 763' },
-                { icon: <Mail size={12} />, text: 'management@lea-residency.app' },
-                { icon: <MapPin size={12} />, text: 'Nairobi, Kenya' },
-              ].map(({ icon, text }) => (
-                <div key={text} style={{ display: 'flex', alignItems: 'center', gap: 8, fontFamily: "'DM Sans', sans-serif", fontSize: 12, color: 'rgba(242,237,228,.4)', marginBottom: 10 }}>
-                  <span style={{ color: '#c9a96e', display: 'flex' }}>{icon}</span>{text}
-                </div>
-              ))}
+              
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {[
+                  { icon: <Phone size={14} />, text: '+254 748 333 763' },
+                  { icon: <Mail size={14} />, text: 'management@lea-residency.app' },
+                  { icon: <MapPin size={14} />, text: 'Nairobi, Kenya' },
+                ].map(({ icon, text }) => (
+                  <div key={text} style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '14px', color: '#121613' }}>
+                    <span style={{ color: '#ff5a36' }}>{icon}</span> {text}
+                  </div>
+                ))}
+              </div>
             </div>
 
             {/* Columns */}
@@ -1323,22 +1218,33 @@ export default function Home() {
               { title: 'Payments', links: ['STK Push', 'Payment History'] },
             ].map(col => (
               <div key={col.title}>
-                <div style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 10, letterSpacing: '.2em', textTransform: 'uppercase', color: '#c9a96e', marginBottom: 20 }}>{col.title}</div>
-                {col.links.map(link => (
-                  <button key={link} style={{ display: 'block', background: 'none', border: 'none', cursor: 'pointer', fontFamily: "'DM Sans', sans-serif", fontSize: 13, color: 'rgba(242,237,228,.4)', marginBottom: 12, padding: 0, textAlign: 'left', transition: 'color .2s' }}
-                    onMouseOver={e => (e.currentTarget.style.color = '#c9a96e')}
-                    onMouseOut={e => (e.currentTarget.style.color = 'rgba(242,237,228,.4)')}
-                    onClick={() => router.push('/login')}>{link}</button>
-                ))}
+                <div style={{ fontSize: '11px', letterSpacing: '0.11px', textTransform: 'uppercase', color: '#516254', marginBottom: '24px' }}>
+                  {col.title}
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  {col.links.map(link => (
+                    <button key={link} style={{ 
+                      background: 'none', border: 'none', padding: 0, textAlign: 'left', 
+                      fontSize: '14px', color: '#121613', cursor: 'pointer', transition: 'color 0.2s ease'
+                    }}
+                    onMouseOver={e => e.currentTarget.style.color = '#516254'}
+                    onMouseOut={e => e.currentTarget.style.color = '#121613'}
+                    onClick={() => router.push('/login')}>
+                      {link}
+                    </button>
+                  ))}
+                </div>
               </div>
             ))}
           </div>
 
-          <div style={{ borderTop: '1px solid rgba(242,237,228,.07)', paddingTop: 24, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-            <span style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, color: 'rgba(242,237,228,.25)' }}> &copy;  {new Date().getFullYear()} | LEA Executive Residency. All rights reserved.</span>
-            <div style={{ display: 'flex', gap: 20 }}>
+          <div style={{ borderTop: '1px solid #eef2ef', paddingTop: '30px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '20px' }}>
+            <span style={{ fontSize: '12px', color: '#516254' }}>
+              &copy; {new Date().getFullYear()} LEA Executive Residency. All rights reserved.
+            </span>
+            <div style={{ display: 'flex', gap: '30px' }}>
               {['Privacy Policy', 'Terms of Service', 'Tenant Rights'].map(l => (
-                <span key={l} style={{ fontFamily: "'DM Sans', sans-serif", fontSize: 11, color: 'rgba(242,237,228,.25)', cursor: 'pointer' }}>{l}</span>
+                <span key={l} style={{ fontSize: '12px', color: '#516254', cursor: 'pointer' }}>{l}</span>
               ))}
             </div>
           </div>
