@@ -600,11 +600,11 @@ function LoginPageContent() {
           <p className="text-center text-xs text-muted-foreground mt-8">
             By continuing, you agree to LEA Executive's{" "}
             <span className="text-accent cursor-pointer hover:underline">
-              Terms
+             <button onClick={() => router.push('/terms')}>Terms</button>
             </span>
             {" & "}
             <span className="text-accent cursor-pointer hover:underline">
-              Privacy Policy
+             <button onClick={() => router.push('/privacy')}>Privacy Policy</button>
             </span>
           </p>
         </div>
