@@ -464,7 +464,7 @@ export default function Home() {
       lineHeight: 0.90, 
       letterSpacing: '-0.02em',
       color: '#121613', // Obsidian Ink
-      margin: '0  },
+      margin: '0' },
   { label: "Services", sub: "What we offer", path: "services", num: "04" },
   { label: "Contact", sub: "Get in touch", path: "contact", num: "05" },
 ];
