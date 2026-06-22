@@ -5,7 +5,7 @@
   "description": "Professional real estate communication for tenants and landlords",
   "start_url": "/",
   "display": "standalone",
-  "display_override":"standalone",
+  "display_override":["standalone"],
   "background_color": "#ffffff",
   "theme_color": "#000000",
   "orientation": "portrait-primary",
