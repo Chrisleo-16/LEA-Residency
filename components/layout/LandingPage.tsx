@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   Building2,
@@ -72,6 +72,26 @@ export default function Home() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const {startLoading} = useRouteLoader();
 
+  const [isScrolled, setIsScrolled] = useState(false);
+
+useEffect(() => {
+  const handleScroll = () => {
+    if (heroRef.current) {
+      // Gets the exact render height of the hero element in real-time
+      const heroHeight = heroRef.current.offsetHeight;
+      
+      // Triggers the change right as the bottom of the navbar hits the bottom of the hero
+      if (window.scrollY > heroHeight - 80) {
+        setIsScrolled(true);
+      } else {
+        setIsScrolled(false);
+      }
+    }
+  };
+
+  window.addEventListener("scroll", handleScroll);
+  return () => window.removeEventListener("scroll", handleScroll);
+}, []);
   const navLinks = [
     ["How It Works", "howitworks"],
     ["Features", "features"],
@@ -87,7 +107,7 @@ export default function Home() {
 
   const scrollTo = (id: string) =>
     document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
-
+  const heroRef = useRef<HTMLElement>(null);
   const features = [
     {
       icon: MessageSquare,
@@ -463,13 +483,20 @@ export default function Home() {
     justifyContent: "space-between",
     padding: "0 8px 0 24px",
     borderRadius: "20px",
-    boxShadow: "0 4px 20px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04)",
-    border: "1px solid #f0f0f0",
     width: "100%",
     maxWidth: 1000,
-    transition: "all .35s",
+    
+    /* ── THE SPONGE MORPH EFFECT ── */
+    backgroundColor: isScrolled ? "#ffffff" : "rgba(18, 22, 19, 0.35)",
+    backdropFilter: isScrolled ? "blur(0px)" : "blur(16px)",
+    WebkitBackdropFilter: isScrolled ? "blur(0px)" : "blur(16px)",
+    border: isScrolled ? "1px solid #f0f0f0" : "1px solid rgba(255, 255, 255, 0.08)",
+    boxShadow: isScrolled 
+      ? "0 4px 20px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04)" 
+      : "0 4px 30px rgba(0, 0, 0, 0.03)",
+    transition: "background-color 0.5s cubic-bezier(0.4, 0, 0.2, 1), backdrop-filter 0.5s, border-color 0.4s, box-shadow 0.4s",
   }}
-  className="bg-background"
+  className={isScrolled ? "bg-background" : ""}
 >
   {/* Logo / Brand Section */}
   <div
@@ -488,9 +515,10 @@ export default function Home() {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        backgroundColor: "#fff",
-        border: "1px solid #c9a96e",
+        backgroundColor: isScrolled ? "#fff" : "rgba(255, 255, 255, 0.05)",
+        border: isScrolled ? "1px solid #c9a96e" : "1px solid rgba(201, 169, 110, 0.4)",
         borderRadius: "50%",
+        transition: "all 0.4s ease",
       }}
     >
       <Building2 size={16} color="#c9a96e" />
@@ -501,8 +529,9 @@ export default function Home() {
           fontFamily: "'Nunito', serif",
           fontSize: 18,
           fontWeight: 700,
-          color: "#111",
+          color: isScrolled ? "#111" : "#ffffff",
           lineHeight: 1.1,
+          transition: "color 0.4s ease",
         }}
       >
         LEA Executive
@@ -510,7 +539,7 @@ export default function Home() {
     </div>
   </div>
 
-  {/* ✅ FIXED SECTION LINKS */}
+  {/* FIXED SECTION LINKS */}
   <div
     className="hide-mobile"
     style={{ display: "flex", gap: 32, alignItems: "center" }}
@@ -521,11 +550,9 @@ export default function Home() {
         className="nav-btn"
         onClick={() => {
           if (id === "contact") {
-            // Real routing change -> Trigger loader screen
             startLoading("/contact"); 
             router.push("/contact");
           } else {
-            // Internal page scroll -> Skip loader so smooth scroll is visible!
             scrollTo(id); 
           }
         }}
@@ -537,7 +564,8 @@ export default function Home() {
           fontFamily: "'Nunito', sans-serif",
           fontSize: 14,
           fontWeight: 500,
-          color: "#444",
+          color: isScrolled ? "#444" : "#c8d2c8",
+          transition: "color 0.4s ease",
         }}
       >
         {l}
@@ -560,8 +588,9 @@ export default function Home() {
         fontFamily: "'Nunito', sans-serif",
         fontSize: 14,
         fontWeight: 500,
-        color: "#444",
+        color: isScrolled ? "#444" : "#eef2ef",
         padding: "10px 16px",
+        transition: "color 0.4s ease",
       }}
     >
       Login
@@ -586,6 +615,8 @@ export default function Home() {
         alignItems: "center",
         gap: 6,
         cursor: "pointer",
+        boxShadow: isScrolled ? "none" : "0 4px 14px rgba(201, 169, 110, 0.2)",
+        transition: "transform 0.2s ease, box-shadow 0.4s ease",
       }}
     >
       Sign Up <ArrowUpRight size={14} />
@@ -603,9 +634,9 @@ export default function Home() {
       }}
     >
       {isMobileMenuOpen ? (
-        <X size={24} color="#111" />
+        <X size={24} color={isScrolled ? "#111" : "#fff"} style={{ transition: "color 0.4s" }} />
       ) : (
-        <Menu size={24} color="#111" />
+        <Menu size={24} color={isScrolled ? "#111" : "#fff"} style={{ transition: "color 0.4s" }} />
       )}
     </button>
   </div>
@@ -692,6 +723,7 @@ export default function Home() {
       )}
       <section
   className="hero-section"
+  ref={heroRef}
   style={{
     position: "relative",
     minHeight: "100vh",
