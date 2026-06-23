@@ -241,6 +241,8 @@ export default function Home() {
         background: "#0a0a0a",
         color: "#f2ede4",
         minHeight: "100vh",
+        overflowX: "hidden",
+        width: "100%",
       }}
     >
       <style>{`
@@ -248,7 +250,8 @@ export default function Home() {
 
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
         html { scroll-behavior: smooth; }
-        body { background: #0a0a0a; }
+        html, body { background: #0a0a0a; overflow-x: hidden; max-width: 100%; }
+        img, svg { max-width: 100%; }
 
         .nav-btn { font-family: 'Nunito', sans-serif; font-size: 11px; font-weight: 500; letter-spacing: .12em; text-transform: uppercase; background: none; border: none; cursor: pointer; color: rgba(242,237,228,.55); transition: color .2s; padding: 4px 0; }
         .nav-btn:hover { color: #f2ede4; }
@@ -301,12 +304,32 @@ export default function Home() {
         .faq-content { overflow: hidden; max-height: 0; opacity: 0; transition: max-height .38s cubic-bezier(.65,0,.35,1), opacity .28s ease, margin-top .38s ease; margin-top: 0; }
         .faq-row[open] .faq-content { max-height: 280px; opacity: 1; margin-top: 20px; }
 
-        /* ── MOBILE RESPONSIVE (production‑ready, all sections) ──── */
+        /* ── MOBILE / DESKTOP NAV TOGGLE ────────────────────── */
+        @media (min-width: 769px) {
+          .show-mobile { display: none !important; }
+        }
         @media (max-width: 768px) {
           .hide-mobile { display: none !important; }
-          .show-mobile { display: block !important; }
+          .show-mobile { display: flex !important; }
+        }
 
+        /* ── RESPONSIVE TIER 1: TABLET & SMALL LAPTOP (≤1100px) ──── */
+        @media (max-width: 1100px) {
+          section { padding: 100px 40px; }
+          footer { padding: 100px 40px 40px; }
+
+          .hero-title { font-size: clamp(56px, 9vw, 120px) !important; }
+          .hero-image { display: none !important; }
+          .hero-content { margin-left: 6% !important; max-width: 60% !important; }
+
+          .footer-grid { grid-template-columns: 1fr 1fr !important; gap: 60px !important; }
+          .payments-grid { gap: 60px !important; }
+        }
+
+        /* ── RESPONSIVE TIER 2: MOBILE (≤768px) ─────────────────── */
+        @media (max-width: 768px) {
           section { padding: 80px 24px !important; }
+          footer { padding: 60px 24px 32px !important; }
 
           nav {
             width: 100% !important;
@@ -317,21 +340,22 @@ export default function Home() {
             height: 56px !important;
           }
 
-          section[style*="min-height: 100vh"] {
+          .hero-section {
             padding: 100px 24px 60px !important;
             text-align: left;
           }
-          section[style*="min-height: 100vh"] h1 {
+          .hero-title {
             font-size: clamp(40px, 12vw, 56px) !important;
             margin-bottom: 24px !important;
           }
-          section[style*="min-height: 100vh"] div[style*="marginLeft: '15%'"] {
+          .hero-content {
             margin-left: 0 !important;
             max-width: 100% !important;
           }
           .hero-ctas {
             flex-direction: column !important;
             gap: 16px !important;
+            width: 100%;
           }
           .hero-ctas button {
             width: 100% !important;
@@ -339,7 +363,7 @@ export default function Home() {
           }
           .hero-ctas button:last-child { order: -1 !important; }
 
-          section[style*="min-height: 100vh"] div[style*="gap: 80px"] {
+          .hero-stats {
             flex-direction: column !important;
             gap: 24px !important;
             margin-top: 60px !important;
@@ -353,9 +377,7 @@ export default function Home() {
           .tab-grid,
           .how-grid,
           .feat-grid,
-          .amen-grid,
-          .testi-grid,
-          .gallery-grid {
+          .testi-grid {
             grid-template-columns: 1fr !important;
             gap: 32px !important;
           }
@@ -367,87 +389,66 @@ export default function Home() {
           }
           .feat-card h3 { font-size: 24px !important; }
 
-          /* Gallery: images keep aspect ratio, no forced height */
-          .gallery-grid > div > div[style*="height: 300px"] {
-            height: auto !important;
-          }
-          .gallery-grid img {
-            width: 100% !important;
-            height: auto !important;
-          }
-          section[id="gallery"] div[style*="margin-top: 80px"] {
-            flex-direction: column !important;
-            gap: 12px !important;
-          }
-          section[id="gallery"] div[style*="margin-top: 80px"] button {
-            width: 100% !important;
-            justify-content: center !important;
-          }
-
-          section[style*="padding: 150px 50px"] {
-            padding: 80px 24px !important;
-          }
-          section[style*="padding: 150px 50px"] div[style*="gap: 20px"] {
+          .cta-section { padding: 80px 24px !important; }
+          .cta-buttons {
             flex-direction: column !important;
             gap: 12px !important;
             width: 100% !important;
           }
-          section[style*="padding: 150px 50px"] div[style*="gap: 20px"] button {
+          .cta-buttons button {
             width: 100% !important;
             justify-content: center !important;
           }
 
-          section[id="payments"] > div > div {
+          .payments-grid {
             grid-template-columns: 1fr !important;
             gap: 48px !important;
           }
-          section[id="payments"] div[style*="padding: 60px 50px"] {
-            padding: 32px 24px !important;
-          }
+          .payments-card { padding: 32px 24px !important; }
 
-          .faq-row summary { font-size: clamp(18px, 5vw, 22px) !important; padding: 24px 0 !important; }
+          .faq-row summary {
+            font-size: clamp(18px, 5vw, 22px) !important;
+            padding: 24px 0 !important;
+            gap: 12px !important;
+          }
           .faq-content p { padding-left: 0 !important; }
 
           /* Footer – robust, centered, stacked */
-          footer > div > div[style*="grid-template-columns: 2fr 1fr 1fr 1fr"] {
+          .footer-grid {
             grid-template-columns: 1fr !important;
             gap: 40px !important;
             text-align: center !important;
           }
-          footer > div > div[style*="grid-template-columns: 2fr 1fr 1fr 1fr"] > div {
-            text-align: center !important;
-          }
-          footer div[style*="display: flex"][style*="align-items: center"] {
-            justify-content: center !important;
-          }
-          footer > div > div[style*="justify-content: space-between"] {
+          .footer-grid > div { align-items: center !important; }
+          .footer-bottom {
             flex-direction: column !important;
             text-align: center !important;
             gap: 16px !important;
           }
-          footer > div > div[style*="justify-content: space-between"] > div {
-            justify-content: center !important;
-          }
+          .footer-bottom > div { justify-content: center !important; }
         }
 
+        /* ── RESPONSIVE TIER 3: SMALL MOBILE (≤640px) ───────────── */
         @media (max-width: 640px) {
           section { padding: 60px 16px !important; }
-          section[style*="min-height: 100vh"] { padding: 80px 16px 40px !important; }
+          footer { padding: 48px 16px 24px !important; }
+          .hero-section { padding: 80px 16px 40px !important; }
           h2, h1 { font-size: clamp(28px, 10vw, 36px) !important; }
           .feat-card h3 { font-size: 20px !important; }
+          .step-number { font-size: clamp(48px, 16vw, 72px) !important; }
+        }
+
+        /* ── RESPONSIVE TIER 4: EXTRA-SMALL PHONES (≤380px) ─────── */
+        @media (max-width: 380px) {
+          section { padding: 48px 12px !important; }
+          footer { padding: 40px 12px 20px !important; }
+          .hero-section { padding: 64px 12px 32px !important; }
+          h2, h1 { font-size: clamp(24px, 9vw, 30px) !important; }
+          nav { padding: 0 10px !important; }
         }
       `}</style>
-      {/* ── NAV ─────────────────────────────────────────────── */}
-      <style>{`
-  @media (max-width: 768px) {
-    .hide-mobile { display: none !important; }
-    .show-mobile { display: block !important; }
-  }
-  @media (min-width: 769px) {
-    .show-mobile { display: none !important; }
-  }
-`}</style>
 
+      {/* ── NAV ─────────────────────────────────────────────── */}
       <nav
         style={{
           position: "fixed",
@@ -610,6 +611,8 @@ export default function Home() {
             alignItems: "center",
             gap: "32px",
             padding: "24px",
+            overflowY: "auto",
+            boxSizing: "border-box",
           }}
         >
           {navLinks.map(([l, id]) => (
@@ -628,7 +631,7 @@ export default function Home() {
                 border: "none",
                 textAlign: "center",
                 fontFamily: "'Nunito', serif",
-                fontSize: "32px",
+                fontSize: "clamp(24px, 7vw, 32px)",
                 fontWeight: 600,
                 color: "#111",
                 cursor: "pointer",
@@ -637,14 +640,23 @@ export default function Home() {
               {l}
             </button>
           ))}
-          <div style={{ marginTop: "24px" }}>
+          <div
+            style={{
+              marginTop: "24px",
+              width: "100%",
+              display: "flex",
+              justifyContent: "center",
+            }}
+          >
             <button
               onClick={() => {
                 setIsMobileMenuOpen(false);
                 router.push("/login");
               }}
               style={{
-                padding: "16px 150px",
+                padding: "16px 32px",
+                width: "100%",
+                maxWidth: "320px",
                 borderRadius: "999px",
                 background: "#ff5a36",
                 color: "#fff",
@@ -661,6 +673,7 @@ export default function Home() {
         </div>
       )}
       <section
+        className="hero-section"
         style={{
           position: "relative",
           minHeight: "100vh",
@@ -705,7 +718,7 @@ export default function Home() {
             Property Management Platform · Nairobi
           </div>
           <h1
-            className="fade-up fade-up-2"
+            className="fade-up fade-up-2 hero-title"
             style={{
               fontFamily:
                 "'SF Pro Display', 'Helvetica Neue', 'Arial', sans-serif",
@@ -726,7 +739,7 @@ export default function Home() {
             From One App.
           </h1>
           <div
-            className="hide-mobile"
+            className="hero-image"
             style={{
               position: "absolute",
               right: "5%",
@@ -742,6 +755,7 @@ export default function Home() {
             }}
           />
           <div
+            className="hero-content"
             style={{
               display: "flex",
               flexDirection: "column",
@@ -821,6 +835,7 @@ export default function Home() {
             </div>
           </div>
           <div
+            className="hero-stats"
             style={{
               display: "flex",
               gap: "80px",
@@ -1060,9 +1075,10 @@ export default function Home() {
                 }}
               >
                 <div
+                  className="step-number"
                   style={{
                     fontFamily: "'PP Mondwest', 'GT Sectra', serif",
-                    fontSize: "96px",
+                    fontSize: "clamp(56px, 9vw, 96px)",
                     fontWeight: 400,
                     lineHeight: 0.9,
                     color: "#c8d2c8",
@@ -1316,6 +1332,7 @@ export default function Home() {
       >
         <div style={{ maxWidth: "1440px", margin: "0 auto" }}>
           <div
+            className="payments-grid"
             style={{
               display: "grid",
               gridTemplateColumns: "repeat(auto-fit, minmax(450px, 1fr))",
@@ -1431,6 +1448,7 @@ export default function Home() {
               </div>
             </div>
             <div
+              className="payments-card"
               style={{
                 backgroundColor: "#ffffff",
                 border: "1px solid #eef2ef",
@@ -1456,12 +1474,14 @@ export default function Home() {
                     alignItems: "flex-end",
                     justifyContent: "space-between",
                     marginBottom: "16px",
+                    flexWrap: "wrap",
+                    gap: "8px",
                   }}
                 >
                   <span
                     style={{
                       fontFamily: "'Editorial New', serif",
-                      fontSize: "48px",
+                      fontSize: "clamp(32px, 8vw, 48px)",
                       lineHeight: 0.8,
                       color: "#ff5a36",
                     }}
@@ -1523,6 +1543,8 @@ export default function Home() {
                     padding: "16px 0",
                     borderTop:
                       idx === 0 ? "1px solid #121613" : "1px solid #eef2ef",
+                    flexWrap: "wrap",
+                    gap: "8px",
                   }}
                 >
                   <div>
@@ -1594,139 +1616,6 @@ export default function Home() {
           </div>
         </div>
       </section>
-
-      {/* ── BUILDING AMENITIES ───────────────────────────────── */}
-      {/* <section
-        style={{
-          backgroundColor: "#fafffa",
-          padding: "120px 50px",
-          fontFamily:
-            "'TWK Lausanne', 'Inter', ui-sans-serif, system-ui, sans-serif",
-        }}
-      >
-        <div style={{ maxWidth: "1440px", margin: "0 auto" }}>
-          <div style={{ marginBottom: "80px" }}>
-            <div
-              style={{
-                width: "50px",
-                height: "2px",
-                backgroundColor: "#ff5a36",
-                marginBottom: "45px",
-              }}
-            />
-            <div
-              style={{
-                fontSize: "11px",
-                fontWeight: 350,
-                textTransform: "uppercase",
-                letterSpacing: "0.11px",
-                color: "#516254",
-                marginBottom: "20px",
-              }}
-            >
-              What's Included
-            </div>
-            <h2
-              style={{
-                fontFamily:
-                  "'SF Pro Display', 'Helvetica Neue', 'Arial', sans-serif",
-                fontSize: "clamp(50px, 6vw, 80px)",
-                fontWeight: 300,
-                lineHeight: 0.9,
-                letterSpacing: "-0.02em",
-                color: "#121613",
-                margin: 0,
-              }}
-            >
-              Building Facilities.
-            </h2>
-          </div>
-          <div
-            className="amen-grid"
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
-              gap: "60px 40px",
-            }}
-          >
-            {[
-              {
-                icon: Wifi,
-                label: "High-Speed WiFi",
-                desc: "Fibre connection in all units",
-              },
-              {
-                icon: Car,
-                label: "Secure Parking",
-                desc: "Controlled access parking bay",
-              },
-              {
-                icon: Zap,
-                label: "Backup Power",
-                desc: "Generator for power outages",
-              },
-              {
-                icon: Shield,
-                label: "CCTV Security",
-                desc: "24/7 surveillance, controlled gate",
-              },
-              {
-                icon: Wifi,
-                label: "Water Supply",
-                desc: "Consistent water, storage tanks",
-              },
-              {
-                icon: CheckCircle,
-                label: "Digital Management",
-                desc: "Everything handled through the app",
-              },
-            ].map(({ icon: Icon, label, desc }) => (
-              <div
-                key={label}
-                style={{
-                  display: "flex",
-                  alignItems: "flex-start",
-                  gap: "20px",
-                }}
-              >
-                <div
-                  style={{
-                    width: "24px",
-                    height: "24px",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    flexShrink: 0,
-                  }}
-                >
-                  <Icon size={24} color="#121613" strokeWidth={1.5} />
-                </div>
-                <div>
-                  <div
-                    style={{
-                      fontSize: "16px",
-                      fontWeight: 500,
-                      color: "#121613",
-                      marginBottom: "8px",
-                    }}
-                  >
-                    {label}
-                  </div>
-                  <div
-                    style={{
-                      fontSize: "14px",
-                      color: "#516254",
-                      lineHeight: 1.4,
-                    }}
-                  >
-                    {desc}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section> */}
 
       {/* ── TESTIMONIALS ─────────────────────────────────────── */}
       <section
@@ -1854,6 +1743,7 @@ export default function Home() {
 
       {/* ── CTA ─────────────────────────────────────────────── */}
       <section
+        className="cta-section"
         style={{
           backgroundColor: "#fafffa",
           padding: "150px 50px",
@@ -1921,6 +1811,7 @@ export default function Home() {
             management.
           </p>
           <div
+            className="cta-buttons"
             style={{
               display: "flex",
               gap: "20px",
@@ -1975,224 +1866,6 @@ export default function Home() {
           </div>
         </div>
       </section>
-
-      {/* ── GALLERY ─────────────────────────────────────────── */}
-      {/* <section
-        id="gallery"
-        style={{
-          backgroundColor: "#fafffa",
-          padding: "120px 50px",
-          fontFamily:
-            "'TWK Lausanne', 'Inter', ui-sans-serif, system-ui, sans-serif",
-        }}
-      >
-        <div style={{ maxWidth: "1440px", margin: "0 auto" }}>
-          <div style={{ marginBottom: "100px" }}>
-            <div
-              style={{
-                width: "50px",
-                height: "2px",
-                backgroundColor: "#ff5a36",
-                marginBottom: "45px",
-              }}
-            />
-            <div
-              style={{
-                fontSize: "11px",
-                fontWeight: 350,
-                textTransform: "uppercase",
-                letterSpacing: "0.11px",
-                color: "#516254",
-                marginBottom: "20px",
-              }}
-            >
-              Property Gallery
-            </div>
-            <h2
-              style={{
-                fontFamily:
-                  "'SF Pro Display', 'Helvetica Neue', 'Arial', sans-serif",
-                fontSize: "clamp(60px, 8vw, 96px)",
-                fontWeight: 300,
-                lineHeight: 0.9,
-                letterSpacing: "-0.02em",
-                color: "#121613",
-                marginBottom: "30px",
-              }}
-            >
-              Virtual Tours.
-            </h2>
-            <p
-              style={{
-                fontSize: "16px",
-                color: "#516254",
-                lineHeight: 1.5,
-                maxWidth: "600px",
-                margin: 0,
-              }}
-            >
-              Take a virtual tour through our luxury residences. Experience the
-              modern living spaces, premium amenities, and elegant design that
-              make LEA Executive the perfect place to call home.
-            </p>
-          </div>
-          <div
-            className="gallery-grid"
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(400px, 1fr))",
-              gap: "40px",
-            }}
-          >
-            {[
-              {
-                img: IMAGES[0],
-                title: "Modern Living Room",
-                desc: "Spacious living area with premium furnishings and city views",
-              },
-              {
-                img: IMAGES[1],
-                title: "Executive Kitchen",
-                desc: "State-of-the-art kitchen with high-end appliances",
-              },
-              {
-                img: IMAGES[2],
-                title: "Master Bedroom",
-                desc: "Elegant master suite with premium bedding and ample storage",
-              },
-              {
-                img: IMAGES[3],
-                title: "Spa Bathroom",
-                desc: "Luxurious bathroom with marble finishes and modern fixtures",
-              },
-              {
-                img: IMAGES[4],
-                title: "Rooftop Terrace",
-                desc: "Private rooftop with panoramic views and outdoor seating",
-              },
-              {
-                img: IMAGES[5],
-                title: "Fitness Center",
-                desc: "Fully equipped gym facilities for resident wellness",
-              },
-            ].map((item, i) => (
-              <div
-                key={i}
-                style={{
-                  cursor: "pointer",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "16px",
-                }}
-                onClick={() => {
-                  const modal = document.createElement("div");
-                  modal.style.position = "fixed";
-                  modal.style.inset = "0";
-                  modal.style.background = "rgba(18,22,19,0.95)";
-                  modal.style.zIndex = "10000";
-                  modal.style.display = "flex";
-                  modal.style.alignItems = "center";
-                  modal.style.justifyContent = "center";
-                  modal.innerHTML = `
-              <div style="position: relative; max-width: 90vw; max-height: 90vh;">
-                <img src="${item.img}" style="max-width: 100%; max-height: 100%;" />
-                <button onclick="this.parentElement.parentElement.remove()" style="position: absolute; top: -50px; right: 0; background: none; border: none; color: #fafffa; font-size: 32px; cursor: pointer; font-weight: 300;">×</button>
-                <div style="margin-top: 16px; text-align: left;">
-                  <h3 style="color: #fafffa; font-family: 'Editorial New', serif; font-size: 24px; font-weight: 300; margin: 0 0 8px 0;">${item.title}</h3>
-                  <p style="color: #c8d2c8; font-family: 'TWK Lausanne', sans-serif; font-size: 14px; margin: 0;">${item.desc}</p>
-                </div>
-              </div>
-            `;
-                  document.body.appendChild(modal);
-                  modal.onclick = (e) => {
-                    if (e.target === modal) modal.remove();
-                  };
-                }}
-              >
-                <div style={{ height: "300px", overflow: "hidden" }}>
-                  <img
-                    src={item.img}
-                    alt={item.title}
-                    style={{
-                      width: "100%",
-                      height: "100%",
-                      objectFit: "cover",
-                    }}
-                  />
-                </div>
-                <div>
-                  <h3
-                    style={{
-                      fontSize: "16px",
-                      fontWeight: 500,
-                      color: "#121613",
-                      margin: "0 0 4px 0",
-                    }}
-                  >
-                    {item.title}
-                  </h3>
-                  <p style={{ fontSize: "14px", color: "#516254", margin: 0 }}>
-                    {item.desc}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-          <div
-            style={{
-              marginTop: "80px",
-              display: "flex",
-              gap: "20px",
-              alignItems: "center",
-            }}
-          >
-            <button
-              onClick={() => router.push("/viewing")}
-              style={{
-                padding: "20px 50px",
-                fontSize: 14,
-                fontFamily: "'Nunito', sans-serif",
-                color: "#ff5a36",
-                border: "1px solid #ff5a36",
-                borderRadius: 999,
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                fontWeight: 550,
-                textTransform: "uppercase",
-                letterSpacing: "0.01em",
-                cursor: "pointer",
-                transition: "transform 0.2s ease",
-                background: "transparent",
-              }}
-            >
-              Schedule a Viewing <span>→</span>
-            </button>
-            <button
-              onClick={() => router.push("/gallery")}
-              style={{
-                padding: "20px 50px",
-                fontSize: 14,
-                fontFamily: "'Nunito', sans-serif",
-                background: "#ff5a36",
-                color: "#fff",
-                border: "none",
-                borderRadius: 999,
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                fontWeight: 550,
-                textTransform: "uppercase",
-                letterSpacing: "0.01em",
-                cursor: "pointer",
-                transition: "transform 0.2s ease",
-              }}
-            >
-              View More
-            </button>
-          </div>
-        </div>
-      </section> */}
 
       {/* ── FAQ ───────────────────────────────────────────────── */}
       <section
@@ -2404,6 +2077,7 @@ export default function Home() {
       >
         <div style={{ maxWidth: "1440px", margin: "0 auto" }}>
           <div
+            className="footer-grid"
             style={{
               display: "grid",
               gridTemplateColumns: "2fr 1fr 1fr 1fr",
@@ -2572,6 +2246,7 @@ export default function Home() {
             ))}
           </div>
           <div
+            className="footer-bottom"
             style={{
               borderTop: "1px solid #eef2ef",
               paddingTop: "30px",
@@ -2587,30 +2262,32 @@ export default function Home() {
               rights reserved.
             </span>
             <div style={{ display: "flex", gap: "30px" }}>
-  {["Privacy Policy", "Terms of Service", "Tenant Rights"].map((label) => {
-    const routeMap: Record<string, string> = {
-      "Privacy Policy": "/privacy",
-      "Terms of Service": "/terms",
-      "Tenant Rights": "/tenant-rights",
-    };
-    return (
-      <button
-        key={label}
-        onClick={() => router.push(routeMap[label])}
-        style={{
-          fontSize: "12px",
-          color: "#516254",
-          cursor: "pointer",
-          background: "none",
-          border: "none",
-          padding: 0,
-        }}
-      >
-        {label}
-      </button>
-    );
-  })}
-</div>
+              {["Privacy Policy", "Terms of Service", "Tenant Rights"].map(
+                (label) => {
+                  const routeMap: Record<string, string> = {
+                    "Privacy Policy": "/privacy",
+                    "Terms of Service": "/terms",
+                    "Tenant Rights": "/tenant-rights",
+                  };
+                  return (
+                    <button
+                      key={label}
+                      onClick={() => router.push(routeMap[label])}
+                      style={{
+                        fontSize: "12px",
+                        color: "#516254",
+                        cursor: "pointer",
+                        background: "none",
+                        border: "none",
+                        padding: 0,
+                      }}
+                    >
+                      {label}
+                    </button>
+                  );
+                },
+              )}
+            </div>
           </div>
         </div>
       </footer>
