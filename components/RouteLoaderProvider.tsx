@@ -1,13 +1,13 @@
 'use client'
 
-import { createContext, useContext, useEffect, useState, useRef } from 'react'
+import { createContext, useContext, useEffect, useState, useRef, Suspense } from 'react'
 import { usePathname, useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
 import Loader from './Loader'
 
 interface RouteLoaderContextType {
   startLoading: () => void
-  stopLoading: () => void // ✅ Added so you can manually dismiss it
+  stopLoading: () => void
 }
 
 const RouteLoaderContext = createContext<RouteLoaderContextType | null>(null)
@@ -25,12 +25,6 @@ const SLOW_CONNECTION_MS = 6000 // warn about connectivity if not landed
 
 export default function RouteLoaderProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(false)
-  const pathname = usePathname()
-  const searchParams = useSearchParams() // ✅ Added to detect query string changes
-
-  // Track the full URL (path + queries)
-  const fullUrl = `${pathname}?${searchParams.toString()}`
-  const prevUrl = useRef(fullUrl)
   
   const minTimeElapsed = useRef(false)
   const navigationLanded = useRef(false)
@@ -48,22 +42,11 @@ export default function RouteLoaderProvider({ children }: { children: React.Reac
     }
   }
 
-  // ✅ Allows manual dismissal when just swapping components without URL changes
   const stopLoading = () => {
     navigationLanded.current = true
     if (slowConnectionTimer.current) clearTimeout(slowConnectionTimer.current)
     maybeStopLoading()
   }
-
-  // Route OR Query actually changed
-  useEffect(() => {
-    if (prevUrl.current !== fullUrl) {
-      prevUrl.current = fullUrl
-      navigationLanded.current = true
-      if (slowConnectionTimer.current) clearTimeout(slowConnectionTimer.current)
-      maybeStopLoading()
-    }
-  }, [fullUrl])
 
   const startLoading = () => {
     clearTimers()
@@ -91,8 +74,36 @@ export default function RouteLoaderProvider({ children }: { children: React.Reac
 
   return (
     <RouteLoaderContext.Provider value={{ startLoading, stopLoading }}>
+      {/* ✅ Moving URL listening into a Suspense-wrapped sub-component 
+        fixes the static prerendering error for /_not-found 
+      */}
+      <Suspense fallback={null}>
+        <UrlNavigationListener onRouteComplete={stopLoading} />
+      </Suspense>
+      
       {children}
       {loading && <Loader mode="overlay" shape="circle" />}
     </RouteLoaderContext.Provider>
   )
+}
+
+/**
+ * Sub-component safely isolated with Suspense boundary 
+ * to monitor router events without breaking static site generation.
+ */
+function UrlNavigationListener({ onRouteComplete }: { onRouteComplete: () => void }) {
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  
+  const fullUrl = `${pathname}?${searchParams.toString()}`
+  const prevUrl = useRef(fullUrl)
+
+  useEffect(() => {
+    if (prevUrl.current !== fullUrl) {
+      prevUrl.current = fullUrl
+      onRouteComplete()
+    }
+  }, [fullUrl, onRouteComplete])
+
+  return null
 }
