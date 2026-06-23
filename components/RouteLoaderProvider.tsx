@@ -23,7 +23,7 @@ export function useRouteLoader() {
 
 // 💡 TIP: Reduce this number (e.g., to 1000 or 1500) if you feel 
 // the loader stays on screen too long during normal page hops!
-const MIN_DISPLAY_MS = 2000   
+const MIN_DISPLAY_MS = 955   
 const SLOW_CONNECTION_MS = 6000 
 
 export default function RouteLoaderProvider({ children }: { children: React.ReactNode }) {
