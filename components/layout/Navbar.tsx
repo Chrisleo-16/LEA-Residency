@@ -36,8 +36,8 @@ export default function Navbar() {
           </button>
           
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }} onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
-            <div style={{ width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff', border: "1px solid #ff5a36", borderRadius: '50%' }}>
-              <Building2 size={16} color="#ff5a36" />
+            <div style={{ width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff', border: "1px solid #c9a96e", borderRadius: '50%' }}>
+              <Building2 size={16} color="#c9a96e" />
             </div>
             <span style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: 18, fontWeight: 600 }}>LEA</span>
           </div>
@@ -55,7 +55,7 @@ export default function Navbar() {
         {/* RIGHT: Actions */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <button className="hide-mobile" onClick={() => router.push('/login')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: 14, fontWeight: 500 }}>Login</button>
-          <button onClick={() => router.push('/login')} style={{ padding: '8px 16px', borderRadius: 999, background: '#ff5a36', color: '#fff', border: 'none', display: 'flex', alignItems: 'center', gap: 6, fontSize: 14, cursor: 'pointer' }}>
+          <button onClick={() => router.push('/login')} style={{ padding: '8px 16px', borderRadius: 999, background: '#c9a96e', color: '#fff', border: 'none', display: 'flex', alignItems: 'center', gap: 6, fontSize: 14, cursor: 'pointer' }}>
             Sign Up <ArrowUpRight size={14} />
           </button>
         </div>

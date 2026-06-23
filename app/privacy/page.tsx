@@ -2,10 +2,12 @@
 
 import { useRouter } from 'next/navigation'
 import { ArrowLeft, Download } from 'lucide-react'
+import { useRouteLoader } from '@/components/RouteLoaderProvider'
 
 export default function PrivacyPolicy() {
   const router = useRouter()
   const lastUpdated = 'June 22, 2026'
+  const {startLoading} = useRouteLoader();
 
   const sections = [
     {
@@ -125,14 +127,14 @@ export default function PrivacyPolicy() {
           onClick={() => window.open('/legal/lea-executive-privacy-policy.pdf', '_blank')}
           style={{
             display: 'flex', alignItems: 'center', gap: 8, padding: '10px 20px', borderRadius: 999,
-            background: '#ff5a36', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 550,
+            background: '#c9a96e', color: '#fff', border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 550,
           }}>
           <Download size={14} /> Download PDF
         </button>
       </div>
 
       <div style={{ maxWidth: 800, margin: '0 auto', padding: '80px 32px 140px' }}>
-        <div style={{ width: 50, height: 2, backgroundColor: '#ff5a36', marginBottom: 32 }} />
+        <div style={{ width: 50, height: 2, backgroundColor: '#c9a96e', marginBottom: 32 }} />
         <div style={{ fontSize: 11, fontWeight: 350, textTransform: 'uppercase', letterSpacing: '0.11px', color: '#516254', marginBottom: 20 }}>
           Last updated {lastUpdated}
         </div>
@@ -158,7 +160,7 @@ export default function PrivacyPolicy() {
         ))}
 
         <div style={{ marginTop: 80, paddingTop: 32, borderTop: '1px solid #eef2ef', display: 'flex', gap: 16, flexWrap: 'wrap' }}>
-          <button onClick={() => router.push('/terms')} style={{ fontSize: 14, color: '#ff5a36', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: 4 }}>
+          <button onClick={() =>{ startLoading(); router.push('/terms')}} style={{ fontSize: 14, color: '#c9a96e', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: 4 }}>
             Read the Terms & Conditions →
           </button>
         </div>

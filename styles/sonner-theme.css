@@ -1,0 +1,28 @@
+/* styles/sonner-theme.css */
+/* Import this globally too, alongside loader.css:
+   @import './sonner-theme.css'; */
+
+.lea-toast-title {
+  font-weight: 600;
+  color: #121613;
+}
+
+.lea-toast-description {
+  color: #516254;
+  font-size: 13px;
+}
+
+/* Warning toast (used for the "check your connection" message) —
+   voltage-orange left border, matches your brand accent rather
+   than a generic yellow */
+[data-sonner-toast][data-type='warning'] {
+  border-left: 3px solid #c9a96e !important;
+}
+
+[data-sonner-toast][data-type='success'] {
+  border-left: 3px solid #16a34a !important;
+}
+
+[data-sonner-toast][data-type='error'] {
+  border-left: 3px solid #dc2626 !important;
+}

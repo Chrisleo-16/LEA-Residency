@@ -1,0 +1,143 @@
+/* styles/loader.css */
+/* Import this globally once, e.g. in app/globals.css: @import './loader.css'; */
+
+/* ───────────────────────────────────────────────────────────
+   ORIGINAL — From Uiverse.io by mahdisad19
+   Colors changed from the demo's orange/green to your brand:
+   --path: voltage orange (#c9a96e), --dot: ink (#121613).
+   Everything else (timing, easing, keyframes) is untouched.
+   ─────────────────────────────────────────────────────────── */
+
+.loader {
+  --path: #c9a96e;
+  --dot: #121613;
+  --duration: 3s;
+  width: 44px;
+  height: 44px;
+  position: relative;
+}
+.loader:before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  position: absolute;
+  display: block;
+  background: var(--dot);
+  top: 37px;
+  left: 19px;
+  transform: translate(-18px, -18px);
+  animation: dotRect var(--duration) cubic-bezier(0.785, 0.135, 0.15, 0.86)
+    infinite;
+}
+.loader svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.loader svg rect,
+.loader svg polygon,
+.loader svg circle {
+  fill: none;
+  stroke: var(--path);
+  stroke-width: 10px;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.loader svg polygon {
+  stroke-dasharray: 145 76 145 76;
+  stroke-dashoffset: 0;
+  animation: pathTriangle var(--duration) cubic-bezier(0.785, 0.135, 0.15, 0.86)
+    infinite;
+}
+.loader svg rect {
+  stroke-dasharray: 192 64 192 64;
+  stroke-dashoffset: 0;
+  animation: pathRect 3s cubic-bezier(0.785, 0.135, 0.15, 0.86) infinite;
+}
+.loader svg circle {
+  stroke-dasharray: 150 50 150 50;
+  stroke-dashoffset: 75;
+  animation: pathCircle var(--duration) cubic-bezier(0.785, 0.135, 0.15, 0.86)
+    infinite;
+}
+.loader.triangle {
+  width: 48px;
+}
+.loader.triangle:before {
+  left: 21px;
+  transform: translate(-10px, -18px);
+  animation: dotTriangle var(--duration) cubic-bezier(0.785, 0.135, 0.15, 0.86)
+    infinite;
+}
+@keyframes pathTriangle {
+  33% { stroke-dashoffset: 74; }
+  66% { stroke-dashoffset: 147; }
+  100% { stroke-dashoffset: 221; }
+}
+@keyframes dotTriangle {
+  33% { transform: translate(0, 0); }
+  66% { transform: translate(10px, -18px); }
+  100% { transform: translate(-10px, -18px); }
+}
+@keyframes pathRect {
+  25% { stroke-dashoffset: 64; }
+  50% { stroke-dashoffset: 128; }
+  75% { stroke-dashoffset: 192; }
+  100% { stroke-dashoffset: 256; }
+}
+@keyframes dotRect {
+  25% { transform: translate(0, 0); }
+  50% { transform: translate(18px, -18px); }
+  75% { transform: translate(0, -36px); }
+  100% { transform: translate(-18px, -18px); }
+}
+@keyframes pathCircle {
+  25% { stroke-dashoffset: 125; }
+  50% { stroke-dashoffset: 175; }
+  75% { stroke-dashoffset: 225; }
+  100% { stroke-dashoffset: 275; }
+}
+
+.loader {
+  display: inline-block;
+  margin: 0 16px;
+}
+
+/* ───────────────────────────────────────────────────────────
+   Overlay — full screen, fully opaque, simple opacity fade only.
+   No transform/translateY on this — that's what was causing the
+   "weird" feeling before. Just a clean cross-fade.
+   ─────────────────────────────────────────────────────────── */
+
+.loader-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  background: #fafffa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  animation: loaderFadeIn 0.25s ease forwards;
+}
+
+@keyframes loaderFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* Inline loader sitting inside a button — shrink it so it
+   doesn't blow out the button's height */
+.btn-inline-loader .loader {
+  width: 20px;
+  height: 20px;
+  margin: 0;
+}
+.btn-inline-loader .loader:before {
+  width: 3px;
+  height: 3px;
+  top: 17px;
+  left: 9px;
+  transform: translate(-8px, -8px);
+}

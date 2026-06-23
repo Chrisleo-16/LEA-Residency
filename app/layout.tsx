@@ -4,6 +4,8 @@ import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
 import LogRocketInit from '@/components/LogRocketInit'
 import SupabaseListener from '@/components/SupabaseListener'
+import RouteLoaderProvider from '@/components/RouteLoaderProvider'
+import { Toaster } from '@/components/ui/toaster'
 
 const nunito = Nunito({
   subsets: ['latin'],
@@ -12,22 +14,81 @@ const nunito = Nunito({
   display: 'swap',
 })
 
+const SITE_URL = 'https://lea-residency.vercel.app' // ← change this the day you get a custom domain. Nothing else needs to change.
+ 
 export const metadata: Metadata = {
-  title: 'LEA Executive Residency',
-  description: 'Professional real estate communication platform',
-  manifest: '/manifest.json',
-  appleWebApp: {
-    capable: true,
-    statusBarStyle: 'black-translucent',
-    title: 'LEA Executive',
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: 'LEA Executive Residency | Property Management, Nairobi',
+    template: '%s | LEA Executive Residency',
+    // pages that set their own `title` (e.g. "Privacy Policy") will
+    // render as "Privacy Policy | LEA Executive Residency" automatically
   },
-  formatDetection: { telephone: false },
+  description:
+    'LEA Executive Residency is a digital-first residential property in Nairobi. Tenants pay rent via M-Pesa, message management directly, log maintenance requests, and access all tenancy documents from one app.',
+  keywords: [
+    'LEA Executive Residency',
+    'property management Nairobi',
+    'tenant app Kenya',
+    'M-Pesa rent payment',
+    'rental management app Nairobi',
+    'apartment management Kenya',
+  ],
+  authors: [{ name: 'LEA Executive Residency' }],
+  creator: 'LEA Executive Residency',
+  publisher: 'LEA Executive Residency',
+ 
+  // Open Graph — controls how the link looks when shared on
+  // WhatsApp, Facebook, LinkedIn, etc.
   openGraph: {
     type: 'website',
-    title: 'LEA Executive Residency',
-    description: 'Professional real estate communication platform',
+    locale: 'en_KE',
+    url: SITE_URL,
+    siteName: 'LEA Executive Residency',
+    title: 'LEA Executive Residency | Property Management, Nairobi',
+    description:
+      'Pay rent, message management, and manage your tenancy — all from one app.',
+    images: [
+      {
+        url: '/og-image.jpg', // ← create this: 1200×630px, put it in /public
+        width: 1200,
+        height: 630,
+        alt: 'LEA Executive Residency',
+      },
+    ],
+  },
+ 
+  // Twitter/X card — converges with Open Graph in 2026, but kept
+  // explicit for safety since it costs nothing
+  twitter: {
+    card: 'summary_large_image',
+    title: 'LEA Executive Residency | Property Management, Nairobi',
+    description:
+      'Pay rent, message management, and manage your tenancy — all from one app.',
+    images: ['/og-image.jpg'],
+  },
+ 
+  // Tells Google: yes, index this, yes, follow links from it
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      'max-image-preview': 'large',
+    },
+  },
+ 
+  alternates: {
+    canonical: SITE_URL,
+  },
+ 
+  icons: {
+    icon: '/favicon.ico',
+    apple: '/apple-icon.png', // optional, 180×180px if you add one
   },
 }
+ 
 
 export const viewport: Viewport = {
   themeColor: '#0D9488',
@@ -53,7 +114,10 @@ export default function RootLayout({
       <body className={`${nunito.className} antialiased`}>
         <LogRocketInit />
         <SupabaseListener />
-        {children}
+      <RouteLoaderProvider>
+          {children}
+        </RouteLoaderProvider>
+        <Toaster/>
         <Analytics />
         {/* ✅ Only register SW in production — fixes 404 in dev */}
         {(process.env.NODE_ENV === 'production' || process.env.NODE_ENV === 'development') && (

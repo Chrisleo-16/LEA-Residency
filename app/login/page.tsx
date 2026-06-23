@@ -11,6 +11,7 @@ import {
   formatAuthErrorForDisplay,
 } from "@/lib/auth-errors";
 import Link from "next/link";
+import { useRouteLoader } from "@/components/RouteLoaderProvider";
 
 function LoginPageContent() {
   const router = useRouter();
@@ -26,6 +27,7 @@ function LoginPageContent() {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const supabase = createClient();
+  const {startLoading} = useRouteLoader();
 
   useEffect(() => {
     if (isDemoMode) return;
@@ -243,7 +245,7 @@ function LoginPageContent() {
         <div className="relative z-10 flex flex-col justify-between p-12 w-full">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-lg bg-accent flex items-center justify-center">
-              <Link href="/">
+              <Link href="/" onClick={()=>{startLoading();}}>
                 <Home className="w-5 h-5 text-accent-foreground" />
               </Link>
             </div>
@@ -387,6 +389,7 @@ function LoginPageContent() {
               <Button
                 type="submit"
                 disabled={isLoading}
+                onClick= {()=>{startLoading();}}
                 className="w-full h-11 bg-accent hover:bg-accent/90 text-accent-foreground font-semibold rounded-xl flex items-center justify-center gap-2 mt-2"
               >
                 {isLoading ? (
@@ -405,7 +408,7 @@ function LoginPageContent() {
 
               <p className="text-center text-sm text-muted-foreground mt-4">
                 Want the real thing?{" "}
-                <Link href="/login" className="text-accent font-semibold hover:underline">
+                <Link href="/login" onClick={()=>{startLoading();}} className="text-accent font-semibold hover:underline">
                   Sign up instead
                 </Link>
               </p>
@@ -525,6 +528,7 @@ function LoginPageContent() {
                 <Button
                   type="submit"
                   disabled={isLoading}
+                  onClick={()=>{startLoading();}}
                   className="w-full h-11 bg-accent hover:bg-accent/90 text-accent-foreground font-semibold rounded-xl flex items-center justify-center gap-2 mt-2"
                 >
                   {isLoading ? (
@@ -551,7 +555,7 @@ function LoginPageContent() {
 
               <button
                 type="button"
-                onClick={handleGoogleSignIn}
+                onClick={()=>{startLoading(); handleGoogleSignIn();}}
                 disabled={isLoading}
                 className="w-full h-11 flex items-center justify-center gap-3 rounded-xl border border-border bg-background hover:bg-secondary/50 transition-colors text-sm font-medium text-foreground"
               >
@@ -600,11 +604,11 @@ function LoginPageContent() {
           <p className="text-center text-xs text-muted-foreground mt-8">
             By continuing, you agree to LEA Executive's{" "}
             <span className="text-accent cursor-pointer hover:underline">
-             <button onClick={() => router.push('/terms')}>Terms</button>
+             <button onClick={() => {startLoading(); router.push('/terms')}}>Terms</button>
             </span>
             {" & "}
             <span className="text-accent cursor-pointer hover:underline">
-             <button onClick={() => router.push('/privacy')}>Privacy Policy</button>
+             <button onClick={() => {startLoading(); router.push('/privacy')}}>Privacy Policy</button>
             </span>
           </p>
         </div>

@@ -26,6 +26,7 @@ import {
   X,
 } from "lucide-react";
 import InstallPrompt from "@/components/pwa/InstallPrompt";
+import { useRouteLoader } from "@/components/RouteLoaderProvider";
 
 interface LuxuryHamburgerMenuProps {
   user: null | any;
@@ -69,6 +70,7 @@ export default function Home() {
   const [scrolled, setScrolled] = useState(false);
   const router = useRouter();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const {startLoading} = useRouteLoader();
 
   const navLinks = [
     ["How It Works", "howitworks"],
@@ -299,7 +301,7 @@ export default function Home() {
         .faq-icon::before, .faq-icon::after { content: ''; position: absolute; background: #121613; transition: background-color .25s; }
         .faq-icon::before { width: 12px; height: 1.4px; }
         .faq-icon::after { width: 1.4px; height: 12px; }
-        .faq-row[open] .faq-icon { transform: rotate(135deg); background-color: #ff5a36; border-color: #ff5a36; }
+        .faq-row[open] .faq-icon { transform: rotate(135deg); background-color: #c9a96e; border-color: #c9a96e; }
         .faq-row[open] .faq-icon::before, .faq-row[open] .faq-icon::after { background: #fafffa; }
         .faq-content { overflow: hidden; max-height: 0; opacity: 0; transition: max-height .38s cubic-bezier(.65,0,.35,1), opacity .28s ease, margin-top .38s ease; margin-top: 0; }
         .faq-row[open] .faq-content { max-height: 280px; opacity: 1; margin-top: 20px; }
@@ -489,11 +491,11 @@ export default function Home() {
               alignItems: "center",
               justifyContent: "center",
               backgroundColor: "#fff",
-              border: "1px solid #ff5a36",
+              border: "1px solid #c9a96e",
               borderRadius: "50%",
             }}
           >
-            <Building2 size={16} color="#ff5a36" />
+            <Building2 size={16} color="#c9a96e" />
           </div>
           <div style={{ display: "flex", flexDirection: "column" }}>
             <div
@@ -518,9 +520,10 @@ export default function Home() {
             <button
               key={id}
               className="nav-btn"
-              onClick={() =>
+              onClick={() => {
+                startLoading();
                 id === "contact" ? router.push("/contact") : scrollTo(id)
-              }
+              }}
               style={{
                 background: "none",
                 border: "none",
@@ -540,7 +543,10 @@ export default function Home() {
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
           <button
             className="nav-btn hide-mobile"
-            onClick={() => router.push("/login")}
+            onClick={() => {
+              startLoading();
+              router.push("/login");
+            }}
             style={{
               background: "none",
               border: "none",
@@ -556,13 +562,16 @@ export default function Home() {
           </button>
           <button
             className="btn-primary hide-mobile"
-            onClick={() => router.push("/login")}
+            onClick={() => {
+              startLoading();
+              router.push("/login");
+            }}
             style={{
               padding: "10px 20px",
               fontSize: 14,
               fontWeight: 500,
               fontFamily: "'Nunito', sans-serif",
-              background: "#ff5a36",
+              background: "#c9a96e",
               color: "#fff",
               border: "none",
               borderRadius: 999,
@@ -650,6 +659,7 @@ export default function Home() {
           >
             <button
               onClick={() => {
+                startLoading();
                 setIsMobileMenuOpen(false);
                 router.push("/login");
               }}
@@ -658,7 +668,7 @@ export default function Home() {
                 width: "100%",
                 maxWidth: "320px",
                 borderRadius: "999px",
-                background: "#ff5a36",
+                background: "#c9a96e",
                 color: "#fff",
                 border: "none",
                 fontFamily: "'Nunito', sans-serif",
@@ -700,7 +710,7 @@ export default function Home() {
             style={{
               width: "50px",
               height: "2px",
-              backgroundColor: "#ff5a36",
+              backgroundColor: "#c9a96e",
               marginBottom: "45px",
             }}
           />
@@ -796,12 +806,15 @@ export default function Home() {
               }}
             >
               <button
-                onClick={() => router.push("/login")}
+                onClick={() => {
+                  startLoading();
+                  router.push("/login");
+                }}
                 style={{
                   padding: "20px 50px",
                   fontSize: 14,
                   fontFamily: "'Nunito', sans-serif",
-                  background: "#ff5a36",
+                  background: "#c9a96e",
                   color: "#fff",
                   border: "none",
                   borderRadius: 999,
@@ -818,7 +831,10 @@ export default function Home() {
                 Get Started <span>→</span>
               </button>
               <button
-                onClick={() => router.push("/login?demo=true")}
+                onClick={() => {
+                  startLoading();
+                  router.push("/login?demo=true");
+                }}
                 style={{
                   backgroundColor: "transparent",
                   color: "#121613",
@@ -905,7 +921,7 @@ export default function Home() {
                 style={{
                   width: "50px",
                   height: "2px",
-                  backgroundColor: "#ff5a36",
+                  backgroundColor: "#c9a96e",
                   marginBottom: "45px",
                 }}
               />
@@ -1026,7 +1042,7 @@ export default function Home() {
               style={{
                 width: "50px",
                 height: "2px",
-                backgroundColor: "#ff5a36",
+                backgroundColor: "#c9a96e",
                 marginBottom: "45px",
               }}
             />
@@ -1120,12 +1136,15 @@ export default function Home() {
             }}
           >
             <button
-              onClick={() => router.push("/login")}
+              onClick={() => {
+                startLoading()
+                router.push("/login")
+              }}
               style={{
                 padding: "20px 50px",
                 fontSize: 14,
                 fontFamily: "'Nunito', sans-serif",
-                background: "#ff5a36",
+                background: "#c9a96e",
                 color: "#fff",
                 border: "none",
                 borderRadius: 999,
@@ -1171,7 +1190,7 @@ export default function Home() {
                 style={{
                   width: "50px",
                   height: "2px",
-                  backgroundColor: "#ff5a36",
+                  backgroundColor: "#c9a96e",
                   marginBottom: "45px",
                 }}
               />
@@ -1345,7 +1364,7 @@ export default function Home() {
                 style={{
                   width: "50px",
                   height: "2px",
-                  backgroundColor: "#ff5a36",
+                  backgroundColor: "#c9a96e",
                   marginBottom: "45px",
                 }}
               />
@@ -1430,7 +1449,7 @@ export default function Home() {
                       style={{
                         width: "6px",
                         height: "6px",
-                        backgroundColor: "#ff5a36",
+                        backgroundColor: "#c9a96e",
                         borderRadius: "50%",
                       }}
                     />
@@ -1483,7 +1502,7 @@ export default function Home() {
                       fontFamily: "'Editorial New', serif",
                       fontSize: "clamp(32px, 8vw, 48px)",
                       lineHeight: 0.8,
-                      color: "#ff5a36",
+                      color: "#c9a96e",
                     }}
                   >
                     PAID
@@ -1509,7 +1528,7 @@ export default function Home() {
                     style={{
                       height: "100%",
                       width: "100%",
-                      backgroundColor: "#ff5a36",
+                      backgroundColor: "#c9a96e",
                     }}
                   />
                 </div>
@@ -1580,7 +1599,7 @@ export default function Home() {
                     <div
                       style={{
                         fontSize: "10px",
-                        color: "#ff5a36",
+                        color: "#c9a96e",
                         letterSpacing: "0.05em",
                         fontWeight: 600,
                         marginTop: "4px",
@@ -1596,7 +1615,7 @@ export default function Home() {
                   marginTop: "40px",
                   padding: "20px",
                   backgroundColor: "rgba(43, 238, 75, 0.05)",
-                  borderLeft: "2px solid #ff5a36",
+                  borderLeft: "2px solid #c9a96e",
                 }}
               >
                 <p
@@ -1632,7 +1651,7 @@ export default function Home() {
               style={{
                 width: "50px",
                 height: "2px",
-                backgroundColor: "#ff5a36",
+                backgroundColor: "#c9a96e",
                 marginBottom: "45px",
               }}
             />
@@ -1767,7 +1786,7 @@ export default function Home() {
             style={{
               width: "2px",
               height: "50px",
-              backgroundColor: "#ff5a36",
+              backgroundColor: "#c9a96e",
               marginBottom: "45px",
             }}
           />
@@ -1820,13 +1839,16 @@ export default function Home() {
             }}
           >
             <button
-              onClick={() => router.push("/login")}
+              onClick={() => {
+                startLoading()
+                router.push("/login")
+              }}
               style={{
                 padding: "20px 50px",
                 fontSize: 14,
                 fontFamily: "'Nunito', sans-serif",
-                color: "#ff5a36",
-                border: "1px solid #ff5a36",
+                color: "#c9a96e",
+                border: "1px solid #c9a96e",
                 borderRadius: 999,
                 display: "flex",
                 alignItems: "center",
@@ -1842,12 +1864,15 @@ export default function Home() {
               Tenant Login <span>→</span>
             </button>
             <button
-              onClick={() => router.push("/contact")}
+              onClick={() => {
+                startLoading()
+                router.push("/contact")
+              }}
               style={{
                 padding: "20px 50px",
                 fontSize: 14,
                 fontFamily: "'Nunito', sans-serif",
-                background: "#ff5a36",
+                background: "#c9a96e",
                 color: "#fff",
                 border: "none",
                 borderRadius: 999,
@@ -1893,7 +1918,7 @@ export default function Home() {
                 style={{
                   width: "50px",
                   height: "2px",
-                  backgroundColor: "#ff5a36",
+                  backgroundColor: "#c9a96e",
                   marginBottom: "45px",
                 }}
               />
@@ -2028,14 +2053,14 @@ export default function Home() {
               Want the long version?
             </span>
             <button
-              onClick={() => router.push("/privacy")}
+              onClick={() =>{startLoading(); router.push("/privacy")}}
               style={{
                 background: "none",
                 border: "none",
                 padding: 0,
                 cursor: "pointer",
                 fontSize: "14px",
-                color: "#ff5a36",
+                color: "#c9a96e",
                 fontWeight: 500,
                 textDecoration: "underline",
                 textUnderlineOffset: "4px",
@@ -2045,14 +2070,14 @@ export default function Home() {
             </button>
             <span style={{ color: "#c8d2c8" }}>·</span>
             <button
-              onClick={() => router.push("/terms")}
+              onClick={() => { startLoading(); router.push("/terms")}}
               style={{
                 background: "none",
                 border: "none",
                 padding: 0,
                 cursor: "pointer",
                 fontSize: "14px",
-                color: "#ff5a36",
+                color: "#c9a96e",
                 fontWeight: 500,
                 textDecoration: "underline",
                 textUnderlineOffset: "4px",
@@ -2102,11 +2127,11 @@ export default function Home() {
                     alignItems: "center",
                     justifyContent: "center",
                     backgroundColor: "#fff",
-                    border: "1px solid #ff5a36",
+                    border: "1px solid #c9a96e",
                     borderRadius: "50%",
                   }}
                 >
-                  <Building2 size={20} color="#ff5a36" strokeWidth={1.5} />
+                  <Building2 size={20} color="#c9a96e" strokeWidth={1.5} />
                 </div>
                 <div>
                   <div
@@ -2172,7 +2197,7 @@ export default function Home() {
                       color: "#121613",
                     }}
                   >
-                    <span style={{ color: "#ff5a36" }}>{icon}</span> {text}
+                    <span style={{ color: "#c9a96e" }}>{icon}</span> {text}
                   </div>
                 ))}
               </div>
@@ -2236,7 +2261,7 @@ export default function Home() {
                       onMouseOut={(e) =>
                         (e.currentTarget.style.color = "#121613")
                       }
-                      onClick={() => router.push("/login")}
+                      onClick={() =>{startLoading(); router.push("/login")}}
                     >
                       {link}
                     </button>

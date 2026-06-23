@@ -20,6 +20,7 @@ import {
   Building2,
   ChevronDown
 } from 'lucide-react'
+import {useRouteLoader} from "@/components/RouteLoaderProvider"
 
 export default function OnboardingPage() {
   const [user, setUser] = useState<User | null>(null)
@@ -37,6 +38,7 @@ export default function OnboardingPage() {
   const [profilePhoto, setProfilePhoto] = useState<File | null>(null)
   const [photoPreview, setPhotoPreview] = useState<string | null>(null)
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const { startLoading } = useRouteLoader();
 
   // Step 2: Property & Units
   const [totalUnits, setTotalUnits] = useState('')
@@ -529,7 +531,7 @@ export default function OnboardingPage() {
               <Button variant="outline" onClick={() => setShowLeaveConfirm(false)}>
                 Continue Onboarding
               </Button>
-              <Button variant="destructive" onClick={handleLeave}>
+              <Button variant="destructive" onClick={()=>{startLoading(); handleLeave()}}>
                 Leave
               </Button>
             </div>
@@ -1095,7 +1097,7 @@ export default function OnboardingPage() {
                 Back
               </Button>
               <Button 
-                onClick={handleCompleteOnboarding}
+                onClick={() => { startLoading(); handleCompleteOnboarding(); }}
                 disabled={isLoading}
                 className="bg-accent hover:bg-accent/90"
               >

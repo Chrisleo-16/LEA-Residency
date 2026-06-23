@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { ArrowLeft, Building2, Phone, Mail, MapPin, Clock, MessageSquare, CheckCircle, Send } from 'lucide-react'
 import Link from 'next/link'
+import {useRouteLoader} from '@/components/RouteLoaderProvider'
 
 const INQUIRY_TYPES = [
   { value: 'general', label: 'General Inquiry' },
@@ -21,6 +22,7 @@ export default function ContactPage() {
   const [submitted, setSubmitted] = useState(false)
   const [error, setError] = useState('')
   const [focused, setFocused] = useState('')
+  const { startLoading } = useRouteLoader();
 
   const set = (k: string, v: any) => setForm(f => ({ ...f, [k]: v }))
 
@@ -39,7 +41,7 @@ export default function ContactPage() {
 
   const inputStyle = (name: string): React.CSSProperties => ({
     fontFamily: "'Inter', sans-serif", fontSize: 14,
-    background: '#ffffff', border: `1px solid ${focused === name ? '#ff5a36' : '#d1d5db'}`,
+    background: '#ffffff', border: `1px solid ${focused === name ? '#c9a96e' : '#d1d5db'}`,
     borderRadius: '8px',
     color: '#4b5563', padding: '12px 14px', width: '100%', outline: 'none', transition: 'all .25s',
     boxShadow: focused === name ? '0 0 0 3px rgba(59,130,246,.15)' : 'none'
@@ -85,11 +87,11 @@ export default function ContactPage() {
         textarea { resize: vertical; }
 
         .inq-pill { font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 500; background: #ffffff; border: 1px solid #d1d5db; border-radius: 20px; color: #4b5563; padding: 8px 16px; cursor: pointer; transition: all .2s; }
-        .inq-pill.active { border-color: #ff5a36; color: #ff5a36; background: #fff; box-shadow: 0 0 0 2px rgba(59,130,246,.1); }
+        .inq-pill.active { border-color: #c9a96e; color: #c9a96e; background: #fff; box-shadow: 0 0 0 2px rgba(59,130,246,.1); }
         .inq-pill:hover:not(.active) { border-color: #9ca3af; color: #4b5563; }
 
         .cmethod-btn { font-family: 'Inter', sans-serif; font-size: 13px; font-weight: 500; background: #ffffff; border: 1px solid #d1d5db; border-radius: 8px; color: #4b5563; padding: 10px 20px; cursor: pointer; transition: all .2s; flex: 1; }
-        .cmethod-btn.active { border-color: #ff5a36; color: #ff5a36; background: #fff; box-shadow: 0 0 0 2px rgba(59,130,246,.1); }
+        .cmethod-btn.active { border-color: #c9a96e; color: #c9a96e; background: #fff; box-shadow: 0 0 0 2px rgba(59,130,246,.1); }
         .cmethod-btn:hover:not(.active) { border-color: #9ca3af; color: #4b5563; background: #f3f4f6; }
 
         .btn-primary { font-family: 'Inter', sans-serif; font-size: 14px; font-weight: 500; background: #4b5563; color: #ffffff; border: none; border-radius: 8px; cursor: pointer; padding: 14px 36px; transition: all .2s; display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
@@ -107,14 +109,14 @@ export default function ContactPage() {
 
       {/* ── NAV ─────────────────────────────── */}
       <nav style={{ position: 'sticky', top: 0, zIndex: 50, background: 'rgba(255,255,255,.9)', backdropFilter: 'blur(12px)', borderBottom: '1px solid #ece4db', padding: '0 24px', height: 70, display: 'flex', alignItems: 'center', gap: 20 }}>
-        <Link href="/" style={{ display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none', color: '#4b5563', fontSize: 14, fontWeight: 500, transition: 'color 0.2s' }}
+        <Link href="/" onClick={()=>{startLoading();}} style={{ display: 'flex', alignItems: 'center', gap: 8, textDecoration: 'none', color: '#4b5563', fontSize: 14, fontWeight: 500, transition: 'color 0.2s' }}
           onMouseOver={e => (e.currentTarget.style.color = '#111827')} onMouseOut={e => (e.currentTarget.style.color = '#4b5563')}>
           <ArrowLeft size={18} /> Home
         </Link>
         <div style={{ width: 1, height: 24, background: '#ece4db' }} />
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ width: 36, height: 36, background: '#fff', border: '1px solid #ff5a36', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <MessageSquare size={18} color="#ff5a36" />
+          <div style={{ width: 36, height: 36, background: '#fff', border: '1px solid #c9a96e', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <MessageSquare size={18} color="#c9a96e" />
           </div>
           <div>
             <div style={{ fontSize: 15, fontWeight: 600, color: '#4b5563' }}>Contact Us</div>
@@ -126,7 +128,7 @@ export default function ContactPage() {
       {/* ── PAGE HERO ────────────────────────── */}
       <div style={{ background: '#ffffff', borderBottom: '1px solid #ece4db', padding: '48px 24px' }}>
         <div style={{ maxWidth: 1100, margin: '0 auto' }}>
-          <div style={{ fontSize: 13, fontWeight: 600, letterSpacing: '.05em', textTransform: 'uppercase', color: '#ff5a36', marginBottom: 12 }}>Get in Touch</div>
+          <div style={{ fontSize: 13, fontWeight: 600, letterSpacing: '.05em', textTransform: 'uppercase', color: '#c9a96e', marginBottom: 12 }}>Get in Touch</div>
           <h1 style={{ fontSize: 'clamp(32px, 4.5vw, 48px)', fontWeight: 700, color: '#4b5563', lineHeight: 1.1, marginBottom: 16 }}>
             How Can We Help You?
           </h1>
@@ -204,7 +206,7 @@ export default function ContactPage() {
             {/* Agreement */}
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, padding: '20px', background: form.agreed ? '#fff' : '#f9fafb', border: `1px solid ${form.agreed ? '#bfdbfe' : '#ece4db'}`, borderRadius: 8, cursor: 'pointer', transition: 'all .2s' }}
               onClick={() => set('agreed', !form.agreed)}>
-              <div style={{ width: 20, height: 20, borderRadius: 6, border: `2px solid ${form.agreed ? '#ff5a36' : '#d1d5db'}`, background: form.agreed ? '#ff5a36' : '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 2, transition: 'all .2s' }}>
+              <div style={{ width: 20, height: 20, borderRadius: 6, border: `2px solid ${form.agreed ? '#c9a96e' : '#d1d5db'}`, background: form.agreed ? '#c9a96e' : '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 2, transition: 'all .2s' }}>
                 {form.agreed && <CheckCircle size={14} color="#ffffff" strokeWidth={3} />}
               </div>
               <p style={{ fontSize: 14, color: '#4b5563', lineHeight: 1.5 }}>
@@ -235,9 +237,9 @@ export default function ContactPage() {
             <div className="contact-card">
               <div style={{ fontSize: 14, fontWeight: 600, color: '#4b5563', marginBottom: 20 }}>Direct Contact</div>
               {[
-                { icon: <Phone size={18} color="#ff5a36" />, label: 'Phone', value: '+254 700 000 000' },
-                { icon: <Mail size={18} color="#ff5a36" />, label: 'Email', value: 'management@lea-residency.app' },
-                { icon: <MapPin size={18} color="#ff5a36" />, label: 'Location', value: 'Nairobi, Kenya' },
+                { icon: <Phone size={18} color="#c9a96e" />, label: 'Phone', value: '+254 700 000 000' },
+                { icon: <Mail size={18} color="#c9a96e" />, label: 'Email', value: 'management@lea-residency.app' },
+                { icon: <MapPin size={18} color="#c9a96e" />, label: 'Location', value: 'Nairobi, Kenya' },
               ].map(({ icon, label, value }) => (
                 <div key={label} style={{ display: 'flex', gap: 16, marginBottom: 16, paddingBottom: 16, borderBottom: '1px solid #f3f4f6' }}>
                   <div style={{ width: 40, height: 40, background: '#fff', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{icon}</div>
@@ -252,7 +254,7 @@ export default function ContactPage() {
             {/* Hours */}
             <div className="contact-card">
               <div style={{ fontSize: 14, fontWeight: 600, color: '#4b5563', marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
-                <Clock size={16} color="#ff5a36" /> Business Hours
+                <Clock size={16} color="#c9a96e" /> Business Hours
               </div>
               {[['Mon – Fri', '8:00 AM – 6:00 PM'], ['Saturday', '9:00 AM – 4:00 PM'], ['Sunday', '10:00 AM – 2:00 PM']].map(([d, h]) => (
                 <div key={d} style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 0', borderBottom: '1px solid #f3f4f6' }}>
@@ -265,7 +267,7 @@ export default function ContactPage() {
             {/* Response promise */}
             <div style={{ background: '#fff', border: '1px solid #4b5563', borderRadius: 12, padding: '24px' }}>
               <div style={{ textAlign: 'center' }}>
-                <MessageSquare size={32} color="#ff5a36" style={{ margin: '0 auto 12px' }} />
+                <MessageSquare size={32} color="#c9a96e" style={{ margin: '0 auto 12px' }} />
                 <div style={{ fontSize: 24, fontWeight: 700, color: '#4b5563', marginBottom: 8 }}>2–4 Hour</div>
                 <div style={{ fontSize: 13, color: '#4b5563', lineHeight: 1.5, fontWeight: 500 }}>Average response time during business hours</div>
               </div>
@@ -276,7 +278,7 @@ export default function ContactPage() {
               <div style={{ fontSize: 13, color: '#4b5563', lineHeight: 1.6, marginBottom: 16 }}>
                 Already a resident? Log in to the tenant portal to chat directly with management.
               </div>
-              <Link href="/login" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600, color: '#ff5a36', textDecoration: 'none', border: '1px solid #ff5a36', background: '#ffffff', borderRadius: 8, padding: '10px 20px', transition: 'all .2s' }}
+              <Link href="/login" onClick={()=>{startLoading();}} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600, color: '#c9a96e', textDecoration: 'none', border: '1px solid #c9a96e', background: '#ffffff', borderRadius: 8, padding: '10px 20px', transition: 'all .2s' }}
                 onMouseOver={e => (e.currentTarget.style.background = '#fff')} onMouseOut={e => (e.currentTarget.style.background = '#ffffff')}>
                 Tenant Portal →
               </Link>
