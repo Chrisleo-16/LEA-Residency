@@ -4,13 +4,13 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Menu, Building2 } from 'lucide-react'
 import DemoSidebar from '@/components/demo/DemoSidebar'
-import DemoChatPage from '@/components/demo/pages/DemoChatPage'
 import DemoCommunityPage from '@/components/demo/pages/DemoCommunityPage'
-// Will add these as we build them:
-// import DemoComplaintsPage from '@/components/demo/pages/DemoComplaintsPage'
-// import DemoRequestsPage from '@/components/demo/pages/DemoRequestsPage'
-// import DemoPaymentsPage from '@/components/demo/pages/DemoPaymentsPage'
-// import DemoPolicyPage from '@/components/demo/pages/DemoPolicyPage'
+import DemoComplaintsPage from '@/components/demo/pages/DemoComplaintPage'
+import DemoRequestsPage from '@/components/demo/pages/DemoRequestsPage'
+import DemoPaymentsPage from '@/components/demo/pages/DemoPaymentsPage'
+import DemoPolicyPage from '@/components/demo/pages/DemoPolicyPage'
+import DemoSettingsPage from '@/components/demo/pages/DemoSettingsPage'
+import DemoChatPage from './pages/DemoChatPage'
 
 interface DemoDashboardLayoutProps {
   demoName: string
@@ -46,46 +46,26 @@ export default function DemoDashboardLayout({ demoName, demoRole }: DemoDashboar
     return titles[activeTab] || 'LEA Executive'
   }
 
-  const renderContent = () => {
-    switch (activeTab) {
-      case 'chat':
-        return <DemoChatPage demoName={demoName} demoRole={demoRole} />
-      case 'community':
-        return <DemoCommunityPage demoName={demoName} demoRole={demoRole} />
-      case 'complaints':
-        return (
-          <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
-            Demo complaints coming next
-          </div>
-        )
-      case 'requests':
-        return (
-          <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
-            Demo requests coming next
-          </div>
-        )
-      case 'payments':
-        return (
-          <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
-            Demo payments coming next
-          </div>
-        )
-      case 'policy':
-        return (
-          <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
-            Demo policy coming next
-          </div>
-        )
-      case 'settings':
-        return (
-          <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
-            Settings not available in demo mode
-          </div>
-        )
-      default:
-        return <DemoChatPage demoName={demoName} demoRole={demoRole} />
-    }
+ const renderContent = () => {
+  switch (activeTab) {
+    case 'chat':
+      return <DemoChatPage demoName={demoName} demoRole={demoRole} />
+    case 'community':
+      return <DemoCommunityPage demoName={demoName} demoRole={demoRole} />
+    case 'complaints':
+      return <DemoComplaintsPage demoName={demoName} demoRole={demoRole} />
+    case 'requests':
+      return <DemoRequestsPage demoName={demoName} demoRole={demoRole} />
+    case 'payments':
+      return <DemoPaymentsPage demoName={demoName} demoRole={demoRole} />
+    case 'policy':
+      return <DemoPolicyPage demoRole={demoRole} />
+    case 'settings':
+      return <DemoSettingsPage demoName={demoName} demoRole={demoRole} />
+    default:
+      return <DemoChatPage demoName={demoName} demoRole={demoRole} />
   }
+}
 
   return (
     <div className="flex h-dvh bg-background overflow-hidden">

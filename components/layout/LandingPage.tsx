@@ -2191,7 +2191,7 @@ export default function Home() {
                   { icon: <Phone size={14} />, text: "+254 748 333 763" },
                   {
                     icon: <Mail size={14} />,
-                    text: "management@lea-residency.app",
+                    text: "chrisbenevansleo@gmail.com",
                   },
                   { icon: <MapPin size={14} />, text: "Nairobi, Kenya" },
                 ].map(({ icon, text }) => (
