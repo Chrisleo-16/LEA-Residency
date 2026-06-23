@@ -462,11 +462,11 @@ export default function Home() {
           justifyContent: "space-between",
           padding: "0 8px 0 24px",
           // background: '#ffffff',
-          borderRadius: 999,
+          borderRadius: "20px",
           boxShadow:
             "0 4px 20px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04)",
           border: "1px solid #f0f0f0",
-          width: "90%",
+          width: "100%",
           maxWidth: 1000,
           transition: "all .35s",
         }}
