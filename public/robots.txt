@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+
+# Keep crawlers out of authenticated tenant/management areas
+Disallow: /dashboard
+Disallow: /dashboard/
+Disallow: /api/
+Disallow: /admin
+
+Sitemap: https://lea-residency.xyz/sitemap.xml

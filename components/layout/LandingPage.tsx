@@ -2356,7 +2356,7 @@ useEffect(() => {
               letterSpacing: "-0.3px"
             }}
           >
-            lea-residency.vercel.app
+            lea-residency.xyz
           </span>
         </div>
       </div>
