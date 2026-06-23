@@ -2099,231 +2099,293 @@ export default function Home() {
 
       {/* ── FOOTER ──────────────────────────────────────────── */}
       <footer
-        id="contact"
-        style={{
-          backgroundColor: "#fafffa",
-          borderTop: "1px solid #121613",
-          padding: "100px 50px 40px",
-          fontFamily:
-            "'TWK Lausanne', 'Inter', ui-sans-serif, system-ui, sans-serif",
-        }}
-      >
-        <div style={{ maxWidth: "1440px", margin: "0 auto" }}>
+  id="contact"
+  style={{
+    backgroundColor: "#fafffa",
+    borderTop: "1px solid #121613",
+    padding: "100px 50px 40px",
+    fontFamily: "'TWK Lausanne', 'Inter', ui-sans-serif, system-ui, sans-serif",
+  }}
+>
+  <div style={{ maxWidth: "1440px", margin: "0 auto" }}>
+    <div
+      className="footer-grid"
+      style={{
+        display: "grid",
+        /* ✅ Expanded from 4 columns to 5 columns to accommodate the QR code */
+        gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr",
+        gap: "40px",
+        marginBottom: "100px",
+      }}
+    >
+      {/* Column 1: Branding & Info */}
+      <div>
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "16px",
+            marginBottom: "24px",
+          }}
+        >
           <div
-            className="footer-grid"
             style={{
-              display: "grid",
-              gridTemplateColumns: "2fr 1fr 1fr 1fr",
-              gap: "80px",
-              marginBottom: "100px",
-            }}
-          >
-            <div>
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "16px",
-                  marginBottom: "24px",
-                }}
-              >
-                <div
-                  style={{
-                    width: "40px",
-                    height: "40px",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    backgroundColor: "#fff",
-                    border: "1px solid #c9a96e",
-                    borderRadius: "50%",
-                  }}
-                >
-                  <Building2 size={20} color="#c9a96e" strokeWidth={1.5} />
-                </div>
-                <div>
-                  <div
-                    style={{
-                      fontFamily:
-                        "'Editorial New', 'Playfair Display','Nunito', serif",
-                      fontSize: "24px",
-                      fontWeight: 400,
-                      color: "#121613",
-                      lineHeight: 1,
-                    }}
-                  >
-                    <b>LEA Executive</b>
-                  </div>
-                  <div
-                    style={{
-                      fontSize: "10px",
-                      letterSpacing: "0.15em",
-                      textTransform: "uppercase",
-                      color: "#516254",
-                      marginTop: "6px",
-                    }}
-                  >
-                    Residency
-                  </div>
-                </div>
-              </div>
-              <p
-                style={{
-                  fontSize: "14px",
-                  color: "#516254",
-                  lineHeight: 1.5,
-                  maxWidth: "320px",
-                  marginBottom: "30px",
-                }}
-              >
-                A digital-first residential property in Nairobi. Tenants manage
-                their entire tenancy — rent, requests, communication and
-                documents — from one platform.
-              </p>
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "12px",
-                }}
-              >
-                {[
-                  { icon: <Phone size={14} />, text: "+254 748 333 763 or +254 799 956574" },
-                  {
-                    icon: <Mail size={14} />,
-                    text: "chrisbenevansleo@gmail.com",
-                  },
-                  { icon: <MapPin size={14} />, text: "Nairobi, Kenya" },
-                ].map(({ icon, text }) => (
-                  <div
-                    key={text}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "12px",
-                      fontSize: "14px",
-                      color: "#121613",
-                    }}
-                  >
-                    <span style={{ color: "#c9a96e" }}>{icon}</span> {text}
-                  </div>
-                ))}
-              </div>
-            </div>
-            {[
-              {
-                title: "Platform",
-                links: [
-                  "Tenant Dashboard",
-                  "M-Pesa Payments",
-                  "Maintenance",
-                  "Community Chat",
-                ],
-              },
-              {
-                title: "Support",
-                links: [
-                  "How It Works",
-                  "Contact Management",
-                  "Policy Docs",
-                  "Sign In",
-                ],
-              },
-              { title: "Payments", links: ["STK Push", "Payment History"] },
-            ].map((col) => (
-              <div key={col.title}>
-                <div
-                  style={{
-                    fontSize: "11px",
-                    letterSpacing: "0.11px",
-                    textTransform: "uppercase",
-                    color: "#516254",
-                    marginBottom: "24px",
-                  }}
-                >
-                  {col.title}
-                </div>
-                <div
-                  style={{
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: "16px",
-                  }}
-                >
-                  {col.links.map((link) => (
-                    <button
-                      key={link}
-                      style={{
-                        background: "none",
-                        border: "none",
-                        padding: 0,
-                        textAlign: "left",
-                        fontSize: "14px",
-                        color: "#121613",
-                        cursor: "pointer",
-                        transition: "color 0.2s ease",
-                      }}
-                      onMouseOver={(e) =>
-                        (e.currentTarget.style.color = "#516254")
-                      }
-                      onMouseOut={(e) =>
-                        (e.currentTarget.style.color = "#121613")
-                      }
-                      onClick={() =>{startLoading(); router.push("/login")}}
-                    >
-                      {link}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-          <div
-            className="footer-bottom"
-            style={{
-              borderTop: "1px solid #eef2ef",
-              paddingTop: "30px",
+              width: "40px",
+              height: "40px",
               display: "flex",
               alignItems: "center",
-              justifyContent: "space-between",
-              flexWrap: "wrap",
-              gap: "20px",
+              justifyContent: "center",
+              backgroundColor: "#fff",
+              border: "1px solid #c9a96e",
+              borderRadius: "50%",
             }}
           >
-            <span style={{ fontSize: "12px", color: "#516254" }}>
-              &copy; {new Date().getFullYear()} LEA Executive Residency. All
-              rights reserved.
-            </span>
-            <div style={{ display: "flex", gap: "30px" }}>
-              {["Privacy Policy", "Terms of Service", "Tenant Rights"].map(
-                (label) => {
-                  const routeMap: Record<string, string> = {
-                    "Privacy Policy": "/privacy",
-                    "Terms of Service": "/terms",
-                    "Tenant Rights": "/tenant-rights",
-                  };
-                  return (
-                    <button
-                      key={label}
-                      onClick={() => router.push(routeMap[label])}
-                      style={{
-                        fontSize: "12px",
-                        color: "#516254",
-                        cursor: "pointer",
-                        background: "none",
-                        border: "none",
-                        padding: 0,
-                      }}
-                    >
-                      {label}
-                    </button>
-                  );
-                },
-              )}
+            <Building2 size={20} color="#c9a96e" strokeWidth={1.5} />
+          </div>
+          <div>
+            <div
+              style={{
+                fontFamily: "'Editorial New', 'Playfair Display','Nunito', serif",
+                fontSize: "24px",
+                fontWeight: 400,
+                color: "#121613",
+                lineHeight: 1,
+              }}
+            >
+              <b>LEA Executive</b>
+            </div>
+            <div
+              style={{
+                fontSize: "10px",
+                letterSpacing: "0.15em",
+                textTransform: "uppercase",
+                color: "#516254",
+                marginTop: "6px",
+              }}
+            >
+              Residency
             </div>
           </div>
         </div>
-      </footer>
+        <p
+          style={{
+            fontSize: "14px",
+            color: "#516254",
+            lineHeight: 1.5,
+            maxWidth: "320px",
+            marginBottom: "30px",
+          }}
+        >
+          A digital-first residential property in Nairobi. Tenants manage
+          their entire tenancy — rent, requests, communication and
+          documents — from one platform.
+        </p>
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: "12px",
+          }}
+        >
+          {[
+            { icon: <Phone size={14} />, text: "+254 748 333 763 or +254 799 956574" },
+            {
+              icon: <Mail size={14} />,
+              text: "chrisbenevansleo@gmail.com",
+            },
+            { icon: <MapPin size={14} />, text: "Nairobi, Kenya" },
+          ].map(({ icon, text }) => (
+            <div
+              key={text}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "12px",
+                fontSize: "14px",
+                color: "#121613",
+              }}
+            >
+              <span style={{ color: "#c9a96e" }}>{icon}</span> {text}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Columns 2, 3, & 4: Links Maps */}
+      {[
+        {
+          title: "Platform",
+          links: [
+            "Tenant Dashboard",
+            "M-Pesa Payments",
+            "Maintenance",
+            "Community Chat",
+          ],
+        },
+        {
+          title: "Support",
+          links: [
+            "How It Works",
+            "Contact Management",
+            "Policy Docs",
+            "Sign In",
+          ],
+        },
+        { title: "Payments", links: ["STK Push", "Payment History"] },
+      ].map((col) => (
+        <div key={col.title}>
+          <div
+            style={{
+              fontSize: "11px",
+              letterSpacing: "0.11px",
+              textTransform: "uppercase",
+              color: "#516254",
+              marginBottom: "24px",
+            }}
+          >
+            {col.title}
+          </div>
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: "16px",
+            }}
+          >
+            {col.links.map((link) => (
+              <button
+                key={link}
+                style={{
+                  background: "none",
+                  border: "none",
+                  padding: 0,
+                  textAlign: "left",
+                  fontSize: "14px",
+                  color: "#121613",
+                  cursor: "pointer",
+                  transition: "color 0.2s ease",
+                }}
+                onMouseOver={(e) =>
+                  (e.currentTarget.style.color = "#516254")
+                }
+                onMouseOut={(e) =>
+                  (e.currentTarget.style.color = "#121613")
+                }
+                onClick={() => {
+                  startLoading();
+                  router.push("/login");
+                }}
+              >
+                {link}
+              </button>
+            ))}
+          </div>
+        </div>
+      ))}
+
+      {/* ✅ Column 5: Brand QR Code Component */}
+      <div>
+        <div
+          style={{
+            fontSize: "11px",
+            letterSpacing: "0.11px",
+            textTransform: "uppercase",
+            color: "#516254",
+            marginBottom: "24px",
+          }}
+        >
+          Scan to Visit
+        </div>
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "flex-start",
+            gap: "12px",
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: "#ffffff",
+              padding: "12px",
+              borderRadius: "16px",
+              boxShadow: "0 4px 12px rgba(0, 0, 0, 0.03)",
+              border: "1px solid #eef2ef",
+              display: "inline-block",
+            }}
+          >
+            <img
+              src="https://api.qrserver.com/v1/create-qr-code/?size=110x110&data=https://lea-residency.vercel.app&margin=0"
+              alt="LEA Residency QR Code"
+              style={{
+                width: "110px",
+                height: "110px",
+                display: "block",
+              }}
+              loading="lazy"
+            />
+          </div>
+          <span 
+            style={{ 
+              fontSize: "12px", 
+              color: "#516254",
+              fontFamily: "monospace",
+              letterSpacing: "-0.3px"
+            }}
+          >
+            lea-residency.vercel.app
+          </span>
+        </div>
+      </div>
+    </div>
+
+    {/* Footer Bottom Strip */}
+    <div
+      className="footer-bottom"
+      style={{
+        borderTop: "1px solid #eef2ef",
+        paddingTop: "30px",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        flexWrap: "wrap",
+        gap: "20px",
+      }}
+    >
+      <span style={{ fontSize: "12px", color: "#516254" }}>
+        &copy; {new Date().getFullYear()} LEA Executive Residency. All
+        rights reserved.
+      </span>
+      <div style={{ display: "flex", gap: "30px" }}>
+        {["Privacy Policy", "Terms of Service", "Tenant Rights"].map(
+          (label) => {
+            const routeMap: Record<string, string> = {
+              "Privacy Policy": "/privacy",
+              "Terms of Service": "/terms",
+              "Tenant Rights": "/tenant-rights",
+            };
+            return (
+              <button
+                key={label}
+                onClick={() => router.push(routeMap[label])}
+                style={{
+                  fontSize: "12px",
+                  color: "#516254",
+                  cursor: "pointer",
+                  background: "none",
+                  border: "none",
+                  padding: 0,
+                }}
+              >
+                {label}
+              </button>
+            );
+          },
+        )}
+      </div>
+    </div>
+  </div>
+</footer>
       <InstallPrompt />
     </div>
   );
