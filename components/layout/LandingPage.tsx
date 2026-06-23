@@ -195,21 +195,21 @@ export default function Home() {
   ];
   const testimonials = [
     {
-      name: "Amina W.",
+      name: "Leo \"Informed\" A ",
       role: "Resident Tenant",
       avatar: "AW",
       rating: 5,
       text: "Paying rent through the app is so seamless. I send to the Paybill and a few seconds later it shows confirmed. No more calling to check if it went through.",
     },
     {
-      name: "James M.",
+      name: "Chris Evans",
       role: "Resident Tenant",
       avatar: "JM",
       rating: 5,
       text: "I logged a plumbing issue on Monday morning. By Wednesday it was already resolved and marked done in the app. This is how management should work.",
     },
     {
-      name: "Faith N.",
+      name: "Sophie Leo",
       role: "Resident Tenant",
       avatar: "FN",
       rating: 5,
