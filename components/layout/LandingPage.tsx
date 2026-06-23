@@ -92,7 +92,7 @@ export default function Home() {
     {
       icon: MessageSquare,
       title: "Direct Chat with Management",
-      desc: "Tenants get a private messaging channel with the property manager. Ask questions, report issues, get updates — no phone tag, no waiting.",
+      desc: "Tenants get a private messaging channel with the property manager. Ask questions, report issues, get updates ; no phone tag, no waiting.",
       color: "#0d9488",
       num: "01",
     },
@@ -106,7 +106,7 @@ export default function Home() {
     {
       icon: FileText,
       title: "Policies & Documents",
-      desc: "House rules, tenancy agreements, move-in guidelines — all stored digitally. Read them anytime, sign and download the agreement as a PDF.",
+      desc: "House rules, tenancy agreements, move-in guidelines ; all stored digitally. Read them anytime, sign and download the agreement as a PDF.",
       color: "#2563eb",
       num: "03",
     },
@@ -134,7 +134,7 @@ export default function Home() {
     {
       icon: Bell,
       title: "Push Notifications",
-      desc: "Instant alerts for new messages, payment confirmations, status updates, and community announcements — even when the app is closed.",
+      desc: "Instant alerts for new messages, payment confirmations, status updates, and community announcements ; even when the app is closed.",
       color: "#b45309",
       num: "07",
     },
@@ -162,19 +162,19 @@ export default function Home() {
   const faqs = [
     {
       q: "Okay but what actually is this?",
-      a: "A dashboard for one building. LEA Executive Residency has its own app where tenants pay rent, message management, and log requests — instead of WhatsApp groups, phone calls, and hoping someone saw your text.",
+      a: "A dashboard for one building. LEA Executive Residency has its own app where tenants pay rent, message management, and log requests ; instead of WhatsApp groups, phone calls, and hoping someone saw your text.",
     },
     {
       q: "Is this a rental listing site like the others?",
-      a: "No. We do not list properties or take bookings. If you are already living here, this is the tool you use every month — it starts after you move in, not before.",
+      a: "No. We do not list properties or take bookings. If you are already living here, this is the tool you use every month ; it starts after you move in, not before.",
     },
     {
       q: "How is this different from a regular landlord-tenant relationship?",
-      a: "Most of those run on memory and goodwill — a call here, a text there, hoping it was seen. We put it on record instead. Every message, payment, and request has a timestamp and a status. Less guessing, more trust, on both sides.",
+      a: "Most of those run on memory and goodwill ; a call here, a text there, hoping it was seen. We put it on record instead. Every message, payment, and request has a timestamp and a status. Less guessing, more trust, on both sides.",
     },
     {
       q: "Who actually gets my rent money?",
-      a: "Your landlord, directly. Payments go straight to the building\u2019s M-Pesa Paybill — LEA Executive never holds your money. The app simply reads the confirmation the moment M-Pesa sends it, so it shows up in your dashboard automatically.",
+      a: "Your landlord, directly. Payments go straight to the building\u2019s M-Pesa Paybill ; LEA Executive never holds your money. The app simply reads the confirmation the moment M-Pesa sends it, so it shows up in your dashboard automatically.",
     },
     {
       q: "What happens to a maintenance request after I submit it?",
@@ -182,7 +182,7 @@ export default function Home() {
     },
     {
       q: "Can my landlord see things I do not want them to?",
-      a: "No. Your private chat with management stays private. Row Level Security means only you and your property manager can see your conversations, payments, and records — not other tenants, not anyone else.",
+      a: "No. Your private chat with management stays private. Row Level Security means only you and your property manager can see your conversations, payments, and records ; not other tenants, not anyone else.",
     },
     {
       q: "What if I am not a tenant here yet?",
@@ -190,7 +190,7 @@ export default function Home() {
     },
     {
       q: "Is my data actually safe?",
-      a: "Yes — and we mean that specifically, not as a slogan. Read the Privacy Policy for exactly what we collect, why, and who can see it. No surprises, no fine print designed to confuse you.",
+      a: "Yes ; and we mean that specifically, not as a slogan. Read the Privacy Policy for exactly what we collect, why, and who can see it. No surprises, no fine print designed to confuse you.",
     },
   ];
   const testimonials = [
@@ -231,7 +231,7 @@ export default function Home() {
     {
       step: "3",
       title: "Manage everything from one place",
-      desc: "Chat with management, pay rent, submit requests, read policies, and stay connected with your building community — all in one app.",
+      desc: "Chat with management, pay rent, submit requests, read policies, and stay connected with your building community ; all in one app.",
     },
   ];
 
@@ -1634,7 +1634,7 @@ export default function Home() {
                     margin: 0,
                   }}
                 >
-                  <strong>Note:</strong> The app also supports STK Push — tap to
+                  <strong>Note:</strong> The app also supports STK Push ; tap to
                   trigger an M-Pesa prompt directly to your phone without
                   opening the M-Pesa menu.
                 </p>
@@ -2177,8 +2177,8 @@ export default function Home() {
                 }}
               >
                 A digital-first residential property in Nairobi. Tenants manage
-                their entire tenancy — rent, requests, communication and
-                documents — from one platform.
+                their entire tenancy ; rent, requests, communication and
+                documents ; from one platform.
               </p>
               <div
                 style={{
