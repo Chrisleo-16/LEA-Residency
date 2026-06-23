@@ -1569,7 +1569,7 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
               </div>
               <h3 className="font-semibold text-foreground">Payment Details</h3>
             </div>
-            <div className="grid grid-cols-3 gap-3 mb-4">
+            {/* <div className="grid grid-cols-3 gap-3 mb-4">
               {[
                 { label: "Paybill", value: "400200" },
                 { label: "Account", value: "1060544" },
@@ -1587,7 +1587,7 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
                   </p>
                 </div>
               ))}
-            </div>
+            </div> */}
             <div className="space-y-1.5">
               {[
                 "✅ Pay between 1st and 5th of every month",

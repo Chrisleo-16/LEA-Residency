@@ -10,7 +10,7 @@ import {
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { User, RealtimeChannel } from '@supabase/supabase-js'
-import {useRouteLoader} from '@/components/RouteLoaderProvider'
+import { useRouteLoader } from '@/components/RouteLoaderProvider'
 
 interface SidebarProps {
   activeTab: string
@@ -25,8 +25,7 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
   const [fullName, setFullName] = useState('')
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
-  const {startLoading} = useRouteLoader()
-
+  const {startLoading} = useRouteLoader();
 
   useEffect(() => {
     let channel: RealtimeChannel | null = null
@@ -190,7 +189,6 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
             <button
               key={tab.id}
               onClick={() => {
-                startLoading(); // Start the loader immediately on click
                 if (tab.id === 'developer-dashboard') {
                   router.push('/developer-dashboard')
                 } else {
@@ -258,7 +256,10 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
             </p>
           </div>
           <button
-            onClick={handleLogout}
+            onClick={() => {
+              startLoading();
+              handleLogout();
+            }}
             className="p-1.5 rounded-lg hover:bg-sidebar-border text-sidebar-foreground/40 hover:text-sidebar-foreground transition-colors shrink-0"
             title="Logout"
           >
