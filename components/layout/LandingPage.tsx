@@ -691,961 +691,955 @@ export default function Home() {
         </div>
       )}
       <section
-        className="hero-section"
+  className="hero-section"
+  style={{
+    position: "relative",
+    minHeight: "100vh",
+    display: "flex",
+    flexDirection: "column",
+    justifyContent: "center",
+    backgroundColor: "#0D0D0D", // Deep Obsidian Black
+    overflow: "hidden",
+    padding: "120px 50px",
+    fontFamily: "'SF Pro Display', 'Helvetica Neue', 'Arial', sans-serif",
+  }}
+>
+  <div
+    style={{
+      maxWidth: "1440px",
+      margin: "0 auto",
+      width: "100%",
+      position: "relative",
+      zIndex: 1,
+    }}
+  >
+
+    {/* Hard-hitting Typography */}
+    <h1
+      className="fade-up fade-up-2 hero-title"
+      style={{
+        fontFamily: "'SF Pro Display', 'Helvetica Neue', 'Arial', sans-serif",
+        fontSize: "clamp(60px, 8vw, 120px)", // Adjusted slightly for cleaner grid flow
+        fontWeight: 300,
+        lineHeight: 0.95,
+        letterSpacing: "-0.03em",
+        color: "#f5f0e8", // Crisp Bone White
+        margin: "30px 0 60px 0",
+        zIndex: 4,
+        maxWidth: "1100px",
+        textTransform: "uppercase",
+      }}
+    >
+      Autonomous
+      <br />
+      Property Operations.
+    </h1>
+
+    {/* High-Fidelity UI/Image Container */}
+    <div
+      className="hero-image"
+      style={{
+        position: "absolute",
+        right: "5%",
+        top: "15%",
+        width: "360px",
+        height: "480px",
+        backgroundImage: "url(/images/licensed-image.jpg)",
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        borderRadius: "12px",
+        filter: "grayscale(100%) contrast(120%) brightness(80%)",
+        border: "1px solid rgba(225, 169, 58, 0.2)", // Subtle gold border
+        boxShadow: "0 20px 40px rgba(0,0,0,0.5)",
+        zIndex: 1,
+      }}
+    />
+
+    {/* Core Content Block */}
+    <div
+      className="hero-content"
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: "40px",
+        maxWidth: "520px",
+        marginLeft: "5%", // Brought closer to the left edge for a stronger grid line
+      }}
+    >
+      <div className="fade-up fade-up-3">
+        <p
+          style={{
+            fontSize: "16px",
+            fontWeight: 400,
+            lineHeight: 1.5,
+            letterSpacing: "-0.01em",
+            color: "#E2E8F0", // Clean light slate text
+            marginBottom: "15px",
+          }}
+        >
+          The zero-friction terminal for premium residencies. Instant M-Pesa 
+          ledger reconciliation, automated maintenance routing, and cryptographic 
+          tenant data isolation running entirely on edge architecture.
+        </p>
+        <p
+          style={{ 
+            fontSize: "14px", 
+            fontWeight: 400, 
+            color: "#A0AEC0", // Muted secondary text
+            letterSpacing: "-0.01em" 
+          }}
+        >
+          No chaotic chat threads. No credential loops. Zero operational friction.
+        </p>
+      </div>
+
+      {/* High-Contrast CTAs */}
+      <div
+        className="fade-up fade-up-4 hero-ctas"
         style={{
-          position: "relative",
-          minHeight: "100vh",
           display: "flex",
-          flexDirection: "column",
-          justifyContent: "center",
-          backgroundColor: "#fafffa",
-          overflow: "hidden",
-          padding: "120px 50px",
-          fontFamily: "'SF Pro Display', 'Helvetica Neue', 'Arial', sans-serif",
+          gap: "30px",
+          alignItems: "center",
+          flexWrap: "wrap",
         }}
       >
+        <button
+          onClick={() => {
+            startLoading();
+            router.push("/login");
+          }}
+          style={{
+            padding: "18px 45px",
+            fontSize: 13,
+            fontFamily: "'SF Pro Display', sans-serif",
+            background: "#c9a96e", // Solid Gold pop
+            color: "#0D0D0D", // Deep black text for absolute contrast
+            border: "none",
+            borderRadius: 4, // Sharp, professional geometric corners instead of pill shape
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+            fontWeight: 600,
+            textTransform: "uppercase",
+            letterSpacing: "1px",
+            cursor: "pointer",
+            transition: "transform 0.2s ease, background-color 0.2s ease",
+          }}
+        >
+          Access Terminal <span>→</span>
+        </button>
+        <button
+          onClick={() => {
+            startLoading();
+            router.push("/login?demo=true");
+          }}
+          style={{
+            backgroundColor: "transparent",
+            color: "#f5f0e8",
+            fontSize: "13px",
+            fontWeight: 500,
+            border: "none",
+            cursor: "pointer",
+            textTransform: "uppercase",
+            letterSpacing: "1px",
+            textDecoration: "underline",
+            textUnderlineOffset: "6px",
+            transition: "color 0.2s ease",
+          }}
+        >
+          Request Audit
+        </button>
+      </div>
+    </div>
+
+    {/* Hard Metrics Section */}
+    <div
+      className="hero-stats"
+      style={{
+        display: "flex",
+        gap: "100px",
+        marginTop: "120px",
+        flexWrap: "wrap",
+        marginLeft: "5%",
+      }}
+    >
+      {[
+        ["99.8%", "Webhook Uptime"],
+        ["0", "Credential Leaks"],
+        ["100%", "Edge Reconciled"],
+      ].map(([num, label]) => (
+        <div
+          key={label}
+          style={{ display: "flex", flexDirection: "column", gap: "6px" }}
+        >
+          <div
+            style={{
+              fontFamily: "'SF Pro Display', 'Helvetica Neue', 'Arial', sans-serif",
+              fontSize: "28px", // Made larger to act as a definitive visual anchor
+              fontWeight: 300,
+              color: "#f5f0e8",
+            }}
+          >
+            {num}
+          </div>
+          <div
+            style={{
+              fontSize: "10px",
+              fontWeight: 500,
+              letterSpacing: "1px",
+              textTransform: "uppercase",
+              color: "#c9a96e", // Golden metric labels
+            }}
+          >
+            {label}
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+</section>
+
+     {/* ── WHAT YOU GET ─────────────────────────────────────────────── */}
+<section
+  style={{
+    backgroundColor: "#faf8f5",
+    padding: "120px 50px",
+    fontFamily:
+      "'TWK Lausanne', 'Inter', ui-sans-serif, system-ui, sans-serif",
+  }}
+>
+  <div style={{ maxWidth: "1440px", margin: "0 auto" }}>
+    <div
+      style={{
+        display: "flex",
+        alignItems: "flex-end",
+        justifyContent: "space-between",
+        marginBottom: "80px",
+        flexWrap: "wrap",
+        gap: "40px",
+      }}
+    >
+      <div>
         <div
           style={{
-            maxWidth: "1440px",
-            margin: "0 auto",
-            width: "100%",
-            position: "relative",
-            zIndex: 1,
+            width: "50px",
+            height: "2px",
+            backgroundColor: "#c9a96e",
+            marginBottom: "45px",
+          }}
+        />
+        <div
+          style={{
+            fontSize: "11px",
+            fontWeight: 350,
+            textTransform: "uppercase",
+            letterSpacing: "0.11px",
+            color: "#615a51",
+            marginBottom: "20px",
+          }}
+        >
+          What You Get
+        </div>
+        <h2
+          style={{
+            fontFamily:
+              "'SF Pro Display', 'Helvetica Neue', 'Arial', sans-serif",
+            fontSize: "clamp(60px, 8vw, 96px)",
+            fontWeight: 300,
+            lineHeight: 0.9,
+            letterSpacing: "-0.02em",
+            color: "#121110",
+            margin: 0,
+          }}
+        >
+          Your Dashboard Has
+          <br />6 Sections.
+        </h2>
+      </div>
+      <p
+        style={{
+          fontSize: "16px",
+          fontWeight: 400,
+          color: "#121110",
+          maxWidth: "340px",
+          lineHeight: 1.4,
+          margin: 0,
+          paddingBottom: "10px",
+        }}
+      >
+        When you log in, this is your navigation. Every section is built
+        specifically for tenants and property managers.
+      </p>
+    </div>
+    <div
+      className="tab-grid"
+      style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
+        gap: "60px 40px",
+      }}
+    >
+      {dashboardTabs.map(({ label, icon: Icon, desc }) => (
+        <div
+          key={label}
+          style={{
+            display: "flex",
+            gap: "20px",
+            alignItems: "flex-start",
           }}
         >
           <div
-            className="fade-up fade-up-1"
             style={{
-              width: "50px",
-              height: "2px",
-              backgroundColor: "#c9a96e",
-              marginBottom: "45px",
+              width: "32px",
+              height: "32px",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
             }}
-          />
+          >
+            <Icon size={24} color="#121110" strokeWidth={1.5} />
+          </div>
+          <div>
+            <div
+              style={{
+                fontSize: "18px",
+                fontWeight: 400,
+                color: "#121110",
+                marginBottom: "8px",
+              }}
+            >
+              {label}
+            </div>
+            <div
+              style={{
+                fontSize: "14px",
+                fontWeight: 350,
+                color: "#615a51",
+                lineHeight: 1.4,
+                maxWidth: "280px",
+              }}
+            >
+              {desc}
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+</section>
+
+{/* ── HOW IT WORKS ──────────────────────────────────────── */}
+<section
+  id="howitworks"
+  style={{
+    backgroundColor: "#faf8f5",
+    padding: "120px 50px",
+    fontFamily:
+      "'TWK Lausanne', 'Inter', ui-sans-serif, system-ui, sans-serif",
+  }}
+>
+  <div style={{ maxWidth: "1440px", margin: "0 auto" }}>
+    <div style={{ marginBottom: "100px" }}>
+      <div
+        style={{
+          width: "50px",
+          height: "2px",
+          backgroundColor: "#c9a96e",
+          marginBottom: "45px",
+        }}
+      />
+      <div
+        style={{
+          fontSize: "11px",
+          fontWeight: 350,
+          textTransform: "uppercase",
+          letterSpacing: "0.11px",
+          color: "#615a51",
+          marginBottom: "20px",
+        }}
+      >
+        Getting Started
+      </div>
+      <h2
+        style={{
+          fontFamily:
+            "'SF Pro Display', 'Helvetica Neue', 'Arial', sans-serif",
+          fontSize: "clamp(80px, 10vw, 140px)",
+          fontWeight: 300,
+          lineHeight: 0.9,
+          letterSpacing: "-0.02em",
+          color: "#121110",
+          margin: 0,
+        }}
+      >
+        How It Works.
+      </h2>
+    </div>
+    <div
+      className="how-grid"
+      style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
+        gap: "80px 40px",
+      }}
+    >
+      {howItWorks.map(({ step, title, desc }) => (
+        <div
+          key={step}
+          style={{
+            position: "relative",
+            display: "flex",
+            flexDirection: "column",
+          }}
+        >
           <div
-            className="fade-up fade-up-1"
+            className="step-number"
+            style={{
+              fontFamily: "'PP Mondwest', 'GT Sectra', serif",
+              fontSize: "clamp(56px, 9vw, 96px)",
+              fontWeight: 400,
+              lineHeight: 0.9,
+              color: "#d4cbc0",
+              marginBottom: "30px",
+              letterSpacing: "-0.04em",
+            }}
+          >
+            0{step}
+          </div>
+          <h3
+            style={{
+              fontSize: "18px",
+              fontWeight: 400,
+              color: "#121110",
+              marginBottom: "15px",
+            }}
+          >
+            {title}
+          </h3>
+          <p
+            style={{
+              fontSize: "16px",
+              fontWeight: 350,
+              color: "#615a51",
+              lineHeight: 1.4,
+              maxWidth: "90%",
+            }}
+          >
+            {desc}
+          </p>
+        </div>
+      ))}
+    </div>
+    <div
+      style={{
+        marginTop: "120px",
+        display: "flex",
+        justifyContent: "flex-start",
+      }}
+    >
+      <button
+        onClick={() => {
+          startLoading()
+          router.push("/login")
+        }}
+        style={{
+          padding: "20px 50px",
+          fontSize: 14,
+          fontFamily: "'Nunito', sans-serif",
+          background: "#c9a96e",
+          color: "#fff",
+          border: "none",
+          borderRadius: 999,
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          fontWeight: 550,
+          textTransform: "uppercase",
+          letterSpacing: "0.01em",
+          cursor: "pointer",
+          transition: "transform 0.2s ease",
+        }}
+      >
+        Get Access <span>→</span>
+      </button>
+    </div>
+  </div>
+</section>
+
+{/* ── FEATURES ─────────────────────────────────────────── */}
+<section
+  id="features"
+  style={{
+    backgroundColor: "#faf8f5",
+    padding: "120px 50px",
+    fontFamily:
+      "'TWK Lausanne', 'Inter', ui-sans-serif, system-ui, sans-serif",
+  }}
+>
+  <div style={{ maxWidth: "1440px", margin: "0 auto" }}>
+    <div
+      style={{
+        display: "flex",
+        alignItems: "flex-end",
+        justifyContent: "space-between",
+        marginBottom: "80px",
+        flexWrap: "wrap",
+        gap: "40px",
+      }}
+    >
+      <div>
+        <div
+          style={{
+            width: "50px",
+            height: "2px",
+            backgroundColor: "#c9a96e",
+            marginBottom: "45px",
+          }}
+        />
+        <div
+          style={{
+            fontSize: "11px",
+            fontWeight: 350,
+            textTransform: "uppercase",
+            letterSpacing: "0.11px",
+            color: "#615a51",
+            marginBottom: "20px",
+          }}
+        >
+          Platform Features
+        </div>
+        <h2
+          style={{
+            fontFamily:
+              "'SF Pro Display', 'Helvetica Neue', 'Arial', sans-serif",
+            fontSize: "clamp(60px, 8vw, 96px)",
+            fontWeight: 300,
+            lineHeight: 0.9,
+            letterSpacing: "-0.02em",
+            color: "#121110",
+            margin: 0,
+          }}
+        >
+          Everything a Tenant
+          <br />
+          Could Need.
+        </h2>
+      </div>
+      <p
+        style={{
+          fontSize: "16px",
+          fontWeight: 400,
+          color: "#615a51",
+          maxWidth: "340px",
+          lineHeight: 1.4,
+          margin: 0,
+          paddingBottom: "10px",
+        }}
+      >
+        All features are live and functional at lea-residency.vercel.app.
+        Log in to access your dashboard.
+      </p>
+    </div>
+    <div
+      className="feat-grid"
+      style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit, minmax(400px, 1fr))",
+        gap: "40px",
+      }}
+    >
+      {features.map(({ icon: Icon, title, desc, num }) => (
+        <div
+          key={num}
+          className="feat-card bg-background"
+          style={{
+            display: "flex",
+            gap: "24px",
+            alignItems: "flex-start",
+            backgroundColor: "#ffffff",
+            padding: "48px 40px",
+            borderRadius: "24px",
+            boxShadow: "0 24px 48px rgba(18, 17, 16, 0.04)",
+            border: "1px solid rgba(18, 17, 16, 0.03)",
+            transition: "transform 0.3s ease, box-shadow 0.3s ease",
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = "translateY(-4px)";
+            e.currentTarget.style.boxShadow =
+              "0 32px 64px rgba(18, 17, 16, 0.08)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = "translateY(0)";
+            e.currentTarget.style.boxShadow =
+              "0 24px 48px rgba(18, 17, 16, 0.04)";
+          }}
+        >
+          <div
+            style={{
+              width: "48px",
+              height: "48px",
+              backgroundColor: "#faf8f5",
+              borderRadius: "50%",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+              border: "1px solid #f0ebe4",
+            }}
+          >
+            <Icon size={24} color="#121110" strokeWidth={1.5} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <div
+              style={{
+                display: "flex",
+                alignItems: "baseline",
+                gap: "15px",
+                marginBottom: "16px",
+              }}
+            >
+              <h3
+                style={{
+                  fontFamily:
+                    "'SF Pro Display', 'Helvetica Neue', 'Arial', sans-serif",
+                  fontSize: "28px",
+                  fontWeight: 400,
+                  color: "#121110",
+                  lineHeight: 1.1,
+                  margin: 0,
+                }}
+              >
+                {title}
+              </h3>
+              <span
+                style={{
+                  fontSize: "12px",
+                  fontWeight: 500,
+                  color: "#d4cbc0",
+                  letterSpacing: "0.05em",
+                }}
+              >
+                {num}
+              </span>
+            </div>
+            <p
+              style={{
+                fontSize: "15px",
+                fontWeight: 350,
+                color: "#615a51",
+                lineHeight: 1.6,
+                margin: 0,
+                maxWidth: "95%",
+              }}
+            >
+              {desc}
+            </p>
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+</section>
+
+{/* ── PAYMENTS ─────────────────────────────────────────── */}
+<section
+  id="payments"
+  style={{
+    backgroundColor: "#faf8f5",
+    padding: "120px 50px",
+    fontFamily:
+      "'TWK Lausanne', 'Inter', ui-sans-serif, system-ui, sans-serif",
+  }}
+>
+  <div style={{ maxWidth: "1440px", margin: "0 auto" }}>
+    <div
+      className="payments-grid"
+      style={{
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit, minmax(450px, 1fr))",
+        gap: "100px",
+        alignItems: "center",
+      }}
+    >
+      <div>
+        <div
+          style={{
+            width: "50px",
+            height: "2px",
+            backgroundColor: "#c9a96e",
+            marginBottom: "45px",
+          }}
+        />
+        <div
+          style={{
+            fontSize: "11px",
+            fontWeight: 350,
+            textTransform: "uppercase",
+            letterSpacing: "0.11px",
+            color: "#615a51",
+            marginBottom: "20px",
+          }}
+        >
+          Rent Payments
+        </div>
+        <h2
+          style={{
+            fontFamily:
+              "'SF Pro Display', 'Helvetica Neue', 'Arial', sans-serif",
+            fontSize: "clamp(50px, 6vw, 80px)",
+            fontWeight: 300,
+            lineHeight: 0.98,
+            letterSpacing: "-0.02em",
+            color: "#121110",
+            margin: "0 0 30px 0",
+          }}
+        >
+          Pay Rent Via
+          <br />
+          M-Pesa.
+          <br />
+          <span
+            style={{
+              fontSize: "50%",
+              color: "#d4cbc0",
+              display: "block",
+              marginTop: "15px",
+            }}
+          >
+            Logged Automatically
+          </span>
+        </h2>
+        <p
+          style={{
+            fontSize: "16px",
+            fontWeight: 400,
+            color: "#615a51",
+            lineHeight: 1.5,
+            marginBottom: "40px",
+            maxWidth: "480px",
+          }}
+        >
+          Use M-Pesa Paybill to pay rent. Your payment is recognised by
+          the system automatically, logged against your account, and your
+          landlord is notified instantly. No manual confirmation needed.
+        </p>
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: "16px",
+          }}
+        >
+          {[
+            "Tenant initiates payment from their M-Pesa menu",
+            "Payment goes through as usual via M-Pesa",
+            "Our system detects the payment in real time via M-Pesa APIs",
+            "Payment received and logged in real time",
+            "Tenant gets immediate confirmation in-app",
+            "Landlord receives instant notification",
+            "Monthly history and receipts saved forever",
+          ].map((item, idx) => (
+            <div
+              key={idx}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "12px",
+              }}
+            >
+              <div
+                style={{
+                  width: "6px",
+                  height: "6px",
+                  backgroundColor: "#c9a96e",
+                  borderRadius: "50%",
+                }}
+              />
+              <span
+                style={{
+                  fontSize: "14px",
+                  color: "#121110",
+                  fontWeight: 400,
+                }}
+              >
+                {item}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div
+        className="payments-card"
+        style={{
+          backgroundColor: "#ffffff",
+          border: "1px solid #f0ebe4",
+          padding: "60px 50px",
+          boxShadow: "0 30px 60px rgba(18, 17, 16, 0.03)",
+        }}
+      >
+        <div style={{ marginBottom: "40px" }}>
+          <div
             style={{
               fontSize: "11px",
-              fontWeight: 350,
-              textTransform: "uppercase",
               letterSpacing: "0.11px",
-              color: "#516254",
-              marginBottom: "30px",
+              textTransform: "uppercase",
+              color: "#615a51",
+              marginBottom: "16px",
             }}
           >
-            Property Management Platform · Nairobi
+            April 2026 · Rent Status
           </div>
-          <h1
-            className="fade-up fade-up-2 hero-title"
-            style={{
-              fontFamily:
-                "'SF Pro Display', 'Helvetica Neue', 'Arial', sans-serif",
-              fontSize: "clamp(80px, 10vw, 160px)",
-              fontWeight: 300,
-              lineHeight: 0.95,
-              letterSpacing: "-0.02em",
-              color: "#121613",
-              margin: "0 0 60px 0",
-              zIndex: 4,
-              maxWidth: "1100px",
-            }}
-          >
-            Your Home.
-            <br />
-            Managed Digitally.
-            <br />
-            From One App.
-          </h1>
-          <div
-            className="hero-image"
-            style={{
-              position: "absolute",
-              right: "5%",
-              top: "15%",
-              width: "340px",
-              height: "460px",
-              backgroundImage: "url(/images/licensed-image.jpg)",
-              backgroundSize: "cover",
-              backgroundPosition: "center",
-              borderRadius: "14px",
-              filter: "grayscale(100%) contrast(110%)",
-              zIndex: 1,
-            }}
-          />
-          <div
-            className="hero-content"
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: "40px",
-              maxWidth: "480px",
-              marginLeft: "15%",
-            }}
-          >
-            <div className="fade-up fade-up-3">
-              <p
-                style={{
-                  fontSize: "16px",
-                  fontWeight: 400,
-                  lineHeight: 1.4,
-                  letterSpacing: "-0.32px",
-                  color: "#121613",
-                  marginBottom: "15px",
-                }}
-              >
-                LEA Executive Residency gives every tenant a digital dashboard
-                to pay rent via M-Pesa, chat with management, log maintenance
-                requests, access all house policies, and stay connected with
-                building announcements.
-              </p>
-              <p
-                style={{ fontSize: "14px", fontWeight: 350, color: "#516254" }}
-              >
-                No more calling. No more confusion. Everything on record.
-              </p>
-            </div>
-            <div
-              className="fade-up fade-up-4 hero-ctas"
-              style={{
-                display: "flex",
-                gap: "30px",
-                alignItems: "center",
-                flexWrap: "wrap",
-              }}
-            >
-              <button
-                onClick={() => {
-                  startLoading();
-                  router.push("/login");
-                }}
-                style={{
-                  padding: "20px 50px",
-                  fontSize: 14,
-                  fontFamily: "'Nunito', sans-serif",
-                  background: "#c9a96e",
-                  color: "#fff",
-                  border: "none",
-                  borderRadius: 999,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                  fontWeight: 550,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.01em",
-                  cursor: "pointer",
-                  transition: "transform 0.2s ease",
-                }}
-              >
-                Get Started <span>→</span>
-              </button>
-              <button
-                onClick={() => {
-                  startLoading();
-                  router.push("/login?demo=true");
-                }}
-                style={{
-                  backgroundColor: "transparent",
-                  color: "#121613",
-                  fontSize: "14px",
-                  fontWeight: 350,
-                  border: "none",
-                  cursor: "pointer",
-                  textDecoration: "underline",
-                  textUnderlineOffset: "4px",
-                }}
-              >
-                Request Demo
-              </button>
-            </div>
-          </div>
-          <div
-            className="hero-stats"
-            style={{
-              display: "flex",
-              gap: "80px",
-              marginTop: "120px",
-              flexWrap: "wrap",
-            }}
-          >
-            {[
-              ["6+", "Dashboard Features"],
-              ["M-Pesa", "Instant Payments"],
-              ["Real-time", "Chat & Notifications"],
-            ].map(([num, label]) => (
-              <div
-                key={label}
-                style={{ display: "flex", flexDirection: "column", gap: "4px" }}
-              >
-                <div
-                  style={{
-                    fontFamily:
-                      "'SF Pro Display', 'Helvetica Neue', 'Arial', sans-serif",
-                    fontSize: "18px",
-                    fontWeight: 400,
-                    color: "#121613",
-                  }}
-                >
-                  {num}
-                </div>
-                <div
-                  style={{
-                    fontSize: "11px",
-                    fontWeight: 350,
-                    letterSpacing: "0.11px",
-                    textTransform: "uppercase",
-                    color: "#516254",
-                  }}
-                >
-                  {label}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── WHAT YOU GET ─────────────────────────────────────────────── */}
-      <section
-        style={{
-          backgroundColor: "#fafffa",
-          padding: "120px 50px",
-          fontFamily:
-            "'TWK Lausanne', 'Inter', ui-sans-serif, system-ui, sans-serif",
-        }}
-      >
-        <div style={{ maxWidth: "1440px", margin: "0 auto" }}>
           <div
             style={{
               display: "flex",
               alignItems: "flex-end",
               justifyContent: "space-between",
-              marginBottom: "80px",
+              marginBottom: "16px",
               flexWrap: "wrap",
-              gap: "40px",
+              gap: "8px",
             }}
           >
-            <div>
-              <div
-                style={{
-                  width: "50px",
-                  height: "2px",
-                  backgroundColor: "#c9a96e",
-                  marginBottom: "45px",
-                }}
-              />
-              <div
-                style={{
-                  fontSize: "11px",
-                  fontWeight: 350,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.11px",
-                  color: "#516254",
-                  marginBottom: "20px",
-                }}
-              >
-                What You Get
-              </div>
-              <h2
-                style={{
-                  fontFamily:
-                    "'SF Pro Display', 'Helvetica Neue', 'Arial', sans-serif",
-                  fontSize: "clamp(60px, 8vw, 96px)",
-                  fontWeight: 300,
-                  lineHeight: 0.9,
-                  letterSpacing: "-0.02em",
-                  color: "#121613",
-                  margin: 0,
-                }}
-              >
-                Your Dashboard Has
-                <br />6 Sections.
-              </h2>
-            </div>
-            <p
+            <span
               style={{
-                fontSize: "16px",
-                fontWeight: 400,
-                color: "#121613",
-                maxWidth: "340px",
-                lineHeight: 1.4,
-                margin: 0,
-                paddingBottom: "10px",
+                fontFamily: "'Editorial New', serif",
+                fontSize: "clamp(32px, 8vw, 48px)",
+                lineHeight: 0.8,
+                color: "#c9a96e",
               }}
             >
-              When you log in, this is your navigation. Every section is built
-              specifically for tenants and property managers.
-            </p>
+              PAID
+            </span>
+            <span
+              style={{
+                fontSize: "14px",
+                fontWeight: 500,
+                color: "#121110",
+              }}
+            >
+              KES 22,000
+            </span>
           </div>
           <div
-            className="tab-grid"
             style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
-              gap: "60px 40px",
+              height: "4px",
+              backgroundColor: "#f0ebe4",
+              overflow: "hidden",
             }}
           >
-            {dashboardTabs.map(({ label, icon: Icon, desc }) => (
-              <div
-                key={label}
-                style={{
-                  display: "flex",
-                  gap: "20px",
-                  alignItems: "flex-start",
-                }}
-              >
-                <div
-                  style={{
-                    width: "32px",
-                    height: "32px",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    flexShrink: 0,
-                  }}
-                >
-                  <Icon size={24} color="#121613" strokeWidth={1.5} />
-                </div>
-                <div>
-                  <div
-                    style={{
-                      fontSize: "18px",
-                      fontWeight: 400,
-                      color: "#121613",
-                      marginBottom: "8px",
-                    }}
-                  >
-                    {label}
-                  </div>
-                  <div
-                    style={{
-                      fontSize: "14px",
-                      fontWeight: 350,
-                      color: "#516254",
-                      lineHeight: 1.4,
-                      maxWidth: "280px",
-                    }}
-                  >
-                    {desc}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── HOW IT WORKS ──────────────────────────────────────── */}
-      <section
-        id="howitworks"
-        style={{
-          backgroundColor: "#fafffa",
-          padding: "120px 50px",
-          fontFamily:
-            "'TWK Lausanne', 'Inter', ui-sans-serif, system-ui, sans-serif",
-        }}
-      >
-        <div style={{ maxWidth: "1440px", margin: "0 auto" }}>
-          <div style={{ marginBottom: "100px" }}>
             <div
               style={{
-                width: "50px",
-                height: "2px",
+                height: "100%",
+                width: "100%",
                 backgroundColor: "#c9a96e",
-                marginBottom: "45px",
               }}
             />
-            <div
-              style={{
-                fontSize: "11px",
-                fontWeight: 350,
-                textTransform: "uppercase",
-                letterSpacing: "0.11px",
-                color: "#516254",
-                marginBottom: "20px",
-              }}
-            >
-              Getting Started
-            </div>
-            <h2
-              style={{
-                fontFamily:
-                  "'SF Pro Display', 'Helvetica Neue', 'Arial', sans-serif",
-                fontSize: "clamp(80px, 10vw, 140px)",
-                fontWeight: 300,
-                lineHeight: 0.9,
-                letterSpacing: "-0.02em",
-                color: "#121613",
-                margin: 0,
-              }}
-            >
-              How It Works.
-            </h2>
-          </div>
-          <div
-            className="how-grid"
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
-              gap: "80px 40px",
-            }}
-          >
-            {howItWorks.map(({ step, title, desc }) => (
-              <div
-                key={step}
-                style={{
-                  position: "relative",
-                  display: "flex",
-                  flexDirection: "column",
-                }}
-              >
-                <div
-                  className="step-number"
-                  style={{
-                    fontFamily: "'PP Mondwest', 'GT Sectra', serif",
-                    fontSize: "clamp(56px, 9vw, 96px)",
-                    fontWeight: 400,
-                    lineHeight: 0.9,
-                    color: "#c8d2c8",
-                    marginBottom: "30px",
-                    letterSpacing: "-0.04em",
-                  }}
-                >
-                  0{step}
-                </div>
-                <h3
-                  style={{
-                    fontSize: "18px",
-                    fontWeight: 400,
-                    color: "#121613",
-                    marginBottom: "15px",
-                  }}
-                >
-                  {title}
-                </h3>
-                <p
-                  style={{
-                    fontSize: "16px",
-                    fontWeight: 350,
-                    color: "#516254",
-                    lineHeight: 1.4,
-                    maxWidth: "90%",
-                  }}
-                >
-                  {desc}
-                </p>
-              </div>
-            ))}
-          </div>
-          <div
-            style={{
-              marginTop: "120px",
-              display: "flex",
-              justifyContent: "flex-start",
-            }}
-          >
-            <button
-              onClick={() => {
-                startLoading()
-                router.push("/login")
-              }}
-              style={{
-                padding: "20px 50px",
-                fontSize: 14,
-                fontFamily: "'Nunito', sans-serif",
-                background: "#c9a96e",
-                color: "#fff",
-                border: "none",
-                borderRadius: 999,
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                fontWeight: 550,
-                textTransform: "uppercase",
-                letterSpacing: "0.01em",
-                cursor: "pointer",
-                transition: "transform 0.2s ease",
-              }}
-            >
-              Get Access <span>→</span>
-            </button>
           </div>
         </div>
-      </section>
-
-      {/* ── FEATURES ─────────────────────────────────────────── */}
-      <section
-        id="features"
-        style={{
-          backgroundColor: "#fafffa",
-          padding: "120px 50px",
-          fontFamily:
-            "'TWK Lausanne', 'Inter', ui-sans-serif, system-ui, sans-serif",
-        }}
-      >
-        <div style={{ maxWidth: "1440px", margin: "0 auto" }}>
+        {[
+          {
+            month: "March 2026",
+            amount: "KES 22,000",
+            code: "RGR0012345",
+            status: "PAID",
+          },
+          {
+            month: "February 2026",
+            amount: "KES 22,000",
+            code: "RGR0098231",
+            status: "PAID",
+          },
+          {
+            month: "January 2026",
+            amount: "KES 22,000",
+            code: "RGR0076654",
+            status: "PAID",
+          },
+        ].map((p, idx) => (
           <div
+            key={p.month}
             style={{
               display: "flex",
-              alignItems: "flex-end",
-              justifyContent: "space-between",
-              marginBottom: "80px",
-              flexWrap: "wrap",
-              gap: "40px",
-            }}
-          >
-            <div>
-              <div
-                style={{
-                  width: "50px",
-                  height: "2px",
-                  backgroundColor: "#c9a96e",
-                  marginBottom: "45px",
-                }}
-              />
-              <div
-                style={{
-                  fontSize: "11px",
-                  fontWeight: 350,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.11px",
-                  color: "#516254",
-                  marginBottom: "20px",
-                }}
-              >
-                Platform Features
-              </div>
-              <h2
-                style={{
-                  fontFamily:
-                    "'SF Pro Display', 'Helvetica Neue', 'Arial', sans-serif",
-                  fontSize: "clamp(60px, 8vw, 96px)",
-                  fontWeight: 300,
-                  lineHeight: 0.9,
-                  letterSpacing: "-0.02em",
-                  color: "#121613",
-                  margin: 0,
-                }}
-              >
-                Everything a Tenant
-                <br />
-                Could Need.
-              </h2>
-            </div>
-            <p
-              style={{
-                fontSize: "16px",
-                fontWeight: 400,
-                color: "#516254",
-                maxWidth: "340px",
-                lineHeight: 1.4,
-                margin: 0,
-                paddingBottom: "10px",
-              }}
-            >
-              All features are live and functional at lea-residency.vercel.app.
-              Log in to access your dashboard.
-            </p>
-          </div>
-          <div
-            className="feat-grid"
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(400px, 1fr))",
-              gap: "40px",
-            }}
-          >
-            {features.map(({ icon: Icon, title, desc, num }) => (
-              <div
-                key={num}
-                className="feat-card bg-background"
-                style={{
-                  display: "flex",
-                  gap: "24px",
-                  alignItems: "flex-start",
-                  backgroundColor: "#FffffA",
-                  padding: "48px 40px",
-                  borderRadius: "24px",
-                  boxShadow: "0 24px 48px rgba(18, 22, 19, 0.04)",
-                  border: "1px solid rgba(18, 22, 19, 0.03)",
-                  transition: "transform 0.3s ease, box-shadow 0.3s ease",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = "translateY(-4px)";
-                  e.currentTarget.style.boxShadow =
-                    "0 32px 64px rgba(18, 22, 19, 0.08)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = "translateY(0)";
-                  e.currentTarget.style.boxShadow =
-                    "0 24px 48px rgba(18, 22, 19, 0.04)";
-                }}
-              >
-                <div
-                  style={{
-                    width: "48px",
-                    height: "48px",
-                    backgroundColor: "#fafffa",
-                    borderRadius: "50%",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    flexShrink: 0,
-                    border: "1px solid #eef2ef",
-                  }}
-                >
-                  <Icon size={24} color="#121613" strokeWidth={1.5} />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "baseline",
-                      gap: "15px",
-                      marginBottom: "16px",
-                    }}
-                  >
-                    <h3
-                      style={{
-                        fontFamily:
-                          "'SF Pro Display', 'Helvetica Neue', 'Arial', sans-serif",
-                        fontSize: "28px",
-                        fontWeight: 400,
-                        color: "#121613",
-                        lineHeight: 1.1,
-                        margin: 0,
-                      }}
-                    >
-                      {title}
-                    </h3>
-                    <span
-                      style={{
-                        fontSize: "12px",
-                        fontWeight: 500,
-                        color: "#c8d2c8",
-                        letterSpacing: "0.05em",
-                      }}
-                    >
-                      {num}
-                    </span>
-                  </div>
-                  <p
-                    style={{
-                      fontSize: "15px",
-                      fontWeight: 350,
-                      color: "#516254",
-                      lineHeight: 1.6,
-                      margin: 0,
-                      maxWidth: "95%",
-                    }}
-                  >
-                    {desc}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── PAYMENTS ─────────────────────────────────────────── */}
-      <section
-        id="payments"
-        style={{
-          backgroundColor: "#fafffa",
-          padding: "120px 50px",
-          fontFamily:
-            "'TWK Lausanne', 'Inter', ui-sans-serif, system-ui, sans-serif",
-        }}
-      >
-        <div style={{ maxWidth: "1440px", margin: "0 auto" }}>
-          <div
-            className="payments-grid"
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(450px, 1fr))",
-              gap: "100px",
               alignItems: "center",
+              justifyContent: "space-between",
+              padding: "16px 0",
+              borderTop:
+                idx === 0 ? "1px solid #121110" : "1px solid #f0ebe4",
+              flexWrap: "wrap",
+              gap: "8px",
             }}
           >
             <div>
               <div
                 style={{
-                  width: "50px",
-                  height: "2px",
-                  backgroundColor: "#c9a96e",
-                  marginBottom: "45px",
-                }}
-              />
-              <div
-                style={{
-                  fontSize: "11px",
-                  fontWeight: 350,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.11px",
-                  color: "#516254",
-                  marginBottom: "20px",
+                  fontSize: "14px",
+                  color: "#121110",
+                  fontWeight: 500,
                 }}
               >
-                Rent Payments
+                {p.month}
               </div>
-              <h2
-                style={{
-                  fontFamily:
-                    "'SF Pro Display', 'Helvetica Neue', 'Arial', sans-serif",
-                  fontSize: "clamp(50px, 6vw, 80px)",
-                  fontWeight: 300,
-                  lineHeight: 0.98,
-                  letterSpacing: "-0.02em",
-                  color: "#121613",
-                  margin: "0 0 30px 0",
-                }}
-              >
-                Pay Rent Via
-                <br />
-                M-Pesa.
-                <br />
-                <span
-                  style={{
-                    fontSize: "50%",
-                    color: "#c8d2c8",
-                    display: "block",
-                    marginTop: "15px",
-                  }}
-                >
-                  Logged Automatically
-                </span>
-              </h2>
-              <p
-                style={{
-                  fontSize: "16px",
-                  fontWeight: 400,
-                  color: "#516254",
-                  lineHeight: 1.5,
-                  marginBottom: "40px",
-                  maxWidth: "480px",
-                }}
-              >
-                Use M-Pesa Paybill to pay rent. Your payment is recognised by
-                the system automatically, logged against your account, and your
-                landlord is notified instantly. No manual confirmation needed.
-              </p>
               <div
                 style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "16px",
+                  fontSize: "12px",
+                  color: "#615a51",
+                  marginTop: "4px",
                 }}
               >
-                {[
-                  "Tenant initiates payment from their M-Pesa menu",
-                  "Payment goes through as usual via M-Pesa",
-                  "Our system detects the payment in real time via M-Pesa APIs",
-                  "Payment received and logged in real time",
-                  "Tenant gets immediate confirmation in-app",
-                  "Landlord receives instant notification",
-                  "Monthly history and receipts saved forever",
-                ].map((item, idx) => (
-                  <div
-                    key={idx}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "12px",
-                    }}
-                  >
-                    <div
-                      style={{
-                        width: "6px",
-                        height: "6px",
-                        backgroundColor: "#c9a96e",
-                        borderRadius: "50%",
-                      }}
-                    />
-                    <span
-                      style={{
-                        fontSize: "14px",
-                        color: "#121613",
-                        fontWeight: 400,
-                      }}
-                    >
-                      {item}
-                    </span>
-                  </div>
-                ))}
+                {p.code}
               </div>
             </div>
-            <div
-              className="payments-card"
-              style={{
-                backgroundColor: "#ffffff",
-                border: "1px solid #eef2ef",
-                padding: "60px 50px",
-                boxShadow: "0 30px 60px rgba(18, 22, 19, 0.03)",
-              }}
-            >
-              <div style={{ marginBottom: "40px" }}>
-                <div
-                  style={{
-                    fontSize: "11px",
-                    letterSpacing: "0.11px",
-                    textTransform: "uppercase",
-                    color: "#516254",
-                    marginBottom: "16px",
-                  }}
-                >
-                  April 2026 · Rent Status
-                </div>
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "flex-end",
-                    justifyContent: "space-between",
-                    marginBottom: "16px",
-                    flexWrap: "wrap",
-                    gap: "8px",
-                  }}
-                >
-                  <span
-                    style={{
-                      fontFamily: "'Editorial New', serif",
-                      fontSize: "clamp(32px, 8vw, 48px)",
-                      lineHeight: 0.8,
-                      color: "#c9a96e",
-                    }}
-                  >
-                    PAID
-                  </span>
-                  <span
-                    style={{
-                      fontSize: "14px",
-                      fontWeight: 500,
-                      color: "#121613",
-                    }}
-                  >
-                    KES 22,000
-                  </span>
-                </div>
-                <div
-                  style={{
-                    height: "4px",
-                    backgroundColor: "#eef2ef",
-                    overflow: "hidden",
-                  }}
-                >
-                  <div
-                    style={{
-                      height: "100%",
-                      width: "100%",
-                      backgroundColor: "#c9a96e",
-                    }}
-                  />
-                </div>
-              </div>
-              {[
-                {
-                  month: "March 2026",
-                  amount: "KES 22,000",
-                  code: "RGR0012345",
-                  status: "PAID",
-                },
-                {
-                  month: "February 2026",
-                  amount: "KES 22,000",
-                  code: "RGR0098231",
-                  status: "PAID",
-                },
-                {
-                  month: "January 2026",
-                  amount: "KES 22,000",
-                  code: "RGR0076654",
-                  status: "PAID",
-                },
-              ].map((p, idx) => (
-                <div
-                  key={p.month}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    padding: "16px 0",
-                    borderTop:
-                      idx === 0 ? "1px solid #121613" : "1px solid #eef2ef",
-                    flexWrap: "wrap",
-                    gap: "8px",
-                  }}
-                >
-                  <div>
-                    <div
-                      style={{
-                        fontSize: "14px",
-                        color: "#121613",
-                        fontWeight: 500,
-                      }}
-                    >
-                      {p.month}
-                    </div>
-                    <div
-                      style={{
-                        fontSize: "12px",
-                        color: "#516254",
-                        marginTop: "4px",
-                      }}
-                    >
-                      {p.code}
-                    </div>
-                  </div>
-                  <div style={{ textAlign: "right" }}>
-                    <div
-                      style={{
-                        fontSize: "14px",
-                        color: "#121613",
-                        fontWeight: 500,
-                      }}
-                    >
-                      {p.amount}
-                    </div>
-                    <div
-                      style={{
-                        fontSize: "10px",
-                        color: "#c9a96e",
-                        letterSpacing: "0.05em",
-                        fontWeight: 600,
-                        marginTop: "4px",
-                      }}
-                    >
-                      {p.status}
-                    </div>
-                  </div>
-                </div>
-              ))}
+            <div style={{ textAlign: "right" }}>
               <div
                 style={{
-                  marginTop: "40px",
-                  padding: "20px",
-                  backgroundColor: "rgba(43, 238, 75, 0.05)",
-                  borderLeft: "2px solid #c9a96e",
+                  fontSize: "14px",
+                  color: "#121110",
+                  fontWeight: 500,
                 }}
               >
-                <p
-                  style={{
-                    fontSize: "13px",
-                    color: "#121613",
-                    lineHeight: 1.5,
-                    margin: 0,
-                  }}
-                >
-                  <strong>Note:</strong> The app also supports STK Push — tap to
-                  trigger an M-Pesa prompt directly to your phone without
-                  opening the M-Pesa menu.
-                </p>
+                {p.amount}
+              </div>
+              <div
+                style={{
+                  fontSize: "10px",
+                  color: "#c9a96e",
+                  letterSpacing: "0.05em",
+                  fontWeight: 600,
+                  marginTop: "4px",
+                }}
+              >
+                {p.status}
               </div>
             </div>
           </div>
+        ))}
+        <div
+          style={{
+            marginTop: "40px",
+            padding: "20px",
+            backgroundColor: "rgba(201, 169, 110, 0.06)",
+            borderLeft: "2px solid #c9a96e",
+          }}
+        >
+          <p
+            style={{
+              fontSize: "13px",
+              color: "#121110",
+              lineHeight: 1.5,
+              margin: 0,
+            }}
+          >
+            <strong>Note:</strong> The app also supports STK Push — tap to
+            trigger an M-Pesa prompt directly to your phone without
+            opening the M-Pesa menu.
+          </p>
         </div>
-      </section>
-
+      </div>
+    </div>
+  </div>
+</section>
       {/* ── TESTIMONIALS ─────────────────────────────────────── */}
-      <section
+      {/* <section
         style={{
           backgroundColor: "#fafffa",
           padding: "120px 50px",
@@ -1766,339 +1760,337 @@ export default function Home() {
             ))}
           </div>
         </div>
-      </section>
+      </section> */}
 
-      {/* ── CTA ─────────────────────────────────────────────── */}
-      <section
-        className="cta-section"
+{/* ── CTA ─────────────────────────────────────────────── */}
+<section
+  className="cta-section"
+  style={{
+    backgroundColor: "#fafffa",
+    padding: "150px 50px",
+    borderTop: "1px solid #eef2ef",
+    borderBottom: "1px solid #eef2ef",
+    fontFamily: "'TWK Lausanne', 'Inter', ui-sans-serif, system-ui, sans-serif",
+  }}
+>
+  <div
+    style={{
+      maxWidth: "800px",
+      margin: "0 auto",
+      textAlign: "center",
+      display: "flex",
+      flexDirection: "column",
+      alignItems: "center",
+    }}
+  >
+    <div
+      style={{
+        width: "2px",
+        height: "50px",
+        backgroundColor: "#c9a96e",
+        marginBottom: "45px",
+      }}
+    />
+    <div
+      style={{
+        fontSize: "11px",
+        fontWeight: 350,
+        textTransform: "uppercase",
+        letterSpacing: "0.11px",
+        color: "#516254",
+        marginBottom: "20px",
+      }}
+    >
+      Ready to Get Started
+    </div>
+    <h2
+      style={{
+        fontFamily: "'SF Pro Display', 'Helvetica Neue', 'Arial', sans-serif",
+        fontSize: "clamp(50px, 6vw, 80px)",
+        fontWeight: 300,
+        lineHeight: 0.9,
+        letterSpacing: "-0.02em",
+        color: "#121613",
+        marginBottom: "30px",
+      }}
+    >
+      Your Dashboard Awaits.
+    </h2>
+    <p
+      style={{
+        fontSize: "16px",
+        color: "#516254",
+        marginBottom: "50px",
+        lineHeight: 1.5,
+        maxWidth: "500px",
+      }}
+    >
+      If you are a resident at LEA Executive Residency, log in to access
+      your full tenant dashboard. New residents are registered by
+      management.
+    </p>
+    <div
+      className="cta-buttons"
+      style={{
+        display: "flex",
+        gap: "20px",
+        justifyContent: "center",
+        flexWrap: "wrap",
+      }}
+    >
+      <button
+        onClick={() => {
+          startLoading();
+          router.push("/login");
+        }}
         style={{
-          backgroundColor: "#fafffa",
-          padding: "150px 50px",
-          borderTop: "1px solid #eef2ef",
-          borderBottom: "1px solid #eef2ef",
-          fontFamily:
-            "'TWK Lausanne', 'Inter', ui-sans-serif, system-ui, sans-serif",
+          padding: "20px 50px",
+          fontSize: 14,
+          fontFamily: "'Nunito', sans-serif",
+          color: "#c9a96e",
+          border: "1px solid #c9a96e",
+          borderRadius: 999,
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          fontWeight: 550,
+          textTransform: "uppercase",
+          letterSpacing: "0.01em",
+          cursor: "pointer",
+          transition: "transform 0.2s ease",
+          background: "transparent",
         }}
       >
+        Tenant Login <span>→</span>
+      </button>
+      <button
+        onClick={() => {
+          startLoading();
+          router.push("/contact");
+        }}
+        style={{
+          padding: "20px 50px",
+          fontSize: 14,
+          fontFamily: "'Nunito', sans-serif",
+          background: "#c9a96e",
+          color: "#fff",
+          border: "none",
+          borderRadius: 999,
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          fontWeight: 550,
+          textTransform: "uppercase",
+          letterSpacing: "0.01em",
+          cursor: "pointer",
+          transition: "transform 0.2s ease",
+        }}
+      >
+        Contact Management
+      </button>
+    </div>
+  </div>
+</section>
+
+{/* ── FAQ ───────────────────────────────────────────────── */}
+<section
+  id="faq"
+  style={{
+    backgroundColor: "#fafffa",
+    padding: "120px 50px",
+    fontFamily: "'TWK Lausanne', 'Inter', ui-sans-serif, system-ui, sans-serif",
+  }}
+>
+  <div style={{ maxWidth: "1440px", margin: "0 auto" }}>
+    <div
+      style={{
+        display: "flex",
+        alignItems: "flex-end",
+        justifyContent: "space-between",
+        marginBottom: "80px",
+        flexWrap: "wrap",
+        gap: "40px",
+      }}
+    >
+      <div>
         <div
           style={{
-            maxWidth: "800px",
-            margin: "0 auto",
-            textAlign: "center",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center",
+            width: "50px",
+            height: "2px",
+            backgroundColor: "#c9a96e",
+            marginBottom: "45px",
+          }}
+        />
+        <div
+          style={{
+            fontSize: "11px",
+            fontWeight: 350,
+            textTransform: "uppercase",
+            letterSpacing: "0.11px",
+            color: "#516254",
+            marginBottom: "20px",
           }}
         >
-          <div
-            style={{
-              width: "2px",
-              height: "50px",
-              backgroundColor: "#c9a96e",
-              marginBottom: "45px",
-            }}
-          />
-          <div
-            style={{
-              fontSize: "11px",
-              fontWeight: 350,
-              textTransform: "uppercase",
-              letterSpacing: "0.11px",
-              color: "#516254",
-              marginBottom: "20px",
-            }}
-          >
-            Ready to Get Started
-          </div>
-          <h2
-            style={{
-              fontFamily:
-                "'SF Pro Display', 'Helvetica Neue', 'Arial', sans-serif",
-              fontSize: "clamp(50px, 6vw, 80px)",
-              fontWeight: 300,
-              lineHeight: 0.9,
-              letterSpacing: "-0.02em",
-              color: "#121613",
-              marginBottom: "30px",
-            }}
-          >
-            Your Dashboard Awaits.
-          </h2>
-          <p
-            style={{
-              fontSize: "16px",
-              color: "#516254",
-              marginBottom: "50px",
-              lineHeight: 1.5,
-              maxWidth: "500px",
-            }}
-          >
-            If you are a resident at LEA Executive Residency, log in to access
-            your full tenant dashboard. New residents are registered by
-            management.
-          </p>
-          <div
-            className="cta-buttons"
-            style={{
-              display: "flex",
-              gap: "20px",
-              justifyContent: "center",
-              flexWrap: "wrap",
-            }}
-          >
-            <button
-              onClick={() => {
-                startLoading()
-                router.push("/login")
-              }}
-              style={{
-                padding: "20px 50px",
-                fontSize: 14,
-                fontFamily: "'Nunito', sans-serif",
-                color: "#c9a96e",
-                border: "1px solid #c9a96e",
-                borderRadius: 999,
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                fontWeight: 550,
-                textTransform: "uppercase",
-                letterSpacing: "0.01em",
-                cursor: "pointer",
-                transition: "transform 0.2s ease",
-                background: "transparent",
-              }}
-            >
-              Tenant Login <span>→</span>
-            </button>
-            <button
-              onClick={() => {
-                startLoading()
-                router.push("/contact")
-              }}
-              style={{
-                padding: "20px 50px",
-                fontSize: 14,
-                fontFamily: "'Nunito', sans-serif",
-                background: "#c9a96e",
-                color: "#fff",
-                border: "none",
-                borderRadius: 999,
-                display: "flex",
-                alignItems: "center",
-                gap: 6,
-                fontWeight: 550,
-                textTransform: "uppercase",
-                letterSpacing: "0.01em",
-                cursor: "pointer",
-                transition: "transform 0.2s ease",
-              }}
-            >
-              Contact Management
-            </button>
-          </div>
+          Before You Ask
         </div>
-      </section>
-
-      {/* ── FAQ ───────────────────────────────────────────────── */}
-      <section
-        id="faq"
+        <h2
+          style={{
+            fontFamily: "'SF Pro Display', 'Helvetica Neue', 'Arial', sans-serif",
+            fontSize: "clamp(60px, 8vw, 96px)",
+            fontWeight: 300,
+            lineHeight: 0.9,
+            letterSpacing: "-0.02em",
+            color: "#121613",
+            margin: 0,
+          }}
+        >
+          Questions You Are
+          <br />
+          Probably Asking.
+        </h2>
+      </div>
+      <p
         style={{
-          backgroundColor: "#fafffa",
-          padding: "120px 50px",
-          fontFamily:
-            "'TWK Lausanne', 'Inter', ui-sans-serif, system-ui, sans-serif",
+          fontSize: "16px",
+          fontWeight: 400,
+          color: "#516254",
+          maxWidth: "340px",
+          lineHeight: 1.4,
+          margin: 0,
+          paddingBottom: "10px",
         }}
       >
-        <div style={{ maxWidth: "1440px", margin: "0 auto" }}>
-          <div
+        No jargon, no dodging. Just what this app does, who it's for, and
+        why it's not another rental site.
+      </p>
+    </div>
+    
+    <div style={{ borderTop: "1px solid #121613" }}>
+      {faqs.map((item, idx) => (
+        <details
+          key={idx}
+          className="faq-row"
+          style={{ padding: "32px 0" }}
+        >
+          <summary
             style={{
               display: "flex",
-              alignItems: "flex-end",
+              alignItems: "center",
               justifyContent: "space-between",
-              marginBottom: "80px",
-              flexWrap: "wrap",
-              gap: "40px",
+              gap: "24px",
+              cursor: "pointer",
+              fontSize: "clamp(20px, 2.5vw, 28px)",
+              fontFamily: "'SF Pro Display', 'Helvetica Neue', 'Arial', sans-serif",
+              fontWeight: 400,
+              color: "#121613",
+              lineHeight: 1.3,
+              listStyle: "none", /* ✅ Removes default browser disclosure arrow */
             }}
           >
-            <div>
-              <div
+            <span
+              style={{
+                display: "flex",
+                alignItems: "baseline",
+                gap: "24px",
+              }}
+            >
+              <span
                 style={{
-                  width: "50px",
-                  height: "2px",
-                  backgroundColor: "#c9a96e",
-                  marginBottom: "45px",
-                }}
-              />
-              <div
-                style={{
-                  fontSize: "11px",
-                  fontWeight: 350,
-                  textTransform: "uppercase",
-                  letterSpacing: "0.11px",
-                  color: "#516254",
-                  marginBottom: "20px",
+                  fontSize: "14px",
+                  color: "#c8d2c8",
+                  fontWeight: 500,
+                  fontFamily: "'TWK Lausanne', 'Inter', sans-serif",
                 }}
               >
-                Before You Ask
-              </div>
-              <h2
-                style={{
-                  fontFamily:
-                    "'SF Pro Display', 'Helvetica Neue', 'Arial', sans-serif",
-                  fontSize: "clamp(60px, 8vw, 96px)",
-                  fontWeight: 300,
-                  lineHeight: 0.9,
-                  letterSpacing: "-0.02em",
-                  color: "#121613",
-                  margin: 0,
-                }}
-              >
-                Questions You Are
-                <br />
-                Probably Asking.
-              </h2>
-            </div>
+                {String(idx + 1).padStart(2, "0")}
+              </span>
+              {item.q}
+            </span>
+            <span
+              className="faq-icon"
+              style={{
+                flexShrink: 0,
+                width: "32px",
+                height: "32px",
+                borderRadius: "50%",
+                border: "1px solid #121613",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                position: "relative",
+              }}
+            />
+          </summary>
+          <div className="faq-content">
             <p
               style={{
                 fontSize: "16px",
-                fontWeight: 400,
+                fontWeight: 350,
                 color: "#516254",
-                maxWidth: "340px",
-                lineHeight: 1.4,
+                lineHeight: 1.6,
+                maxWidth: "760px",
                 margin: 0,
-                paddingBottom: "10px",
+                paddingLeft: "calc(14px + 24px)",
               }}
             >
-              No jargon, no dodging. Just what this app does, who it's for, and
-              why it's not another rental site.
+              {item.a}
             </p>
           </div>
-          <div style={{ borderTop: "1px solid #121613" }}>
-            {faqs.map((item, idx) => (
-              <details
-                key={idx}
-                className="faq-row"
-                style={{ padding: "32px 0" }}
-              >
-                <summary
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    gap: "24px",
-                    cursor: "pointer",
-                    fontSize: "clamp(20px, 2.5vw, 28px)",
-                    fontFamily:
-                      "'SF Pro Display', 'Helvetica Neue', 'Arial', sans-serif",
-                    fontWeight: 400,
-                    color: "#121613",
-                    lineHeight: 1.3,
-                  }}
-                >
-                  <span
-                    style={{
-                      display: "flex",
-                      alignItems: "baseline",
-                      gap: "24px",
-                    }}
-                  >
-                    <span
-                      style={{
-                        fontSize: "14px",
-                        color: "#c8d2c8",
-                        fontWeight: 500,
-                        fontFamily: "'TWK Lausanne', 'Inter', sans-serif",
-                      }}
-                    >
-                      {String(idx + 1).padStart(2, "0")}
-                    </span>
-                    {item.q}
-                  </span>
-                  <span
-                    className="faq-icon"
-                    style={{
-                      flexShrink: 0,
-                      width: "32px",
-                      height: "32px",
-                      borderRadius: "50%",
-                      border: "1px solid #121613",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      position: "relative",
-                    }}
-                  />
-                </summary>
-                <div className="faq-content">
-                  <p
-                    style={{
-                      fontSize: "16px",
-                      fontWeight: 350,
-                      color: "#516254",
-                      lineHeight: 1.6,
-                      maxWidth: "760px",
-                      margin: 0,
-                      paddingLeft: "calc(14px + 24px)",
-                    }}
-                  >
-                    {item.a}
-                  </p>
-                </div>
-              </details>
-            ))}
-          </div>
-          <div
-            style={{
-              marginTop: "60px",
-              display: "flex",
-              alignItems: "center",
-              gap: "12px",
-              flexWrap: "wrap",
-            }}
-          >
-            <span style={{ fontSize: "14px", color: "#516254" }}>
-              Want the long version?
-            </span>
-            <button
-              onClick={() =>{startLoading(); router.push("/privacy")}}
-              style={{
-                background: "none",
-                border: "none",
-                padding: 0,
-                cursor: "pointer",
-                fontSize: "14px",
-                color: "#c9a96e",
-                fontWeight: 500,
-                textDecoration: "underline",
-                textUnderlineOffset: "4px",
-              }}
-            >
-              Read the Privacy Policy
-            </button>
-            <span style={{ color: "#c8d2c8" }}>·</span>
-            <button
-              onClick={() => { startLoading(); router.push("/terms")}}
-              style={{
-                background: "none",
-                border: "none",
-                padding: 0,
-                cursor: "pointer",
-                fontSize: "14px",
-                color: "#c9a96e",
-                fontWeight: 500,
-                textDecoration: "underline",
-                textUnderlineOffset: "4px",
-              }}
-            >
-              Read the Terms & Conditions
-            </button>
-          </div>
-        </div>
-      </section>
+        </details>
+      ))}
+    </div>
 
-      {/* ── FOOTER ──────────────────────────────────────────── */}
-      <footer
+    <div
+      style={{
+        marginTop: "60px",
+        display: "flex",
+        alignItems: "center",
+        gap: "12px",
+        flexWrap: "wrap",
+      }}
+    >
+      <span style={{ fontSize: "14px", color: "#516254" }}>
+        Want the long version?
+      </span>
+      <button
+        onClick={() => { startLoading(); router.push("/privacy"); }}
+        style={{
+          background: "none",
+          border: "none",
+          padding: 0,
+          cursor: "pointer",
+          fontSize: "14px",
+          color: "#c9a96e",
+          fontWeight: 500,
+          textDecoration: "underline",
+          textUnderlineOffset: "4px",
+        }}
+      >
+        Read the Privacy Policy
+      </button>
+      <span style={{ color: "#c8d2c8" }}>·</span>
+      <button
+        onClick={() => { startLoading(); router.push("/terms"); }}
+        style={{
+          background: "none",
+          border: "none",
+          padding: 0,
+          cursor: "pointer",
+          fontSize: "14px",
+          color: "#c9a96e",
+          fontWeight: 500,
+          textDecoration: "underline",
+          textUnderlineOffset: "4px",
+        }}
+      >
+        Read the Terms & Conditions
+      </button>
+    </div>
+  </div>
+</section>
+
+{/* ── FOOTER ──────────────────────────────────────────── */}
+<footer
   id="contact"
   style={{
     backgroundColor: "#fafffa",
@@ -2112,7 +2104,6 @@ export default function Home() {
       className="footer-grid"
       style={{
         display: "grid",
-        /* ✅ Expanded from 4 columns to 5 columns to accommodate the QR code */
         gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr",
         gap: "40px",
         marginBottom: "100px",
@@ -2211,7 +2202,7 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Columns 2, 3, & 4: Links Maps */}
+      {/* Columns 2, 3, & 4: Navigation links */}
       {[
         {
           title: "Platform",
@@ -2283,7 +2274,7 @@ export default function Home() {
         </div>
       ))}
 
-      {/* ✅ Column 5: Brand QR Code Component */}
+      {/* Column 5: Brand QR Code */}
       <div>
         <div
           style={{
@@ -2367,7 +2358,10 @@ export default function Home() {
             return (
               <button
                 key={label}
-                onClick={() => router.push(routeMap[label])}
+                onClick={() => {
+                  startLoading(); /* ✅ Triggers state animation uniformly */
+                  router.push(routeMap[label]);
+                }}
                 style={{
                   fontSize: "12px",
                   color: "#516254",
