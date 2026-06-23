@@ -166,7 +166,7 @@ export default function Home() {
     },
     {
       q: "Is this a rental listing site like the others?",
-      a: "No. We don\u2019t list properties or take bookings. If you\u2019re already living here, this is the tool you use every month — it starts after you move in, not before.",
+      a: "No. We do not list properties or take bookings. If you are already living here, this is the tool you use every month — it starts after you move in, not before.",
     },
     {
       q: "How is this different from a regular landlord-tenant relationship?",
@@ -181,12 +181,12 @@ export default function Home() {
       a: "It moves through three states you can actually see: submitted, in progress, resolved. No more wondering if anyone read it.",
     },
     {
-      q: "Can my landlord see things I don\u2019t want them to?",
+      q: "Can my landlord see things I do not want them to?",
       a: "No. Your private chat with management stays private. Row Level Security means only you and your property manager can see your conversations, payments, and records — not other tenants, not anyone else.",
     },
     {
-      q: "What if I\u2019m not a tenant here yet?",
-      a: "Then this app isn\u2019t for you yet. Accounts are created by management once you\u2019re a resident. If you\u2019re interested in living at LEA Executive, reach out through Contact Management below.",
+      q: "What if I am not a tenant here yet?",
+      a: "Then this app is not for you yet. Accounts are created by management once you are a resident. If you are interested in living at LEA Executive, reach out through Contact Management below.",
     },
     {
       q: "Is my data actually safe?",
@@ -1954,7 +1954,7 @@ export default function Home() {
                   margin: 0,
                 }}
               >
-                Questions You're
+                Questions You Are
                 <br />
                 Probably Asking.
               </h2>

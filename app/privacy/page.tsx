@@ -23,7 +23,7 @@ export default function PrivacyPolicy() {
       title: 'What we collect',
       body: [
         'Account information: your name, phone number, email address, profile photo, and unit number.',
-        'Payment-related information: M-Pesa transaction codes, payment amounts, payment dates, and confirmation status. We receive this directly from Safaricom\u2019s M-Pesa APIs when you pay rent — we do not collect your M-Pesa PIN, and we never see your full M-Pesa account details beyond what Safaricom discloses in a transaction confirmation.',
+        'Payment-related information: M-Pesa transaction codes, payment amounts, payment dates, and confirmation status. We receive this directly from Safaricom\u2019s M-Pesa APIs when you pay rent , we do not collect your M-Pesa PIN, and we never see your full M-Pesa account details beyond what Safaricom discloses in a transaction confirmation.',
         'Communications: messages sent through the in-app chat with management, posts in the community channel, maintenance requests, and formal complaints, including their timestamps and status history.',
         'Documents: signed tenancy agreements and any files you upload in connection with a request or complaint.',
         'Device and usage information: basic technical data such as device type, app version, and crash logs, used only to keep the App running properly.',
@@ -31,11 +31,11 @@ export default function PrivacyPolicy() {
     },
     {
       id: '03',
-      title: 'What we don\u2019t collect',
+      title: 'What we do not collect',
       body: [
         'We do not collect your M-Pesa PIN, bank login credentials, or national ID number unless you voluntarily provide it as part of a tenancy agreement.',
         'We do not access your contacts, photos, or other apps on your device.',
-        'We do not sell, rent, or trade your personal data to third parties for marketing purposes — ever.',
+        'We do not sell, rent, or trade your personal data to third parties for marketing purposes , ever.',
       ],
     },
     {
@@ -43,7 +43,7 @@ export default function PrivacyPolicy() {
       title: 'Where your rent money goes',
       body: [
         'When you pay rent via M-Pesa Paybill or STK Push, your payment goes directly to the landlord\u2019s registered Paybill account. LEA Executive does not hold, custody, or have access to move tenant funds at any point.',
-        'The App reads payment confirmation data from the M-Pesa API after Safaricom processes the transaction, and logs that confirmation against your account so both you and management see an accurate, real-time record. If a payment doesn\u2019t reflect within a reasonable time, contact management directly — we can look up the transaction status but we are not the custodian of your funds.',
+        'The App reads payment confirmation data from the M-Pesa API after Safaricom processes the transaction, and logs that confirmation against your account so both you and management see an accurate, real-time record. If a payment does not reflect within a reasonable time, contact management directly , we can look up the transaction status but we are not the custodian of your funds.',
       ],
     },
     {
@@ -63,7 +63,7 @@ export default function PrivacyPolicy() {
       title: 'Who can see your data',
       body: [
         'Your private messages with management are visible only to you and the assigned property manager. Other tenants cannot see them.',
-        'Posts in the community channel are visible to all residents and management, by design — don\u2019t post anything there you wouldn\u2019t want neighbours to see.',
+        'Posts in the community channel are visible to all residents and management, by design , do not post anything there you would not want neighbours to see.',
         'Maintenance requests and complaints are visible to you and management, and may be shared internally with maintenance staff strictly to resolve the issue you raised.',
         'We use Supabase as our database and authentication provider, and rely on Row Level Security so that, at the infrastructure level, tenants cannot query or access another tenant\u2019s private records.',
         'We may disclose information if required by Kenyan law, a valid court order, or to protect the safety of a resident or the property.',
@@ -104,7 +104,7 @@ export default function PrivacyPolicy() {
       id: '11',
       title: 'Contact',
       body: [
-        'Questions about this policy or your data can be sent to management via the contact details on our Contact page, or by emailing hello@leaexecutive.com.',
+        'Questions about this policy or your data can be sent to management via the contact details on our Contact page, or by calling +254748333763.',
       ],
     },
   ]

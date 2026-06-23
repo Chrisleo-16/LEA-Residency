@@ -15,12 +15,12 @@ export default function TermsAndConditions() {
       title: 'Acceptance of these terms',
       body: [
         'These Terms and Conditions ("Terms") govern your use of the LEA Executive Residency tenant application ("the App"), provided by LEA Executive Residency ("LEA Executive", "we", "us"). By creating an account or using the App, you agree to these Terms.',
-        'The App is available only to current tenants of LEA Executive Residency. Accounts are issued by management — you cannot self-register.',
+        'The App is available only to current tenants of LEA Executive Residency. Accounts are issued by management , you cannot self-register.',
       ],
     },
     {
       id: '02',
-      title: 'What the App is — and isn\u2019t',
+      title: 'What the App is and is not',
       body: [
         'The App is a communication and record-keeping tool between you and LEA Executive Residency management. It lets you message management, submit maintenance requests and complaints, view policies and documents, and pay rent via M-Pesa.',
         'The App is not a rental listing platform, a marketplace, or a party to your tenancy agreement. Your tenancy agreement with LEA Executive Residency governs the legal terms of your occupancy; these Terms govern only your use of the App itself.',
@@ -114,7 +114,7 @@ export default function TermsAndConditions() {
       id: '13',
       title: 'Contact',
       body: [
-        'Questions about these Terms can be directed to management via the Contact page, or by emailing hello@leaexecutive.com.',
+        'Questions about these Terms can be directed to management via the Contact page, or by contacting tel +254748333763.',
       ],
     },
   ]
@@ -150,7 +150,7 @@ export default function TermsAndConditions() {
           Terms & Conditions
         </h1>
         <p style={{ fontSize: 16, color: '#516254', lineHeight: 1.6, maxWidth: 600, marginBottom: 64 }}>
-          The rules for using the LEA Executive Residency tenant app — written so you can actually understand them.
+          The rules for using the LEA Executive Residency tenant app , written so you can actually understand them.
         </p>
 
         {sections.map(s => (
