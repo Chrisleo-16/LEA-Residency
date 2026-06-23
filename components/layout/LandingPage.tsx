@@ -75,7 +75,6 @@ export default function Home() {
   const navLinks = [
     ["How It Works", "howitworks"],
     ["Features", "features"],
-    ["Gallery", "gallery"],
     ["Payments", "payments"],
     ["Contact", "contact"],
   ];
@@ -452,156 +451,165 @@ export default function Home() {
 
       {/* ── NAV ─────────────────────────────────────────────── */}
       <nav
+  style={{
+    position: "fixed",
+    top: 24,
+    left: "50%",
+    transform: "translateX(-50%)",
+    zIndex: 100,
+    height: 60,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: "0 8px 0 24px",
+    borderRadius: "20px",
+    boxShadow: "0 4px 20px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04)",
+    border: "1px solid #f0f0f0",
+    width: "100%",
+    maxWidth: 1000,
+    transition: "all .35s",
+  }}
+  className="bg-background"
+>
+  {/* Logo / Brand Section */}
+  <div
+    style={{
+      display: "flex",
+      alignItems: "center",
+      gap: 10,
+      cursor: "pointer",
+    }}
+    onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+  >
+    <div
+      style={{
+        width: "40px",
+        height: "40px",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: "#fff",
+        border: "1px solid #c9a96e",
+        borderRadius: "50%",
+      }}
+    >
+      <Building2 size={16} color="#c9a96e" />
+    </div>
+    <div style={{ display: "flex", flexDirection: "column" }}>
+      <div
         style={{
-          position: "fixed",
-          top: 24,
-          left: "50%",
-          transform: "translateX(-50%)",
-          zIndex: 100,
-          height: 60,
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          padding: "0 8px 0 24px",
-          // background: '#ffffff',
-          borderRadius: "20px",
-          boxShadow:
-            "0 4px 20px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04)",
-          border: "1px solid #f0f0f0",
-          width: "100%",
-          maxWidth: 1000,
-          transition: "all .35s",
+          fontFamily: "'Nunito', serif",
+          fontSize: 18,
+          fontWeight: 700,
+          color: "#111",
+          lineHeight: 1.1,
         }}
-        className="bg-background"
       >
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 10,
-            cursor: "pointer",
-          }}
-          onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-        >
-          <div
-            style={{
-              width: "40px",
-              height: "40px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              backgroundColor: "#fff",
-              border: "1px solid #c9a96e",
-              borderRadius: "50%",
-            }}
-          >
-            <Building2 size={16} color="#c9a96e" />
-          </div>
-          <div style={{ display: "flex", flexDirection: "column" }}>
-            <div
-              style={{
-                fontFamily: "'Nunito', serif",
-                fontSize: 18,
-                fontWeight: 700,
-                color: "#111",
-                lineHeight: 1.1,
-              }}
-            >
-              LEA Executive
-            </div>
-          </div>
-        </div>
+        LEA Executive
+      </div>
+    </div>
+  </div>
 
-        <div
-          className="hide-mobile"
-          style={{ display: "flex", gap: 32, alignItems: "center" }}
-        >
-          {navLinks.map(([l, id]) => (
-            <button
-              key={id}
-              className="nav-btn"
-              onClick={() => {
-                startLoading();
-                id === "contact" ? router.push("/contact") : scrollTo(id)
-              }}
-              style={{
-                background: "none",
-                border: "none",
-                cursor: "pointer",
-                padding: 0,
-                fontFamily: "'Nunito', sans-serif",
-                fontSize: 14,
-                fontWeight: 500,
-                color: "#444",
-              }}
-            >
-              {l}
-            </button>
-          ))}
-        </div>
+  {/* ✅ FIXED SECTION LINKS */}
+  <div
+    className="hide-mobile"
+    style={{ display: "flex", gap: 32, alignItems: "center" }}
+  >
+    {navLinks.map(([l, id]) => (
+      <button
+        key={id}
+        className="nav-btn"
+        onClick={() => {
+          if (id === "contact") {
+            // Real routing change -> Trigger loader screen
+            startLoading("/contact"); 
+            router.push("/contact");
+          } else {
+            // Internal page scroll -> Skip loader so smooth scroll is visible!
+            scrollTo(id); 
+          }
+        }}
+        style={{
+          background: "none",
+          border: "none",
+          cursor: "pointer",
+          padding: 0,
+          fontFamily: "'Nunito', sans-serif",
+          fontSize: 14,
+          fontWeight: 500,
+          color: "#444",
+        }}
+      >
+        {l}
+      </button>
+    ))}
+  </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <button
-            className="nav-btn hide-mobile"
-            onClick={() => {
-              startLoading();
-              router.push("/login");
-            }}
-            style={{
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              fontFamily: "'Nunito', sans-serif",
-              fontSize: 14,
-              fontWeight: 500,
-              color: "#444",
-              padding: "10px 16px",
-            }}
-          >
-            Login
-          </button>
-          <button
-            className="btn-primary hide-mobile"
-            onClick={() => {
-              startLoading();
-              router.push("/login");
-            }}
-            style={{
-              padding: "10px 20px",
-              fontSize: 14,
-              fontWeight: 500,
-              fontFamily: "'Nunito', sans-serif",
-              background: "#c9a96e",
-              color: "#fff",
-              border: "none",
-              borderRadius: 999,
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              cursor: "pointer",
-            }}
-          >
-            Sign Up <ArrowUpRight size={14} />
-          </button>
-          <button
-            className="show-mobile"
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            style={{
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              padding: 8,
-              display: "flex",
-            }}
-          >
-            {isMobileMenuOpen ? (
-              <X size={24} color="#111" />
-            ) : (
-              <Menu size={24} color="#111" />
-            )}
-          </button>
-        </div>
-      </nav>
+  {/* Action Buttons */}
+  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+    <button
+      className="nav-btn hide-mobile"
+      onClick={() => {
+        startLoading("/login");
+        router.push("/login");
+      }}
+      style={{
+        background: "none",
+        border: "none",
+        cursor: "pointer",
+        fontFamily: "'Nunito', sans-serif",
+        fontSize: 14,
+        fontWeight: 500,
+        color: "#444",
+        padding: "10px 16px",
+      }}
+    >
+      Login
+    </button>
+    
+    <button
+      className="btn-primary hide-mobile"
+      onClick={() => {
+        startLoading("/login");
+        router.push("/login");
+      }}
+      style={{
+        padding: "10px 20px",
+        fontSize: 14,
+        fontWeight: 500,
+        fontFamily: "'Nunito', sans-serif",
+        background: "#c9a96e",
+        color: "#fff",
+        border: "none",
+        borderRadius: 999,
+        display: "flex",
+        alignItems: "center",
+        gap: 6,
+        cursor: "pointer",
+      }}
+    >
+      Sign Up <ArrowUpRight size={14} />
+    </button>
+    
+    <button
+      className="show-mobile"
+      onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+      style={{
+        background: "none",
+        border: "none",
+        cursor: "pointer",
+        padding: 8,
+        display: "flex",
+      }}
+    >
+      {isMobileMenuOpen ? (
+        <X size={24} color="#111" />
+      ) : (
+        <Menu size={24} color="#111" />
+      )}
+    </button>
+  </div>
+</nav>
       {isMobileMenuOpen && (
         <div
           style={{

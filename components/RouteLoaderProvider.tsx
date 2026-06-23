@@ -6,7 +6,8 @@ import { toast } from 'sonner'
 import Loader from './Loader'
 
 interface RouteLoaderContextType {
-  startLoading: () => void
+  // ✅ startLoading can now optionally take the target destination URL
+  startLoading: (targetUrl?: string) => void
   stopLoading: () => void
 }
 
@@ -20,8 +21,10 @@ export function useRouteLoader() {
   return ctx
 }
 
-const MIN_DISPLAY_MS = 3000   // loader always shows for at least this long
-const SLOW_CONNECTION_MS = 6000 // warn about connectivity if not landed
+// 💡 TIP: Reduce this number (e.g., to 1000 or 1500) if you feel 
+// the loader stays on screen too long during normal page hops!
+const MIN_DISPLAY_MS = 2000   
+const SLOW_CONNECTION_MS = 6000 
 
 export default function RouteLoaderProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(false)
@@ -48,8 +51,22 @@ export default function RouteLoaderProvider({ children }: { children: React.Reac
     maybeStopLoading()
   }
 
-  const startLoading = () => {
+  const startLoading = (targetUrl?: string) => {
     clearTimers()
+
+    // ✅ SAFETY CHECK: If clicking a hash link (#) or the exact same page, don't lock the screen
+    if (targetUrl) {
+      const currentFullUrl = window.location.pathname + window.location.search
+      const isSamePage = targetUrl === currentFullUrl || targetUrl === window.location.pathname
+      const isHashLink = targetUrl.includes('#')
+
+      if (isSamePage || isHashLink) {
+        // Run safe fallback dismissal directly
+        setLoading(false)
+        return
+      }
+    }
+
     navigationLanded.current = false
     minTimeElapsed.current = false
     setLoading(true)
@@ -74,9 +91,6 @@ export default function RouteLoaderProvider({ children }: { children: React.Reac
 
   return (
     <RouteLoaderContext.Provider value={{ startLoading, stopLoading }}>
-      {/* ✅ Moving URL listening into a Suspense-wrapped sub-component 
-        fixes the static prerendering error for /_not-found 
-      */}
       <Suspense fallback={null}>
         <UrlNavigationListener onRouteComplete={stopLoading} />
       </Suspense>
@@ -87,10 +101,6 @@ export default function RouteLoaderProvider({ children }: { children: React.Reac
   )
 }
 
-/**
- * Sub-component safely isolated with Suspense boundary 
- * to monitor router events without breaking static site generation.
- */
 function UrlNavigationListener({ onRouteComplete }: { onRouteComplete: () => void }) {
   const pathname = usePathname()
   const searchParams = useSearchParams()
