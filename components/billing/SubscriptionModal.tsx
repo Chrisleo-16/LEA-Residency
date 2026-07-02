@@ -3,8 +3,8 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import {
-  CreditCard, AlertCircle, CheckCircle2,
-  Copy, Check, Building2, Smartphone
+  AlertCircle, CheckCircle2, Copy, Check,
+  Building2, Wallet, Loader2
 } from 'lucide-react'
 
 interface Subscription {
@@ -87,192 +87,140 @@ export default function SubscriptionModal({ subscription, onPaid }: Subscription
   }
 
   return (
-    <div className="fixed inset-0 bg-background/95 backdrop-blur-md z-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-sm">
-        <div className="bg-card border border-border rounded-3xl overflow-hidden shadow-2xl">
+    <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-md overflow-y-auto">
+      <div className="min-h-full flex items-center justify-center p-4 py-8">
+        <div className="w-full max-w-3xl">
+          <div className="bg-card border border-border rounded-3xl overflow-hidden shadow-2xl grid sm:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
 
-          {/* Header */}
-          <div className={`bg-gradient-to-r ${tierGradient} p-6 text-white`}>
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-2xl bg-white/20 flex items-center justify-center">
-                <Building2 className="w-5 h-5 text-white" />
-              </div>
+            {/* Left: brand + amount */}
+            <div className={`bg-gradient-to-br ${tierGradient} p-6 sm:p-7 text-white flex flex-col justify-between`}>
               <div>
-                <h2 className="font-bold text-base leading-tight">LEA Executive</h2>
-                <p className="text-white/70 text-xs">Residency & Apts</p>
-              </div>
-            </div>
-            <h3 className="text-xl font-bold mb-1">
-              {isSetup ? 'Activate Your Account' : 'Subscription Required'}
-            </h3>
-            <p className="text-white/70 text-sm">
-              {isSetup
-                ? 'Complete setup to access your property dashboard'
-                : 'Your subscription has lapsed — renew to continue'}
-            </p>
-          </div>
-
-          {/* Body */}
-          <div className="p-5 space-y-4">
-
-            {/* Plan summary */}
-            <div className="bg-secondary rounded-2xl p-4 space-y-3">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                Plan Details
-              </p>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-muted-foreground">Plan</span>
-                <span className="text-sm font-semibold text-foreground capitalize">
-                  {subscription.tier}
-                </span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-muted-foreground">Units</span>
-                <span className="text-sm font-semibold text-foreground">
-                  {subscription.unit_count}
-                </span>
-              </div>
-              <div className="flex justify-between items-center border-t border-border pt-3">
-                <span className="text-sm text-muted-foreground">
-                  {isSetup ? 'One-time setup fee' : 'Monthly fee'}
-                </span>
-                <span className="text-lg font-bold text-foreground">
-                  KES {amount.toLocaleString()}
-                </span>
-              </div>
-            </div>
-
-            {/* Tenant assurance */}
-            <div className="flex items-start gap-2.5 bg-green-50 border border-green-100 rounded-xl p-3">
-              <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0 mt-0.5" />
-              <p className="text-xs text-green-700 leading-relaxed">
-                Tenants pay only their rent — no hidden fees or extra charges ever.
-              </p>
-            </div>
-
-            {/* Pochi la Biashara payment card */}
-            <div className="bg-secondary rounded-2xl p-4 space-y-3">
-              <div className="flex items-center gap-2">
-                <Smartphone className="w-4 h-4 text-accent" />
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                  Pay via Pochi la Biashara
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-10 h-10 rounded-2xl bg-white/20 flex items-center justify-center shrink-0">
+                    <Building2 className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <h2 className="font-bold text-base leading-tight">LEA Executive</h2>
+                    <p className="text-white/70 text-xs">Residency & Apts</p>
+                  </div>
+                </div>
+                <h3 className="text-xl font-bold mb-1.5">
+                  {isSetup ? 'Activate Your Account' : 'Subscription Required'}
+                </h3>
+                <p className="text-white/70 text-sm leading-relaxed">
+                  {isSetup
+                    ? 'Complete setup to access your property dashboard'
+                    : 'Your subscription has lapsed — renew to continue'}
                 </p>
               </div>
 
-              <div className="bg-background border border-border rounded-xl p-3 flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-[11px] text-muted-foreground">Pochi Number</p>
-                  <p className="text-lg font-bold text-foreground tracking-wide">{POCHI_NUMBER}</p>
-                </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handleCopy}
-                  className="rounded-xl border-border h-10 px-3 gap-1.5 text-xs shrink-0"
-                >
-                  {copied ? (
-                    <>
-                      <Check className="w-3.5 h-3.5 text-green-600" />
-                      Copied
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="w-3.5 h-3.5" />
-                      Copy
-                    </>
-                  )}
-                </Button>
-              </div>
+              <div className="mt-8 sm:mt-6">
+                <p className="text-xs font-medium text-white/60 uppercase tracking-wider mb-1">
+                  {isSetup ? 'One-time setup fee' : 'Amount due'}
+                </p>
+                <p className="text-4xl font-bold tracking-tight">
+                  KES {amount.toLocaleString()}
+                </p>
+                <p className="text-xs text-white/60 mt-1.5 capitalize">
+                  {subscription.tier} plan · {subscription.unit_count} units
+                </p>
 
-              <div className="space-y-1.5 pt-1">
-                {[
-                  'Go to M-Pesa on your phone',
-                  'Select Lipa na M-Pesa → Pochi la Biashara',
-                  `Enter the number ${POCHI_NUMBER}`,
-                  `Enter amount KES ${amount.toLocaleString()} and your PIN`,
-                  'Tap "I\'ve Completed Payment" below once done',
-                ].map((step, i) => (
-                  <div key={step} className="flex items-start gap-2">
-                    <span className="w-4 h-4 rounded-full bg-accent/10 text-accent text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">
-                      {i + 1}
-                    </span>
-                    <p className="text-xs text-muted-foreground font-medium leading-relaxed">
-                      {step}
-                    </p>
-                  </div>
-                ))}
+                <div className="flex items-start gap-2 bg-white/10 rounded-xl p-3 mt-5">
+                  <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
+                  <p className="text-xs leading-relaxed text-white/80">
+                    Tenants pay only their rent — no hidden fees, ever.
+                  </p>
+                </div>
               </div>
             </div>
 
-            {/* Message */}
-            {message && (
-              <div className={`flex items-start gap-2 rounded-xl px-3 py-2.5 border text-xs leading-relaxed ${messageColors[messageType]}`}>
-                {messageType === 'success'
-                  ? <CheckCircle2 className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                  : messageType === 'error'
-                    ? <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                    : <CreditCard className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                }
-                {message}
+            {/* Right: Pochi payment */}
+            <div className="p-6 sm:p-7 flex flex-col justify-between gap-5">
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <Wallet className="w-4 h-4 text-accent" />
+                  <p className="text-sm font-semibold text-foreground">
+                    Pay with Pochi la Biashara
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleCopy}
+                  className="w-full bg-secondary border border-border rounded-xl p-4 flex items-center justify-between gap-3 text-left transition-colors hover:border-accent/40"
+                >
+                  <div>
+                    <p className="text-xs text-muted-foreground mb-0.5">Pochi Number</p>
+                    <p className="text-lg font-bold text-foreground tracking-wide">{POCHI_NUMBER}</p>
+                  </div>
+                  <span className="shrink-0 w-9 h-9 rounded-lg bg-background flex items-center justify-center">
+                    {copied ? (
+                      <Check className="w-4 h-4 text-green-600" />
+                    ) : (
+                      <Copy className="w-4 h-4 text-muted-foreground" />
+                    )}
+                  </span>
+                </button>
+
+                <ol className="grid grid-cols-2 gap-x-4 gap-y-2.5">
+                  {[
+                    'Open M-Pesa on your phone',
+                    'Select Lipa na M-Pesa, then Pochi la Biashara',
+                    'Enter the number above',
+                    `Enter KES ${amount.toLocaleString()} and your PIN`,
+                  ].map((step, i) => (
+                    <li key={step} className="flex items-start gap-2 text-xs text-muted-foreground">
+                      <span className="w-4 h-4 rounded-full bg-accent/10 text-accent text-[10px] font-bold flex items-center justify-center shrink-0 mt-0.5">
+                        {i + 1}
+                      </span>
+                      <span className="leading-snug">{step}</span>
+                    </li>
+                  ))}
+                </ol>
+
+                {message && (
+                  <div className={`flex items-start gap-2 rounded-xl px-3 py-2.5 border text-xs leading-relaxed ${messageColors[messageType]}`}>
+                    {messageType === 'success'
+                      ? <CheckCircle2 className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                      : messageType === 'error'
+                        ? <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                        : <Wallet className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                    }
+                    {message}
+                  </div>
+                )}
               </div>
-            )}
 
-            {/* Confirm button */}
-            <Button
-              onClick={handleConfirmPayment}
-              disabled={confirming}
-              className="w-full h-12 rounded-2xl font-semibold text-sm gap-2 bg-accent hover:bg-accent/90 text-white shadow-lg shadow-accent/25"
-            >
-              {confirming ? (
-                <>
-                  <Loader2Icon />
-                  Submitting confirmation...
-                </>
-              ) : (
-                <>
-                  <CheckCircle2 className="w-4 h-4" />
-                  I've Completed Payment
-                </>
-              )}
-            </Button>
-
-            <p className="text-[11px] text-center text-muted-foreground">
-              Payments are verified manually by our team.
-              Your dashboard unlocks once payment is confirmed.
-            </p>
+              <div className="space-y-2.5">
+                <Button
+                  onClick={handleConfirmPayment}
+                  disabled={confirming}
+                  className="w-full h-12 rounded-2xl font-semibold text-sm gap-2 bg-accent hover:bg-accent/90 text-white shadow-lg shadow-accent/25"
+                >
+                  {confirming ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Submitting confirmation...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="w-4 h-4" />
+                      I've Completed Payment
+                    </>
+                  )}
+                </Button>
+                <p className="text-[11px] text-center text-muted-foreground leading-relaxed">
+                  Payments are verified manually — your dashboard unlocks once confirmed.
+                </p>
+              </div>
+            </div>
           </div>
-        </div>
 
-        <p className="text-center text-xs text-muted-foreground/50 mt-4">
-          LEA Executive Residency · Powered by LEA Platform
-        </p>
+          <p className="text-center text-xs text-muted-foreground/50 mt-4">
+            LEA Executive Residency · Powered by LEA Platform
+          </p>
+        </div>
       </div>
     </div>
-  )
-}
-
-// Small inline spinner to avoid pulling in another lucide import path issue
-function Loader2Icon() {
-  return (
-    <svg
-      className="w-4 h-4 animate-spin"
-      viewBox="0 0 24 24"
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <circle
-        className="opacity-25"
-        cx="12"
-        cy="12"
-        r="10"
-        stroke="currentColor"
-        strokeWidth="4"
-      />
-      <path
-        className="opacity-75"
-        fill="currentColor"
-        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-      />
-    </svg>
   )
 }
