@@ -12,13 +12,20 @@ type MediaType = 'image' | 'audio'
 type ViewMode = 'once' | 'twice' | 'fulltime'
 
 interface MediaUploaderProps {
-  chatId: string
+  conversationId: string
   currentUserId: string
+  replyToId?: string | null
   onMediaSent: (messageData: any) => void
   onCancel: () => void
 }
 
-export default function MediaUploader({ chatId, currentUserId, onMediaSent, onCancel }: MediaUploaderProps) {
+export default function MediaUploader({
+  conversationId,
+  currentUserId,
+  replyToId,
+  onMediaSent,
+  onCancel,
+}: MediaUploaderProps) {
   const [mediaType, setMediaType] = useState<MediaType | null>(null)
   const [viewMode, setViewMode] = useState<ViewMode>('fulltime')
   const [imageFile, setImageFile] = useState<File | null>(null)
@@ -27,7 +34,7 @@ export default function MediaUploader({ chatId, currentUserId, onMediaSent, onCa
   const [isUploading, setIsUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [error, setError] = useState<string | null>(null)
-  
+
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -48,7 +55,7 @@ export default function MediaUploader({ chatId, currentUserId, onMediaSent, onCa
 
     setImageFile(file)
     setError(null)
-    setMediaType('image') // FIX: Set mediaType to render preview state
+    setMediaType('image')
 
     // Create preview
     const reader = new FileReader()
@@ -67,12 +74,12 @@ export default function MediaUploader({ chatId, currentUserId, onMediaSent, onCa
       // Generate unique filename and path
       const messageId = crypto.randomUUID()
       const filename = `voice-${messageId}.webm`
-      const path = `chats/${chatId}/${currentUserId}/${filename}`
+      const path = `chats/${conversationId}/${currentUserId}/${filename}`
 
       // 1. Get signed upload URL from backend
       setUploadProgress(20)
       const uploadResult = await generateUploadUrl(path)
-      
+
       if (!uploadResult.success || !uploadResult.signedUrl) {
         throw new Error(uploadResult.error || 'Failed to get upload URL')
       }
@@ -93,12 +100,12 @@ export default function MediaUploader({ chatId, currentUserId, onMediaSent, onCa
 
       setUploadProgress(70)
 
-      // 3. Insert the final structural row via Supabase Client
+      // 3. Insert the message row — uses conversation_id to match the rest of the chat schema
       const { data: messageData, error: insertError } = await supabase
         .from('messages')
         .insert({
           id: messageId,
-          chat_id: chatId,
+          conversation_id: conversationId,
           sender_id: currentUserId,
           message_type: 'audio',
           content: caption || null,
@@ -107,14 +114,17 @@ export default function MediaUploader({ chatId, currentUserId, onMediaSent, onCa
           status: 'sent',
           view_mode: viewMode,
           view_count: 0,
+          reply_to_id: replyToId || null,
         })
-        .select(`
+        .select(
+          `
           *,
-          sender:profiles!messages_sender_id_fkey (
+          profiles:profiles!messages_sender_id_fkey (
             full_name,
             avatar_url
           )
-        `)
+        `,
+        )
         .single()
 
       if (insertError) throw insertError
@@ -122,7 +132,6 @@ export default function MediaUploader({ chatId, currentUserId, onMediaSent, onCa
       setUploadProgress(100)
       onMediaSent(messageData)
       onCancel()
-
     } catch (err: any) {
       console.error('[MediaUploader] Voice upload error:', err)
       setError(err.message || 'Failed to upload voice note')
@@ -144,12 +153,12 @@ export default function MediaUploader({ chatId, currentUserId, onMediaSent, onCa
       const messageId = crypto.randomUUID()
       const fileExt = imageFile.name.split('.').pop()
       const filename = `image-${messageId}.${fileExt}`
-      const path = `chats/${chatId}/${currentUserId}/${filename}`
+      const path = `chats/${conversationId}/${currentUserId}/${filename}`
 
       // 1. Get signed upload URL from backend
       setUploadProgress(20)
       const uploadResult = await generateUploadUrl(path)
-      
+
       if (!uploadResult.success || !uploadResult.signedUrl) {
         throw new Error(uploadResult.error || 'Failed to get upload URL')
       }
@@ -175,33 +184,36 @@ export default function MediaUploader({ chatId, currentUserId, onMediaSent, onCa
 
       setUploadProgress(80)
 
-      // 3. Insert the final structural row via Supabase Client
+      // 3. Insert the message row — uses conversation_id to match the rest of the chat schema
       const { data: messageData, error: insertError } = await supabase
         .from('messages')
         .insert({
           id: messageId,
-          chat_id: chatId,
+          conversation_id: conversationId,
           sender_id: currentUserId,
           message_type: 'image',
           content: caption || null,
           media_path: path,
-          metadata: { 
-            width: dimensions.width, 
+          metadata: {
+            width: dimensions.width,
             height: dimensions.height,
             size: imageFile.size,
-            originalName: imageFile.name
+            originalName: imageFile.name,
           },
           status: 'sent',
           view_mode: viewMode,
           view_count: 0,
+          reply_to_id: replyToId || null,
         })
-        .select(`
+        .select(
+          `
           *,
-          sender:profiles!messages_sender_id_fkey (
+          profiles:profiles!messages_sender_id_fkey (
             full_name,
             avatar_url
           )
-        `)
+        `,
+        )
         .single()
 
       if (insertError) throw insertError
@@ -209,7 +221,6 @@ export default function MediaUploader({ chatId, currentUserId, onMediaSent, onCa
       setUploadProgress(100)
       onMediaSent(messageData)
       onCancel()
-
     } catch (err: any) {
       console.error('[MediaUploader] Image upload error:', err)
       setError(err.message || 'Failed to upload image')
@@ -254,7 +265,7 @@ export default function MediaUploader({ chatId, currentUserId, onMediaSent, onCa
           <div className="flex-1">
             <p className="text-sm font-medium text-foreground">Uploading media...</p>
             <div className="mt-2 h-2 bg-secondary rounded-full overflow-hidden">
-              <div 
+              <div
                 className="h-full bg-accent transition-all duration-300"
                 style={{ width: `${uploadProgress}%` }}
               />
@@ -275,7 +286,7 @@ export default function MediaUploader({ chatId, currentUserId, onMediaSent, onCa
           onChange={handleImageSelect}
           className="hidden"
         />
-        
+
         <Button
           type="button"
           size="icon"

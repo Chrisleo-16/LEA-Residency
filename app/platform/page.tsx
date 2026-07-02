@@ -79,8 +79,8 @@ export default function WhatYouCanDoPage() {
         </li>
         <li>
           <strong>Email:</strong>{" "}
-          <a href="mailto:chrisbenevansleo@gmail.com">
-            chrisbenevansleo@gmail.com
+          <a href="mailto:cbempirefx@gmail.com">
+            cbempirefx@gmail.com
           </a>
         </li>
         <li>

@@ -13,9 +13,11 @@ import {
   Users,
   ChevronDown,
   ChevronUp,
+  Paperclip,
 } from "lucide-react";
 import { useChat, Message } from "@/hooks/useChat";
 import MessageBubble from "@/components/chat/MessageBubble";
+import MediaUploader from "@/components/chat/MediaUploader";
 
 const TZ = "Africa/Nairobi";
 
@@ -38,6 +40,7 @@ export default function CommunityPage({ user }: CommunityPageProps) {
   const [initLoading, setInitLoading] = useState(true);
   const [newMessage, setNewMessage] = useState("");
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
+  const [showMediaUploader, setShowMediaUploader] = useState(false);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [annTitle, setAnnTitle] = useState("");
   const [annContent, setAnnContent] = useState("");
@@ -537,29 +540,57 @@ export default function CommunityPage({ user }: CommunityPageProps) {
             </div>
           )}
 
+          {/* Media uploader (image / voice note) */}
+          {showMediaUploader && communityConvId && user && (
+            <div className="px-4 sm:px-5 py-3 border-t border-border bg-card shrink-0">
+              <MediaUploader
+                conversationId={communityConvId}
+                currentUserId={user.id}
+                replyToId={replyingTo?.id}
+                onMediaSent={() => {
+                  setShowMediaUploader(false);
+                  setReplyingTo(null);
+                }}
+                onCancel={() => setShowMediaUploader(false)}
+              />
+            </div>
+          )}
+
           {/* Input */}
-          <div className="px-4 sm:px-5 py-3.5 border-t border-border flex gap-3 items-center shrink-0 bg-card">
-            <Input
-              ref={inputRef}
-              placeholder="Message the community..."
-              value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  handleSend();
-                }
-              }}
-              className="flex-1 bg-secondary border-border text-foreground h-11 text-sm rounded-xl"
-            />
-            <Button
-              onClick={handleSend}
-              disabled={!newMessage.trim()}
-              className="bg-accent hover:bg-accent/90 text-white h-11 w-11 p-0 shrink-0 rounded-xl shadow-md shadow-accent/25"
-            >
-              <Send className="w-4 h-4" />
-            </Button>
-          </div>
+          {!showMediaUploader && (
+            <div className="px-4 sm:px-5 py-3.5 border-t border-border flex gap-2 items-center shrink-0 bg-card">
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                onClick={() => setShowMediaUploader(true)}
+                className="h-11 w-11 rounded-xl shrink-0 text-muted-foreground hover:text-foreground"
+                title="Attach image or voice note"
+              >
+                <Paperclip className="w-4 h-4" />
+              </Button>
+              <Input
+                ref={inputRef}
+                placeholder="Message the community..."
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSend();
+                  }
+                }}
+                className="flex-1 bg-secondary border-border text-foreground h-11 text-sm rounded-xl"
+              />
+              <Button
+                onClick={handleSend}
+                disabled={!newMessage.trim()}
+                className="bg-accent hover:bg-accent/90 text-white h-11 w-11 p-0 shrink-0 rounded-xl shadow-md shadow-accent/25"
+              >
+                <Send className="w-4 h-4" />
+              </Button>
+            </div>
+          )}
         </div>
       )}
 
