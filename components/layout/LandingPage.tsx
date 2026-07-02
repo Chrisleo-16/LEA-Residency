@@ -2214,7 +2214,7 @@ useEffect(() => {
             { icon: <Phone size={14} />, text: "+254 748 333 763 or +254 799 956574" },
             {
               icon: <Mail size={14} />,
-              text: "chrisbenevansleo@gmail.com",
+              text: "cbempirefx@gmail.com",
             },
             { icon: <MapPin size={14} />, text: "Nairobi, Kenya" },
           ].map(({ icon, text }) => (
