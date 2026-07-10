@@ -2,18 +2,20 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import { Inter } from 'next/font/google'
 import {
   MessageSquare, Settings, LogOut, Search,
   AlertCircle, ClipboardList, FileText, Users,
-  X, Building2, ChevronRight, Activity, Receipt
+  Building2, Activity,
+  Receipt, Grid3x3, HelpCircle,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { User, RealtimeChannel } from '@supabase/supabase-js'
 import { useRouteLoader } from '@/components/RouteLoaderProvider'
-import { Input } from '@alignui/input'
-import { Avatar } from '@alignui/avatar'
-import { Button } from '@alignui/button'
-import { Badge } from '@alignui/badge'
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
+import ThemeToggle from '@/components/theme-toggle'
+
+const inter = Inter({ subsets: ['latin'], weight: ['400', '500', '600', '700'] })
 
 interface SidebarProps {
   activeTab: string
@@ -28,17 +30,15 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
   const [fullName, setFullName] = useState('')
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
-  const { startLoading } = useRouteLoader()
+  const { startLoading } = useRouteLoader();
 
   useEffect(() => {
     let channel: RealtimeChannel | null = null
     let isMounted = true
-
     const supabase = supabaseRef.current
 
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (!isMounted) return
-
       if (!session) {
         router.push('/login')
         return
@@ -62,8 +62,6 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
         setRole(profile.role)
         setFullName(profile.full_name || '')
         setAvatarUrl(profile.avatar_url || null)
-      } else {
-        console.warn('No profile found for user:', session.user.id)
       }
 
       channel = supabase
@@ -95,177 +93,150 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
     router.push('/login')
   }
 
-  const tenantTabs = [
-    { id: 'chat', label: 'Chat with Landlord', icon: MessageSquare, desc: 'Direct messages' },
-    { id: 'community', label: 'Community', icon: Users, desc: 'Group & announcements' },
-    { id: 'complaints', label: 'My Complaints', icon: AlertCircle, desc: 'Submit & track issues' },
-    { id: 'requests', label: 'My Requests', icon: ClipboardList, desc: 'Service requests' },
-    { id: 'payments', label: 'Payments', icon: Receipt, desc: 'Rent payment history' },
-    { id: 'policy', label: 'Policy & Docs', icon: FileText, desc: 'Rules & documents' },
-    { id: 'settings', label: 'Settings', icon: Settings, desc: 'Account preferences' },
+  const tenantMenu = [
+    { id: 'chat',       label: 'Chat with Landlord', icon: MessageSquare },
+    { id: 'community',  label: 'Community',          icon: Users },
+    { id: 'complaints', label: 'My Complaints',      icon: AlertCircle },
+    { id: 'requests',   label: 'My Requests',        icon: ClipboardList },
+    { id: 'payments',   label: 'Payments',           icon: Receipt },
+    { id: 'listings',   label: 'Listings',           icon: Grid3x3 },
+    { id: 'policy',     label: 'Policy & Docs',      icon: FileText },
   ]
 
-  const landlordTabs = [
-    { id: 'chat', label: 'Conversations', icon: MessageSquare, desc: 'Tenant messages' },
-    { id: 'community', label: 'Community', icon: Users, desc: 'Group & announcements' },
-    { id: 'complaints', label: 'Complaints', icon: AlertCircle, desc: 'Manage tenant issues' },
-    { id: 'requests', label: 'Requests', icon: ClipboardList, desc: 'Service requests' },
-    { id: 'payments', label: 'Rent Ledger', icon: Receipt, desc: 'Track all payments' },
-    { id: 'policy', label: 'Manage Policies', icon: FileText, desc: 'Publish documents' },
-    { id: 'billing', label: 'Subscription Billing', icon: Activity, desc: 'Manage subscription & payments' },
-    { id: 'settings', label: 'Settings', icon: Settings, desc: 'Account preferences' },
+  const landlordMenu = [
+    { id: 'chat',       label: 'Conversations',       icon: MessageSquare },
+    { id: 'community',  label: 'Community',           icon: Users },
+    { id: 'complaints', label: 'Complaints',           icon: AlertCircle },
+    { id: 'requests',   label: 'Requests',             icon: ClipboardList },
+    { id: 'payments',   label: 'Rent Ledger',          icon: Receipt },
+    { id: 'listings',   label: 'My Listings',          icon: Grid3x3 },
+    { id: 'policy',     label: 'Manage Policies',      icon: FileText },
+    { id: 'billing',    label: 'Subscription Billing', icon: Activity },
   ]
 
-  const tabs = role === 'landlord' ? landlordTabs : tenantTabs
-  const filteredTabs = tabs.filter(t =>
+  const menu = role === 'landlord' ? landlordMenu : tenantMenu
+
+  const filteredMenu = menu.filter(t =>
     t.label.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
+  const handleNav = (id: string) => {
+    if (id === 'listings') {
+      startLoading('/listings')
+      router.push('/listings')
+    } else {
+      setActiveTab(id)
+    }
+  }
+
   return (
-    <div
-      className="w-60 bg-[var(--color-fog)] flex flex-col h-full overflow-hidden"
-      style={{ fontFamily: 'var(--font-sohne)' }}
-    >
-      {/* Brand header */}
+    <div className={`${inter.className} w-64 bg-sidebar flex flex-col h-full overflow-hidden border-r border-sidebar-border`}>
+      {/* Header */}
       <div className="px-5 pt-6 pb-4 shrink-0">
-        <div className="flex items-center gap-3 mb-5">
-          <div className="w-10 h-10 rounded-xl bg-[var(--color-rust)] flex items-center justify-center shrink-0">
-            <Building2 className="w-5 h-5 text-white" />
+        <div className="flex items-center gap-2.5 mb-5">
+          <div className="w-8 h-8 rounded-md bg-neutral-900 dark:bg-white flex items-center justify-center shrink-0">
+            <Building2 className="w-4 h-4 text-white dark:text-neutral-900" strokeWidth={2} />
           </div>
-          <div>
-            <h1 className="text-sm font-medium text-[var(--color-ink)] leading-tight tracking-tight">
-              LEA Executive
-            </h1>
-            <p className="text-[11px] text-[var(--color-graphite)] tracking-wider uppercase mt-0.5">
-              Residency & Apts
-            </p>
-          </div>
+          <span className="font-semibold text-sidebar-foreground truncate">LEA Executive</span>
+          <div className="ml-auto"><ThemeToggle /></div>
         </div>
 
-        {/* Role badge — using AlignUI Badge for consistency */}
-        {role && (
-          <div className="flex items-center gap-2 mb-4" suppressHydrationWarning>
-            <Badge
-              variant="dot"
-              color="rust"
-              className="capitalize text-xs text-[var(--color-graphite)] bg-transparent border-0 px-0"
-            >
-              {role === 'landlord' ? 'Property Manager' : 'Resident Tenant'}
-            </Badge>
-          </div>
-        )}
-
-        {/* Search — AlignUI Input with clear button */}
-        <Input
-          type="search"
-          placeholder="Search..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          leftIcon={<Search className="h-3.5 w-3.5" />}
-          clearButton={searchQuery ? true : false}
-          onClear={() => setSearchQuery('')}
-          className="w-full [&>div]:bg-white [&>div]:rounded-2xl [&>div]:border-[var(--color-dove)] [&>div]:text-xs [&>div]:h-9"
-          wrapperClassName="[&>div:focus-within]:ring-1 [&>div:focus-within]:ring-[var(--color-rust)]/50"
-        />
+        {/* Search */}
+        <div className="relative">
+          <Search className="absolute left-3 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
+          <input
+            placeholder="Search"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-8 pr-3 py-2 bg-secondary border border-border rounded-md text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:ring-1 focus:ring-neutral-400 transition-all"
+          />
+        </div>
       </div>
 
-      {/* Nav label */}
-      <div className="px-5 mb-2 shrink-0">
-        <p className="text-[10px] font-semibold text-[var(--color-graphite)] uppercase tracking-widest">
-          Navigation
-        </p>
-      </div>
+      {/* Quick Actions label */}
+      <p className="px-5 pt-2 pb-2 text-[11px] font-medium text-muted-foreground uppercase tracking-wide shrink-0">
+        Menu
+      </p>
 
-      {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto px-3 space-y-0.5 pb-4">
-        {filteredTabs.map((tab) => {
+      {/* Nav */}
+      <nav className="flex-1 overflow-y-auto px-3 space-y-0.5 scrollbar-hide">
+        {filteredMenu.map((tab) => {
           const Icon = tab.icon
           const isActive = activeTab === tab.id
           return (
             <button
               key={tab.id}
-              onClick={() => {
-                if (tab.id === 'developer-dashboard') {
-                  router.push('/developer-dashboard')
-                } else {
-                  setActiveTab(tab.id)
-                }
-              }}
+              onClick={() => handleNav(tab.id)}
               className={`
-                w-full flex items-center gap-3 px-3 py-3 rounded-xl text-left
-                transition-all duration-150 group relative
+                w-full flex items-center gap-3 px-3 py-2 rounded-md text-left text-sm
+                transition-colors
                 ${isActive
-                  ? 'bg-white shadow-[var(--shadow-subtle)]'
-                  : 'text-[var(--color-ink)]/60 hover:bg-white/50 hover:text-[var(--color-ink)]'
+                  ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 font-medium'
+                  : 'text-sidebar-foreground/70 hover:bg-secondary hover:text-sidebar-foreground'
                 }
               `}
             >
-              <div
-                className={`
-                  w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-all
-                  ${isActive
-                    ? 'bg-[var(--color-rust)]/10'
-                    : 'bg-transparent'
-                  }
-                `}
-              >
-                <Icon
-                  className={`w-4 h-4 ${
-                    isActive ? 'text-[var(--color-rust)]' : 'text-[var(--color-graphite)]'
-                  }`}
-                />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate leading-tight text-[var(--color-ink)]">
-                  {tab.label}
-                </p>
-                <p className="text-[11px] truncate mt-0.5 text-[var(--color-graphite)]">
-                  {tab.desc}
-                </p>
-              </div>
-              {isActive && (
-                <ChevronRight className="w-3.5 h-3.5 text-[var(--color-rust)] shrink-0" />
-              )}
+              <Icon className="w-4 h-4 shrink-0" strokeWidth={1.75} />
+              <span className="truncate">{tab.label}</span>
             </button>
           )
         })}
       </nav>
 
-      {/* Divider */}
-      <div className="mx-5 border-t border-[var(--color-dove)] shrink-0" />
+      {/* Help & Support */}
+      <div className="px-3 pt-3 pb-1 shrink-0 border-t border-sidebar-border">
+        <p className="px-3 pt-3 pb-2 text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
+          Help &amp; Support
+        </p>
+        <button
+          onClick={() => router.push('/contact')}
+          className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-left text-sm text-sidebar-foreground/70 hover:bg-secondary hover:text-sidebar-foreground transition-colors"
+        >
+          <HelpCircle className="w-4 h-4 shrink-0" strokeWidth={1.75} />
+          Contact Support
+        </button>
+        <button
+          onClick={() => handleNav('settings')}
+          className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-left text-sm transition-colors ${
+            activeTab === 'settings'
+              ? 'bg-neutral-900 text-white dark:bg-white dark:text-neutral-900 font-medium'
+              : 'text-sidebar-foreground/70 hover:bg-secondary hover:text-sidebar-foreground'
+          }`}
+        >
+          <Settings className="w-4 h-4 shrink-0" strokeWidth={1.75} />
+          Settings
+        </button>
+      </div>
 
-      {/* User footer — using AlignUI Avatar */}
-      <div className="p-4 shrink-0" suppressHydrationWarning>
-        <div className="flex items-center gap-3 p-3 rounded-2xl bg-white shadow-[var(--shadow-subtle)]">
-          <div className="relative shrink-0">
-            <Avatar
-              size="sm"
-              src={avatarUrl || undefined}
-              initials={fullName.charAt(0).toUpperCase() || '?'}
-              className="ring-2 ring-[var(--color-rust)]/30 bg-[var(--color-rust)]"
-            />
-            <span className="absolute bottom-0 right-0 w-2.5 h-2.5 bg-green-400 border-2 border-white rounded-full" />
-          </div>
+      {/* User footer */}
+      <div className="p-3 shrink-0 border-t border-sidebar-border" suppressHydrationWarning>
+        <div className="flex items-center gap-2.5 p-2 rounded-md hover:bg-secondary transition-colors group">
+          <Avatar className="w-8 h-8 shrink-0">
+            <AvatarImage src={avatarUrl || ''} />
+            <AvatarFallback className="bg-neutral-200 dark:bg-neutral-700 text-sidebar-foreground font-medium text-xs">
+              {fullName.charAt(0).toUpperCase() || '?'}
+            </AvatarFallback>
+          </Avatar>
+
           <div className="flex-1 min-w-0">
-            <p className="text-xs font-semibold text-[var(--color-ink)] truncate">
+            <p className="text-xs font-medium text-sidebar-foreground truncate">
               {fullName || 'Loading...'}
             </p>
-            <p className="text-[10px] text-[var(--color-graphite)] truncate mt-0.5">
-              {user?.email}
+            <p className="text-[11px] text-muted-foreground truncate capitalize">
+              {role || user?.email}
             </p>
           </div>
-          <Button
-            variant="ghost"
-            size="icon-sm"
+
+          <button
             onClick={() => {
-              startLoading()
-              handleLogout()
+              startLoading('/login');
+              handleLogout();
             }}
-            className="text-[var(--color-graphite)] hover:text-[var(--color-ink)] hover:bg-[var(--color-fog)]"
-            aria-label="Logout"
+            className="p-1.5 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors shrink-0"
+            title="Logout"
           >
-            <LogOut className="w-3.5 h-3.5" />
-          </Button>
+            <LogOut className="w-3.5 h-3.5" strokeWidth={2} />
+          </button>
         </div>
       </div>
     </div>

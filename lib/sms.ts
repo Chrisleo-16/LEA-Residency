@@ -122,7 +122,7 @@ export async function sendSMS({ to, message, from = AFRICAS_TALKING.senderId }: 
  * Send contact form confirmation SMS to user
  */
 export async function sendContactConfirmationSMS(userPhone: string, userName: string) {
-  const message = `Dear ${userName},\n\nThank you for contacting LEA Executive Residency. We have received your message and will get back to you within 24 hours.\n\nFor urgent inquiries, call us at +254 748 333 763.\n\nBest regards,\nLEA Executive Management`
+  const message = `Dear ${userName},\n\nThank you for contacting LEA Executive Residency. We have received your message and will get back to you within 24 hours.\n\nFor urgent inquiries, call us at +254 799 956574.\n\nBest regards,\nLEA Executive Management`
   
   return await sendSMS({
     to: userPhone,
@@ -153,7 +153,7 @@ export async function sendContactNotificationSMS(contactData: {
  * Send viewing request confirmation SMS to user
  */
 export async function sendViewingConfirmationSMS(userPhone: string, userName: string, preferredDate: string, preferredTime: string) {
-  const message = `Dear ${userName},\n\nThank you for scheduling a property viewing with LEA Executive Residency.\n\nDate: ${preferredDate}\nTime: ${preferredTime}\n\nWe will confirm your appointment within 24 hours. You will receive a confirmation call or SMS.\n\nFor changes, call: +254 748 333 763\n\nBest regards,\nLEA Executive Management`
+  const message = `Dear ${userName},\n\nThank you for scheduling a property viewing with LEA Executive Residency.\n\nDate: ${preferredDate}\nTime: ${preferredTime}\n\nWe will confirm your appointment within 24 hours. You will receive a confirmation call or SMS.\n\nFor changes, call: +254 799 956574\n\nBest regards,\nLEA Executive Management`
   
   return await sendSMS({
     to: userPhone,

@@ -104,7 +104,7 @@ export default function PrivacyPolicy() {
       id: '11',
       title: 'Contact',
       body: [
-        'Questions about this policy or your data can be sent to management via the contact details on our Contact page, or by calling +254748333763.',
+        'Questions about this policy or your data can be sent to management via the contact details on our Contact page, or by calling +254799956574.',
       ],
     },
   ]

@@ -2,6 +2,8 @@
 @import 'tw-animate-css';
 @import '../styles/loader.css';
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   /* AlignUI Raw Colors */
   --color-gray-950: oklch(20.46% 0.0000 0);
@@ -1062,41 +1064,41 @@ body {
   ::-webkit-scrollbar-thumb:hover { background: var(--muted-foreground); }
 }
 
-/* ── Light mode ─────────────────────────────────── */
+/* ── Light mode: clean white/light-gray ─────────── */
 :root {
-  --background:    oklch(0.98 0.01 85);  /* Cream background */
-  --foreground:    oklch(0.15 0.02 256);  /* Dark text */
-  --card:          oklch(0.96 0.01 85);  /* Light cream cards */
-  --card-foreground: oklch(0.15 0.02 256);
-  --popover:       oklch(0.96 0.01 85);
-  --popover-foreground: oklch(0.15 0.02 256);
-  --primary:       #c9a96e;  /* Main gold */
-  --primary-foreground: oklch(0.98 0.01 85);
-  --secondary:     oklch(0.94 0.01 85);
-  --secondary-foreground: oklch(0.15 0.02 256);
-  --muted:         oklch(0.92 0.01 85);
-  --muted-foreground: oklch(0.45 0.01 256);
-  --accent:        #c9a96e;  /* Main gold */
-  --accent-foreground: oklch(0.98 0.01 85);
+  --background:    oklch(1 0 0);  /* Pure white background */
+  --foreground:    oklch(0.18 0.01 260);  /* Near-black text */
+  --card:          oklch(0.995 0 0);  /* White cards */
+  --card-foreground: oklch(0.18 0.01 260);
+  --popover:       oklch(0.995 0 0);
+  --popover-foreground: oklch(0.18 0.01 260);
+  --primary:       #171717;  /* Neutral-900 — matches landing page monochrome */
+  --primary-foreground: oklch(0.99 0 0);
+  --secondary:     oklch(0.96 0 0);  /* Light gray */
+  --secondary-foreground: oklch(0.18 0.01 260);
+  --muted:         oklch(0.96 0 0);
+  --muted-foreground: oklch(0.48 0.01 260);
+  --accent:        #171717;  /* Neutral-900 */
+  --accent-foreground: oklch(0.99 0 0);
   --destructive:   oklch(0.57 0.24 27);
   --destructive-foreground: oklch(0.98 0.01 85);
-  --border:        rgba(201,169,110,0.3);  /* Gold with transparency */
-  --input:         oklch(0.94 0.01 85);
-  --ring:          #c9a96e;  /* Main gold */
+  --border:        oklch(0.90 0 0);  /* Light gray border */
+  --input:         oklch(0.96 0 0);
+  --ring:          #171717;  /* Neutral-900 */
   --radius:        0.75rem;
 
-  /* ── Sidebar: cream elegant panel ── */
-  --sidebar:          oklch(0.94 0.01 85);
-  --sidebar-foreground: oklch(0.15 0.02 256);
-  --sidebar-primary:  #c9a96e;  /* Main gold */
-  --sidebar-primary-foreground: oklch(0.98 0.01 85);
-  --sidebar-accent:   rgba(201,169,110,0.12);  /* Gold glow / low opacity */
-  --sidebar-accent-foreground: oklch(0.15 0.02 256);
-  --sidebar-border:   rgba(201,169,110,0.3);  /* Gold with transparency */
-  --sidebar-ring:     #c9a96e;  /* Main gold */
+  /* ── Sidebar: light-gray panel ── */
+  --sidebar:          oklch(0.98 0 0);
+  --sidebar-foreground: oklch(0.18 0.01 260);
+  --sidebar-primary:  #171717;  /* Neutral-900 */
+  --sidebar-primary-foreground: oklch(0.99 0 0);
+  --sidebar-accent:   rgba(23,23,23,0.06);  /* Neutral glow / low opacity */
+  --sidebar-accent-foreground: oklch(0.18 0.01 260);
+  --sidebar-border:   oklch(0.90 0 0);
+  --sidebar-ring:     #171717;  /* Neutral-900 */
 }
 
-/* ── Dark mode ──────────────────────────────────── */
+/* ── Dark mode: premium slate/near-black ─────────── */
 .dark {
   --background:    #0f0f0f;  /* Deepest dark (background) */
   --foreground:    #f5f0e8;  /* Text primary (warm white) */
@@ -1104,29 +1106,29 @@ body {
   --card-foreground: #f5f0e8;
   --popover:       #161616;
   --popover-foreground: #f5f0e8;
-  --primary:       #c9a96e;  /* Main gold */
+  --primary:       #fafafa;  /* Neutral-50 — inverted monochrome for dark bg */
   --primary-foreground: #0f0f0f;
   --secondary:     #111111;  /* Slightly lighter dark */
   --secondary-foreground: #f5f0e8;
   --muted:         rgba(245,240,232,0.35);  /* Text tertiary */
   --muted-foreground: rgba(245,240,232,0.6);  /* Text secondary */
-  --accent:        #c9a96e;  /* Main gold */
+  --accent:        #fafafa;  /* Neutral-50 */
   --accent-foreground: #0f0f0f;
   --destructive:   oklch(0.55 0.20 25);
   --destructive-foreground: #f5f0e8;
   --border:        rgba(245,240,232,0.07);  /* Border / separator */
   --input:         #111111;
-  --ring:          #c9a96e;  /* Main gold */
+  --ring:          #fafafa;  /* Neutral-50 */
 
   /* ── Sidebar: dark elegant panel ── */
   --sidebar:          #111111;  /* Slightly lighter dark */
   --sidebar-foreground: #f5f0e8;
-  --sidebar-primary:  #c9a96e;  /* Main gold */
+  --sidebar-primary:  #fafafa;  /* Neutral-50 */
   --sidebar-primary-foreground: #0f0f0f;
-  --sidebar-accent:   rgba(201,169,110,0.12);  /* Gold glow / low opacity */
+  --sidebar-accent:   rgba(250,250,250,0.10);  /* Neutral glow / low opacity */
   --sidebar-accent-foreground: #f5f0e8;
   --sidebar-border:   rgba(245,240,232,0.07);  /* Border / separator */
-  --sidebar-ring:     #c9a96e;  /* Main gold */
+  --sidebar-ring:     #f59e0b;  /* Amber-500 */
 }
 
 @theme inline {

@@ -237,7 +237,7 @@ export default function ContactPage() {
             <div className="contact-card">
               <div style={{ fontSize: 14, fontWeight: 600, color: '#4b5563', marginBottom: 20 }}>Direct Contact</div>
               {[
-                { icon: <Phone size={18} color="#c9a96e" />, label: 'Phone', value: '+254 748 333 763' },
+                { icon: <Phone size={18} color="#c9a96e" />, label: 'Phone', value: '+254 799 956574' },
                 { icon: <Mail size={18} color="#c9a96e" />, label: 'Email', value: 'cbempirefx@gmail.com' },
                 { icon: <MapPin size={18} color="#c9a96e" />, label: 'Location', value: 'Nairobi, Kenya' },
               ].map(({ icon, label, value }) => (

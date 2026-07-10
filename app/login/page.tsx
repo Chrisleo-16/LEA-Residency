@@ -233,20 +233,20 @@ function LoginPageContent() {
   };
 
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-screen flex bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
       <div className="hidden lg:flex lg:w-[52%] relative overflow-hidden">
         <div
           className="absolute inset-0 bg-cover bg-center"
           style={{ backgroundImage: "url('/images/lea-building.jpg')" }}
         />
-        <div className="absolute inset-0 bg-linear-to-br from-black/80 via-black/60 to-black/40" />
-        <div className="absolute bottom-0 left-0 right-0 h-1 bg-accent" />
+        <div className="absolute inset-0 bg-gradient-to-br from-black/85 via-slate-900/70 to-black/60" />
+        <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-amber-400 to-orange-600" />
 
         <div className="relative z-10 flex flex-col justify-between p-12 w-full">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-accent flex items-center justify-center">
+            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-amber-400 to-orange-600 flex items-center justify-center shadow-lg shadow-amber-500/30">
               <Link href="/" onClick={()=>{startLoading();}}>
-                <Home className="w-5 h-5 text-accent-foreground" />
+                <Home className="w-5 h-5 text-white" />
               </Link>
             </div>
             <span className="text-white font-bold text-lg tracking-wide">
@@ -255,25 +255,25 @@ function LoginPageContent() {
           </div>
 
           <div>
-            <div className="w-12 h-0.5 bg-accent mb-8" />
+            <div className="w-12 h-1 bg-gradient-to-r from-amber-400 to-orange-600 mb-8 rounded-full shadow-lg shadow-amber-500/30" />
             <h1 className="text-5xl font-bold text-white leading-tight mb-6">
               {isDemoMode ? (
                 <>
                   Explore LEA
                   <br />
-                  <span className="text-accent">risk-free.</span>
+                  <span className="bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">risk-free.</span>
                 </>
               ) : (
                 <>
                   Your home,
                   <br />
-                  <span className="text-accent">managed</span>
+                  <span className="bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">managed</span>
                   <br />
                   professionally.
                 </>
               )}
             </h1>
-            <p className="text-white/60 text-base max-w-sm leading-relaxed">
+            <p className="text-slate-300 text-base max-w-sm leading-relaxed">
               {isDemoMode
                 ? "See exactly how tenants and landlords use LEA — with sample data, no signup required."
                 : "Connect with your landlord, submit requests, and stay updated — all in one place."}
@@ -289,7 +289,7 @@ function LoginPageContent() {
             ].map((item) => (
               <span
                 key={item}
-                className="px-4 py-2 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 text-white/80 text-xs font-medium"
+                className="px-4 py-2 rounded-full bg-white/5 backdrop-blur-md border border-white/10 text-slate-300 text-xs font-medium hover:border-amber-500/30 transition-all"
               >
                 {item}
               </span>
@@ -298,31 +298,31 @@ function LoginPageContent() {
         </div>
       </div>
 
-      <div className="flex-1 flex items-center justify-center bg-background px-6 py-12 lg:px-16">
+      <div className="flex-1 flex items-center justify-center bg-gradient-to-br from-slate-900 via-slate-950 to-slate-950 px-6 py-12 lg:px-16">
         <div className="w-full max-w-105">
           <div className="flex items-center gap-3 mb-10 lg:hidden">
-            <div className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center">
-              <Home className="w-4 h-4 text-accent-foreground" />
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-400 to-orange-600 flex items-center justify-center">
+              <Home className="w-4 h-4 text-white" />
             </div>
-            <span className="font-bold text-foreground text-base">
+            <span className="font-bold text-white text-base">
               LEA Executive
             </span>
           </div>
 
           {isDemoMode && (
-            <div className="mb-6 p-3 bg-accent/10 border border-accent/20 rounded-xl flex items-center gap-2.5">
-              <Sparkles className="w-4 h-4 text-accent shrink-0" />
-              <p className="text-xs text-accent font-medium">
+            <div className="mb-6 p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl flex items-center gap-2.5">
+              <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
+              <p className="text-xs text-amber-300 font-medium">
                 Demo mode — no account needed
               </p>
             </div>
           )}
 
           <div className="mb-8">
-            <h2 className="text-3xl font-bold text-foreground mb-2">
+            <h2 className="text-3xl font-bold text-white mb-2">
               {isDemoMode ? "Try the demo" : isLogin ? "Welcome back" : "Create account"}
             </h2>
-            <p className="text-muted-foreground text-sm">
+            <p className="text-slate-400 text-sm">
               {isDemoMode
                 ? "Enter your name and pick a role to explore"
                 : isLogin
@@ -332,9 +332,9 @@ function LoginPageContent() {
           </div>
 
           {error && (
-            <div className="mb-5 p-4 bg-destructive/10 border border-destructive/20 rounded-xl flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
-              <div className="text-sm text-destructive whitespace-pre-line">
+            <div className="mb-5 p-4 bg-red-500/10 border border-red-500/30 rounded-xl flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-red-400 shrink-0 mt-0.5" />
+              <div className="text-sm text-red-300 whitespace-pre-line">
                 {error}
               </div>
             </div>

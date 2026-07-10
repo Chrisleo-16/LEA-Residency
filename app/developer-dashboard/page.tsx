@@ -634,6 +634,10 @@ export default function DeveloperDashboard() {
             <RefreshCw size={11} style={{ animation: refreshing ? "spin .8s linear infinite" : "none" }} />
             <span className="tab-label">Refresh</span>
           </button>
+          <button className="btn-sm btn-auto" onClick={() => router.push("/developer-dashboard/verifications")}>
+            <UserCheck size={11} />
+            <span className="tab-label">Verifications</span>
+          </button>
           <button className="btn-sm btn-logout" onClick={handleLogout}>
             <LogOut size={11} />
             <span className="tab-label">Sign Out</span>

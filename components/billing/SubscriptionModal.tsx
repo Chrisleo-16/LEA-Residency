@@ -21,7 +21,12 @@ interface SubscriptionModalProps {
   onPaid: () => void
 }
 
-const POCHI_NUMBER = '+254 748 333 763'
+export const POCHI_NUMBER = '+254 748 333 763'
+
+// Launch-phase pricing: full 5,000 setup fee is too high a barrier before
+// LEA has any track record with landlords. Revisit once there's a retained
+// paying cohort — raise deliberately with notice, not silently.
+const LAUNCH_SETUP_FEE = 1000
 
 export default function SubscriptionModal({ subscription, onPaid }: SubscriptionModalProps) {
   const [copied, setCopied] = useState(false)
@@ -30,7 +35,7 @@ export default function SubscriptionModal({ subscription, onPaid }: Subscription
   const [messageType, setMessageType] = useState<'success' | 'error' | 'info'>('info')
 
   const isSetup = !subscription.setup_fee_paid
-  const amount = isSetup ? 5000 : subscription.monthly_fee
+  const amount = isSetup ? LAUNCH_SETUP_FEE : subscription.monthly_fee
 
   const tierColors: Record<string, string> = {
     starter: 'from-blue-500 to-blue-600',

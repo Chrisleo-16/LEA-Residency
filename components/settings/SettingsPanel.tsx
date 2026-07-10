@@ -35,6 +35,7 @@ import {
 } from "lucide-react";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import NotificationPermission from "@/components/notifications/NotificationPermission";
+import VerificationSection from "@/components/settings/VerificationSection";
 
 const TZ = "Africa/Nairobi";
 
@@ -676,6 +677,9 @@ export default function SettingsPanel({ user }: SettingsPanelProps) {
             </div>
           </div>
         </Section>
+
+        {/* ── LANDLORD ONLY: Verification ── */}
+        {role === "landlord" && <VerificationSection user={user} />}
 
         {/* ── LANDLORD ONLY: Invite Tenants ── */}
         {role === "landlord" && (

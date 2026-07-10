@@ -9,6 +9,7 @@
     "lint": "eslint ."
   },
   "dependencies": {
+    "@heroui/react": "^3.2.1",
     "@hookform/resolvers": "^3.9.1",
     "@logtail/node": "^0.5.8",
     "@radix-ui/react-accordion": "1.2.12",
@@ -51,6 +52,7 @@
     "date-fns": "4.1.0",
     "dotenv": "^17.4.1",
     "embla-carousel-react": "8.6.0",
+    "framer-motion": "^12.42.2",
     "input-otp": "1.4.2",
     "jspdf": "^4.2.1",
     "logrocket": "^12.1.1",

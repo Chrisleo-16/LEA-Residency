@@ -2,2416 +2,729 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { Plus_Jakarta_Sans } from "next/font/google";
 import {
   Building2,
   MessageSquare,
   Receipt,
-  FileText,
-  Wrench,
-  Bell,
-  ClipboardList,
-  Users,
-  Shield,
-  Wifi,
-  Car,
-  Zap,
-  CheckCircle,
-  ArrowRight,
-  ArrowUpRight,
+  ShieldCheck,
+  Menu,
+  X,
+  MapPin,
+  BedDouble,
+  Bath,
+  ChevronLeft,
+  ChevronRight,
   Star,
   Phone,
   Mail,
-  MapPin,
-  Menu,
-  X,
 } from "lucide-react";
 import InstallPrompt from "@/components/pwa/InstallPrompt";
 import { useRouteLoader } from "@/components/RouteLoaderProvider";
+import { createClient } from "@/lib/supabase/client";
+import type { Listing } from "@/app/listings/page";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
 
-interface LuxuryHamburgerMenuProps {
-  user: null | any;
-  currentPage: string;
-  onNavigate?: (path: string) => void;
-}
+const jakarta = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700", "800"],
+  display: "swap",
+});
 
-const NAV_ITEMS = [
-  {
-    label: "Properties",
-    sub: "Browse our collection",
-    path: "properties",
-    num: "01",
-  },
-  {
-    label: "Gallery",
-    sub: "Virtual property tours",
-    path: "gallery",
-    num: "02",
-  },
-  {
-    label: "Experiences",
-    sub: "Curated stays",
-    path: "experiences",
-    num: "03",
-  },
-  { label: "Services", sub: "What we offer", path: "services", num: "04" },
-  { label: "Contact", sub: "Get in touch", path: "contact", num: "05" },
+const ROUTE_LINKS: Record<string, string> = {
+  listings: "/listings",
+};
+
+const navLinks = [
+  ["How It Works", "steps"],
+  ["Listings", "listings"],
+  ["FAQs", "faq"],
 ];
 
-const IMAGES = [
-  "https://images.unsplash.com/photo-1582268611958-ebfd161ef9cf?q=80&w=600",
-  "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?q=80&w=600",
-  "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?q=80&w=600",
-  "https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?q=80&w=600",
-  "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?q=80&w=600",
-  "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?q=80&w=600",
+const valueProps = [
+  {
+    icon: ShieldCheck,
+    title: "Verified Landlords",
+    desc: "Every landlord on the platform is identity-checked before they can list a property.",
+  },
+  {
+    icon: Receipt,
+    title: "M-Pesa Integrated",
+    desc: "Rent is paid and reconciled automatically via Paybill — no manual confirmation.",
+  },
+  {
+    icon: MessageSquare,
+    title: "Nairobi-based Support",
+    desc: "Real people, on the ground in Kenya, for tenants and landlords alike.",
+  },
+];
+
+const steps = [
+  {
+    step: "01",
+    title: "Search Listings",
+    desc: "Browse verified properties across Kenya by location, price, and size.",
+  },
+  {
+    step: "02",
+    title: "Schedule a Viewing",
+    desc: "Book a viewing directly with the landlord or their agent, in-app.",
+  },
+  {
+    step: "03",
+    title: "Apply & Verify",
+    desc: "Submit your details once. No repeat paperwork across properties.",
+  },
+  {
+    step: "04",
+    title: "Move In & Pay",
+    desc: "Pay rent via M-Pesa from day one, logged automatically every month.",
+  },
+];
+
+const testimonials = [
+  {
+    name: 'Leo "Informed" A',
+    role: "Resident Tenant",
+    avatar: "AW",
+    rating: 5,
+    text: "Paying rent through the app is so seamless. I send to the Paybill and a few seconds later it shows confirmed. No more calling to check if it went through.",
+  },
+  {
+    name: "Chris Evans",
+    role: "Resident Tenant",
+    avatar: "JM",
+    rating: 5,
+    text: "I logged a plumbing issue on Monday morning. By Wednesday it was already resolved and marked done in the app. This is how management should work.",
+  },
+  {
+    name: "Sophie Leo",
+    role: "Resident Tenant",
+    avatar: "FN",
+    rating: 5,
+    text: "The community chat is great. We know immediately when there's a water outage or a notice from management. Everyone stays on the same page.",
+  },
+];
+
+const faqs = [
+  {
+    q: "Okay but what actually is this?",
+    a: "A dashboard for one building, plus a growing marketplace. LEA Executive Residency has its own app where tenants pay rent, message management, and log requests. On top of that, landlords across Kenya can list other properties for tenants to browse.",
+  },
+  {
+    q: "Is this a rental listing site like the others?",
+    a: "Both, actually. LEA Executive Residency has its own dedicated tenant portal — that's this app, day-to-day. But the platform is also growing a Kenyan listings marketplace, where other landlords list properties and tenants can browse before they move in.",
+  },
+  {
+    q: "How is this different from a regular landlord-tenant relationship?",
+    a: "Most of those run on memory and goodwill — a call here, a text there, hoping it was seen. We put it on record instead. Every message, payment, and request has a timestamp and a status.",
+  },
+  {
+    q: "Who actually gets my rent money?",
+    a: "Your landlord, directly. Payments go straight to the building's M-Pesa Paybill — LEA Executive never holds your money. The app reads the confirmation the moment M-Pesa sends it.",
+  },
+  {
+    q: "What happens to a maintenance request after I submit it?",
+    a: "It moves through three states you can actually see: submitted, in progress, resolved. No more wondering if anyone read it.",
+  },
+  {
+    q: "Can my landlord see things I do not want them to?",
+    a: "No. Your private chat with management stays private. Row Level Security means only you and your property manager can see your conversations, payments, and records.",
+  },
+  {
+    q: "What if I am not a tenant here yet?",
+    a: "Then browse Listings — landlords across Kenya list available properties there. If you want LEA Executive Residency specifically, reach out through Contact below.",
+  },
+  {
+    q: "Is my data actually safe?",
+    a: "Yes — and we mean that specifically, not as a slogan. Read the Privacy Policy for exactly what we collect, why, and who can see it.",
+  },
 ];
 
 export default function Home() {
-  const [scrolled, setScrolled] = useState(false);
   const router = useRouter();
+  const { startLoading } = useRouteLoader();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const {startLoading} = useRouteLoader();
-
-  const [isScrolled, setIsScrolled] = useState(false);
-
-useEffect(() => {
-  const handleScroll = () => {
-    if (heroRef.current) {
-      // Gets the exact render height of the hero element in real-time
-      const heroHeight = heroRef.current.offsetHeight;
-      
-      // Triggers the change right as the bottom of the navbar hits the bottom of the hero
-      if (window.scrollY > heroHeight - 80) {
-        setIsScrolled(true);
-      } else {
-        setIsScrolled(false);
-      }
-    }
-  };
-
-  window.addEventListener("scroll", handleScroll);
-  return () => window.removeEventListener("scroll", handleScroll);
-}, []);
-  const navLinks = [
-    ["How It Works", "howitworks"],
-    ["Features", "features"],
-    ["Payments", "payments"],
-    ["Contact", "contact"],
-  ];
+  const [testimonialIndex, setTestimonialIndex] = useState(0);
+  const [listingsPage, setListingsPage] = useState(0);
+  const [marketListings, setMarketListings] = useState<Listing[]>([]);
+  const [marketListingsLoading, setMarketListingsLoading] = useState(true);
+  const heroRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
-    const fn = () => setScrolled(window.scrollY > 50);
-    window.addEventListener("scroll", fn);
-    return () => window.removeEventListener("scroll", fn);
+    const supabase = createClient();
+    supabase
+      .from("listings")
+      .select("*")
+      .order("created_at", { ascending: false })
+      .limit(9)
+      .then(({ data, error }) => {
+        if (!error) setMarketListings(data || []);
+        setMarketListingsLoading(false);
+      });
   }, []);
 
   const scrollTo = (id: string) =>
     document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
-  const heroRef = useRef<HTMLElement>(null);
-  const features = [
-    {
-      icon: MessageSquare,
-      title: "Direct Chat with Management",
-      desc: "Tenants get a private messaging channel with the property manager. Ask questions, report issues, get updates — no phone tag, no waiting.",
-      color: "#0d9488",
-      num: "01",
-    },
-    {
-      icon: Receipt,
-      title: "M-Pesa Rent Payments",
-      desc: "Pay rent directly via M-Pesa. Your payment is logged and confirmed in the system immediately. Landlord gets instant notification.",
-      color: "#16a34a",
-      num: "02",
-    },
-    {
-      icon: FileText,
-      title: "Policies & Documents",
-      desc: "House rules, tenancy agreements, move-in guidelines — all stored digitally. Read them anytime, sign and download the agreement as a PDF.",
-      color: "#2563eb",
-      num: "03",
-    },
-    {
-      icon: Wrench,
-      title: "Maintenance Requests",
-      desc: "Submit plumbing, electrical, structural, or cleaning requests with one tap. Track status from submitted → in progress → resolved in real time.",
-      color: "#ea580c",
-      num: "04",
-    },
-    {
-      icon: ClipboardList,
-      title: "Formal Complaints",
-      desc: "Log complaints with a title, full description, and timestamp. Management reviews and updates status. Everything is on record.",
-      color: "#dc2626",
-      num: "05",
-    },
-    {
-      icon: Users,
-      title: "Community Group Chat",
-      desc: "A shared group channel for all residents. Management posts announcements, tenants stay informed about building updates and events.",
-      color: "#7c3aed",
-      num: "06",
-    },
-    {
-      icon: Bell,
-      title: "Push Notifications",
-      desc: "Instant alerts for new messages, payment confirmations, status updates, and community announcements — even when the app is closed.",
-      color: "#b45309",
-      num: "07",
-    },
-    {
-      icon: Shield,
-      title: "Secure & Private",
-      desc: "Your data is protected with Supabase Row Level Security. Only you and your property manager see your personal conversations and records.",
-      color: "#0891b2",
-      num: "08",
-    },
-  ];
 
-  const dashboardTabs = [
-    {
-      label: "Chat",
-      icon: MessageSquare,
-      desc: "Private messages with your landlord",
-    },
-    { label: "Community", icon: Users, desc: "Group chat & announcements" },
-    { label: "Complaints", icon: ClipboardList, desc: "Submit & track issues" },
-    { label: "Requests", icon: Wrench, desc: "Maintenance & service requests" },
-    { label: "Policies", icon: FileText, desc: "Documents & house rules" },
-    { label: "Settings", icon: Bell, desc: "Profile & notifications" },
-  ];
-  const faqs = [
-    {
-      q: "Okay but what actually is this?",
-      a: "A dashboard for one building. LEA Executive Residency has its own app where tenants pay rent, message management, and log requests — instead of WhatsApp groups, phone calls, and hoping someone saw your text.",
-    },
-    {
-      q: "Is this a rental listing site like the others?",
-      a: "No. We do not list properties or take bookings. If you are already living here, this is the tool you use every month — it starts after you move in, not before.",
-    },
-    {
-      q: "How is this different from a regular landlord-tenant relationship?",
-      a: "Most of those run on memory and goodwill — a call here, a text there, hoping it was seen. We put it on record instead. Every message, payment, and request has a timestamp and a status. Less guessing, more trust, on both sides.",
-    },
-    {
-      q: "Who actually gets my rent money?",
-      a: "Your landlord, directly. Payments go straight to the building\u2019s M-Pesa Paybill — LEA Executive never holds your money. The app simply reads the confirmation the moment M-Pesa sends it, so it shows up in your dashboard automatically.",
-    },
-    {
-      q: "What happens to a maintenance request after I submit it?",
-      a: "It moves through three states you can actually see: submitted, in progress, resolved. No more wondering if anyone read it.",
-    },
-    {
-      q: "Can my landlord see things I do not want them to?",
-      a: "No. Your private chat with management stays private. Row Level Security means only you and your property manager can see your conversations, payments, and records — not other tenants, not anyone else.",
-    },
-    {
-      q: "What if I am not a tenant here yet?",
-      a: "Then this app is not for you yet. Accounts are created by management once you are a resident. If you are interested in living at LEA Executive, reach out through Contact Management below.",
-    },
-    {
-      q: "Is my data actually safe?",
-      a: "Yes — and we mean that specifically, not as a slogan. Read the Privacy Policy for exactly what we collect, why, and who can see it. No surprises, no fine print designed to confuse you.",
-    },
-  ];
-  const testimonials = [
-    {
-      name: "Leo \"Informed\" A ",
-      role: "Resident Tenant",
-      avatar: "AW",
-      rating: 5,
-      text: "Paying rent through the app is so seamless. I send to the Paybill and a few seconds later it shows confirmed. No more calling to check if it went through.",
-    },
-    {
-      name: "Chris Evans",
-      role: "Resident Tenant",
-      avatar: "JM",
-      rating: 5,
-      text: "I logged a plumbing issue on Monday morning. By Wednesday it was already resolved and marked done in the app. This is how management should work.",
-    },
-    {
-      name: "Sophie Leo",
-      role: "Resident Tenant",
-      avatar: "FN",
-      rating: 5,
-      text: "The community chat is great. We know immediately when there's a water outage or a notice from management. Everyone stays on the same page.",
-    },
-  ];
+  const goTo = (path: string) => {
+    startLoading(path);
+    router.push(path);
+  };
 
-  const howItWorks = [
-    {
-      step: "1",
-      title: "You get an account",
-      desc: "Your property manager registers you in the system. You receive a login link and set up your account in under 2 minutes.",
-    },
-    {
-      step: "2",
-      title: "Set up your profile",
-      desc: "Add your name, photo, and phone number. Link your M-Pesa number so payments can be tracked automatically when you pay rent.",
-    },
-    {
-      step: "3",
-      title: "Manage everything from one place",
-      desc: "Chat with management, pay rent, submit requests, read policies, and stay connected with your building community — all in one app.",
-    },
-  ];
+  const pageCount = Math.max(1, Math.ceil(marketListings.length / 3));
+  const visibleListings = marketListings.slice(
+    listingsPage * 3,
+    listingsPage * 3 + 3,
+  );
+  const testimonial = testimonials[testimonialIndex];
 
   return (
-    <div
-      style={{
-        fontFamily: "'Nunito', serif",
-        background: "#0a0a0a",
-        color: "#f2ede4",
-        minHeight: "100vh",
-        overflowX: "hidden",
-        width: "100%",
-      }}
-    >
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;0,600;1,300;1,400;1,500&family=DM+Sans:wght@300;400;500;600&display=swap');
-
-        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-        html { scroll-behavior: smooth; }
-        html, body { background: #0a0a0a; overflow-x: hidden; max-width: 100%; }
-        img, svg { max-width: 100%; }
-
-        .nav-btn { font-family: 'Nunito', sans-serif; font-size: 11px; font-weight: 500; letter-spacing: .12em; text-transform: uppercase; background: none; border: none; cursor: pointer; color: rgba(242,237,228,.55); transition: color .2s; padding: 4px 0; }
-        .nav-btn:hover { color: #f2ede4; }
-
-        .btn-gold { font-family: 'Nunito', sans-serif; font-size: 11px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; background: #c9a96e; color: #0a0a0a; border: none; cursor: pointer; padding: 14px 32px; transition: all .3s; display: inline-flex; align-items: center; gap: 8px; }
-        .btn-gold:hover { background: #b8914f; transform: translateY(-1px); box-shadow: 0 8px 24px rgba(201,169,110,.25); }
-
-        .btn-outline { font-family: 'Nunito', sans-serif; font-size: 11px; font-weight: 500; letter-spacing: .14em; text-transform: uppercase; background: transparent; color: #f2ede4; border: 1px solid rgba(242,237,228,.28); cursor: pointer; padding: 13px 32px; transition: all .3s; display: inline-flex; align-items: center; gap: 8px; }
-        .btn-outline:hover { border-color: #c9a96e; color: #c9a96e; }
-
-        .gold-line { width: 44px; height: 1px; background: #c9a96e; margin: 16px 0; }
-        .gold-line-center { width: 44px; height: 1px; background: #c9a96e; margin: 16px auto; }
-        .sec-label { font-family: 'Nunito', sans-serif; font-size: 10px; letter-spacing: .24em; text-transform: uppercase; color: #c9a96e; }
-
-        .feat-card { background: #131313; border: 1px solid rgba(242,237,228,.07); padding: 36px 32px; transition: border-color .3s, transform .4s cubic-bezier(.16,1,.3,1); }
-        .feat-card:hover { border-color: rgba(201,169,110,.25); transform: translateY(-4px); }
-
-        .tab-chip { font-family: 'Nunito', sans-serif; font-size: 11px; font-weight: 500; letter-spacing: .06em; border: 1px solid rgba(242,237,228,.12); background: rgba(242,237,228,.04); padding: 10px 18px; display: flex; align-items: center; gap: 8px; transition: all .25s; }
-        .tab-chip:hover { border-color: rgba(201,169,110,.35); background: rgba(201,169,110,.06); color: #c9a96e; }
-
-        .testi-card { padding: 36px; border: 1px solid rgba(242,237,228,.09); transition: border-color .3s; }
-        .testi-card:hover { border-color: rgba(201,169,110,.25); }
-
-        .step-num { font-family: 'Nunito', serif; font-size: 72px; font-weight: 300; color: rgba(201,169,110,.12); line-height: 1; position: absolute; top: -16px; left: -8px; z-index: 0; }
-
-        .mpesa-badge { background: rgba(22,163,74,.1); border: 1px solid rgba(22,163,74,.25); color: #4ade80; font-family: 'Nunito', sans-serif; font-size: 10px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; padding: 4px 12px; display: inline-flex; align-items: center; gap: 6px; }
-
-        .amen-item { display: flex; align-items: center; gap: 12px; padding: 16px 20px; border: 1px solid rgba(242,237,228,.07); transition: border-color .25s; }
-        .amen-item:hover { border-color: rgba(201,169,110,.2); }
-
-        .paybill-box { background: rgba(201,169,110,.07); border: 1px solid rgba(201,169,110,.2); padding: 16px 28px; text-align: center; min-width: 140px; }
-
-        @keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-        .fade-up { animation: fadeUp .6s ease forwards; }
-        .fade-up-1 { animation-delay: .1s; opacity: 0; }
-        .fade-up-2 { animation-delay: .25s; opacity: 0; }
-        .fade-up-3 { animation-delay: .4s; opacity: 0; }
-        .fade-up-4 { animation-delay: .55s; opacity: 0; }
-
-        /* FAQ styles */
-        .faq-row { border-bottom: 1px solid #eef2ef; }
-        .faq-row summary { list-style: none; }
-        .faq-row summary::-webkit-details-marker { display: none; }
-        .faq-icon { transition: transform .35s cubic-bezier(.65,0,.35,1), background-color .25s, border-color .25s; }
-        .faq-icon::before, .faq-icon::after { content: ''; position: absolute; background: #121613; transition: background-color .25s; }
-        .faq-icon::before { width: 12px; height: 1.4px; }
-        .faq-icon::after { width: 1.4px; height: 12px; }
-        .faq-row[open] .faq-icon { transform: rotate(135deg); background-color: #c9a96e; border-color: #c9a96e; }
-        .faq-row[open] .faq-icon::before, .faq-row[open] .faq-icon::after { background: #fafffa; }
-        .faq-content { overflow: hidden; max-height: 0; opacity: 0; transition: max-height .38s cubic-bezier(.65,0,.35,1), opacity .28s ease, margin-top .38s ease; margin-top: 0; }
-        .faq-row[open] .faq-content { max-height: 280px; opacity: 1; margin-top: 20px; }
-
-        /* ── MOBILE / DESKTOP NAV TOGGLE ────────────────────── */
-        @media (min-width: 769px) {
-          .show-mobile { display: none !important; }
-        }
-        @media (max-width: 768px) {
-          .hide-mobile { display: none !important; }
-          .show-mobile { display: flex !important; }
-        }
-
-        /* ── RESPONSIVE TIER 1: TABLET & SMALL LAPTOP (≤1100px) ──── */
-        @media (max-width: 1100px) {
-          section { padding: 100px 40px; }
-          footer { padding: 100px 40px 40px; }
-
-          .hero-title { font-size: clamp(56px, 9vw, 120px) !important; }
-          .hero-image { display: none !important; }
-          .hero-content { margin-left: 6% !important; max-width: 60% !important; }
-
-          .footer-grid { grid-template-columns: 1fr 1fr !important; gap: 60px !important; }
-          .payments-grid { gap: 60px !important; }
-        }
-
-        /* ── RESPONSIVE TIER 2: MOBILE (≤768px) ─────────────────── */
-        @media (max-width: 768px) {
-          section { padding: 80px 24px !important; }
-          footer { padding: 60px 24px 32px !important; }
-
-          nav {
-            width: 100% !important;
-            max-width: 100% !important;
-            border-radius: 0 !important;
-            top: 0 !important;
-            padding: 0 16px !important;
-            height: 56px !important;
-          }
-
-          .hero-section {
-            padding: 100px 24px 60px !important;
-            text-align: left;
-          }
-          .hero-title {
-            font-size: clamp(40px, 12vw, 56px) !important;
-            margin-bottom: 24px !important;
-          }
-          .hero-content {
-            margin-left: 0 !important;
-            max-width: 100% !important;
-          }
-          .hero-ctas {
-            flex-direction: column !important;
-            gap: 16px !important;
-            width: 100%;
-          }
-          .hero-ctas button {
-            width: 100% !important;
-            justify-content: center !important;
-          }
-          .hero-ctas button:last-child { order: -1 !important; }
-
-          .hero-stats {
-            flex-direction: column !important;
-            gap: 24px !important;
-            margin-top: 60px !important;
-          }
-
-          h2, h1 {
-            font-size: clamp(32px, 8vw, 48px) !important;
-            line-height: 1.1 !important;
-          }
-
-          .tab-grid,
-          .how-grid,
-          .feat-grid,
-          .testi-grid {
-            grid-template-columns: 1fr !important;
-            gap: 32px !important;
-          }
-
-          .feat-card {
-            padding: 32px 24px !important;
-            flex-direction: column !important;
-            gap: 16px !important;
-          }
-          .feat-card h3 { font-size: 24px !important; }
-
-          .cta-section { padding: 80px 24px !important; }
-          .cta-buttons {
-            flex-direction: column !important;
-            gap: 12px !important;
-            width: 100% !important;
-          }
-          .cta-buttons button {
-            width: 100% !important;
-            justify-content: center !important;
-          }
-
-          .payments-grid {
-            grid-template-columns: 1fr !important;
-            gap: 48px !important;
-          }
-          .payments-card { padding: 32px 24px !important; }
-
-          .faq-row summary {
-            font-size: clamp(18px, 5vw, 22px) !important;
-            padding: 24px 0 !important;
-            gap: 12px !important;
-          }
-          .faq-content p { padding-left: 0 !important; }
-
-          /* Footer – robust, centered, stacked */
-          .footer-grid {
-            grid-template-columns: 1fr !important;
-            gap: 40px !important;
-            text-align: center !important;
-          }
-          .footer-grid > div { align-items: center !important; }
-          .footer-bottom {
-            flex-direction: column !important;
-            text-align: center !important;
-            gap: 16px !important;
-          }
-          .footer-bottom > div { justify-content: center !important; }
-        }
-
-        /* ── RESPONSIVE TIER 3: SMALL MOBILE (≤640px) ───────────── */
-        @media (max-width: 640px) {
-          section { padding: 60px 16px !important; }
-          footer { padding: 48px 16px 24px !important; }
-          .hero-section { padding: 80px 16px 40px !important; }
-          h2, h1 { font-size: clamp(28px, 10vw, 36px) !important; }
-          .feat-card h3 { font-size: 20px !important; }
-          .step-number { font-size: clamp(48px, 16vw, 72px) !important; }
-        }
-
-        /* ── RESPONSIVE TIER 4: EXTRA-SMALL PHONES (≤380px) ─────── */
-        @media (max-width: 380px) {
-          section { padding: 48px 12px !important; }
-          footer { padding: 40px 12px 20px !important; }
-          .hero-section { padding: 64px 12px 32px !important; }
-          h2, h1 { font-size: clamp(24px, 9vw, 30px) !important; }
-          nav { padding: 0 10px !important; }
-        }
-      `}</style>
-
-      {/* ── NAV ─────────────────────────────────────────────── */}
-      <nav
-  style={{
-    position: "fixed",
-    top: 24,
-    left: "50%",
-    transform: "translateX(-50%)",
-    zIndex: 100,
-    height: 60,
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "space-between",
-    padding: "0 8px 0 24px",
-    borderRadius: "20px",
-    width: "100%",
-    maxWidth: 1000,
-    
-    /* ── THE SPONGE MORPH EFFECT ── */
-    backgroundColor: isScrolled ? "#ffffff" : "rgba(18, 22, 19, 0.35)",
-    backdropFilter: isScrolled ? "blur(0px)" : "blur(16px)",
-    WebkitBackdropFilter: isScrolled ? "blur(0px)" : "blur(16px)",
-    border: isScrolled ? "1px solid #f0f0f0" : "1px solid rgba(255, 255, 255, 0.08)",
-    boxShadow: isScrolled 
-      ? "0 4px 20px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04)" 
-      : "0 4px 30px rgba(0, 0, 0, 0.03)",
-    transition: "background-color 0.5s cubic-bezier(0.4, 0, 0.2, 1), backdrop-filter 0.5s, border-color 0.4s, box-shadow 0.4s",
-  }}
-  className={isScrolled ? "bg-background" : ""}
->
-  {/* Logo / Brand Section */}
-  <div
-    style={{
-      display: "flex",
-      alignItems: "center",
-      gap: 10,
-      cursor: "pointer",
-    }}
-    onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-  >
-    <div
-      style={{
-        width: "40px",
-        height: "40px",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        backgroundColor: isScrolled ? "#fff" : "rgba(255, 255, 255, 0.05)",
-        border: isScrolled ? "1px solid #c9a96e" : "1px solid rgba(201, 169, 110, 0.4)",
-        borderRadius: "50%",
-        transition: "all 0.4s ease",
-      }}
-    >
-      <Building2 size={16} color="#c9a96e" />
-    </div>
-    <div style={{ display: "flex", flexDirection: "column" }}>
-      <div
-        style={{
-          fontFamily: "'Nunito', serif",
-          fontSize: 18,
-          fontWeight: 700,
-          color: isScrolled ? "#111" : "#ffffff",
-          lineHeight: 1.1,
-          transition: "color 0.4s ease",
-        }}
-      >
-        LEA Executive
-      </div>
-    </div>
-  </div>
-
-  {/* FIXED SECTION LINKS */}
-  <div
-    className="hide-mobile"
-    style={{ display: "flex", gap: 32, alignItems: "center" }}
-  >
-    {navLinks.map(([l, id]) => (
-      <button
-        key={id}
-        className="nav-btn"
-        onClick={() => {
-          if (id === "contact") {
-            startLoading("/contact"); 
-            router.push("/contact");
-          } else {
-            scrollTo(id); 
-          }
-        }}
-        style={{
-          background: "none",
-          border: "none",
-          cursor: "pointer",
-          padding: 0,
-          fontFamily: "'Nunito', sans-serif",
-          fontSize: 14,
-          fontWeight: 500,
-          color: isScrolled ? "#444" : "#c8d2c8",
-          transition: "color 0.4s ease",
-        }}
-      >
-        {l}
-      </button>
-    ))}
-  </div>
-
-  {/* Action Buttons */}
-  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-    <button
-      className="nav-btn hide-mobile"
-      onClick={() => {
-        startLoading("/login");
-        router.push("/login");
-      }}
-      style={{
-        background: "none",
-        border: "none",
-        cursor: "pointer",
-        fontFamily: "'Nunito', sans-serif",
-        fontSize: 14,
-        fontWeight: 500,
-        color: isScrolled ? "#444" : "#eef2ef",
-        padding: "10px 16px",
-        transition: "color 0.4s ease",
-      }}
-    >
-      Login
-    </button>
-    
-    <button
-      className="btn-primary hide-mobile"
-      onClick={() => {
-        startLoading("/login");
-        router.push("/login");
-      }}
-      style={{
-        padding: "10px 20px",
-        fontSize: 14,
-        fontWeight: 500,
-        fontFamily: "'Nunito', sans-serif",
-        background: "#c9a96e",
-        color: "#fff",
-        border: "none",
-        borderRadius: 999,
-        display: "flex",
-        alignItems: "center",
-        gap: 6,
-        cursor: "pointer",
-        boxShadow: isScrolled ? "none" : "0 4px 14px rgba(201, 169, 110, 0.2)",
-        transition: "transform 0.2s ease, box-shadow 0.4s ease",
-      }}
-    >
-      Sign Up <ArrowUpRight size={14} />
-    </button>
-    
-    <button
-      className="show-mobile"
-      onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-      style={{
-        background: "none",
-        border: "none",
-        cursor: "pointer",
-        padding: 8,
-        display: "flex",
-      }}
-    >
-      {isMobileMenuOpen ? (
-        <X size={24} color={isScrolled ? "#111" : "#fff"} style={{ transition: "color 0.4s" }} />
-      ) : (
-        <Menu size={24} color={isScrolled ? "#111" : "#fff"} style={{ transition: "color 0.4s" }} />
-      )}
-    </button>
-  </div>
-</nav>
-      {isMobileMenuOpen && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            width: "100vw",
-            height: "100vh",
-            background: "rgba(255, 255, 255, 0.7)",
-            backdropFilter: "blur(20px)",
-            WebkitBackdropFilter: "blur(20px)",
-            zIndex: 99,
-            display: "flex",
-            flexDirection: "column",
-            justifyContent: "center",
-            alignItems: "center",
-            gap: "32px",
-            padding: "24px",
-            overflowY: "auto",
-            boxSizing: "border-box",
-          }}
-        >
-          {navLinks.map(([l, id]) => (
-            <button
-              key={id}
-              onClick={() => {
-                setIsMobileMenuOpen(false);
-                id === "contact"
-                  ? router.push("/contact")
-                  : document
-                      .getElementById(id)
-                      ?.scrollIntoView({ behavior: "smooth" });
-              }}
-              style={{
-                background: "none",
-                border: "none",
-                textAlign: "center",
-                fontFamily: "'Nunito', serif",
-                fontSize: "clamp(24px, 7vw, 32px)",
-                fontWeight: 600,
-                color: "#111",
-                cursor: "pointer",
-              }}
-            >
-              {l}
-            </button>
-          ))}
-          <div
-            style={{
-              marginTop: "24px",
-              width: "100%",
-              display: "flex",
-              justifyContent: "center",
-            }}
+    <div className={`${jakarta.className} bg-white text-neutral-900 antialiased`}>
+      {/* ── HEADER ─────────────────────────────────────────── */}
+      <header className="sticky top-0 z-50 bg-white/95 backdrop-blur border-b border-neutral-100">
+        <div className="max-w-7xl mx-auto px-6 lg:px-10 h-20 flex items-center justify-between">
+          <button
+            onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+            className="flex items-center gap-2.5"
           >
-            <button
-              onClick={() => {
-                startLoading();
-                setIsMobileMenuOpen(false);
-                router.push("/login");
-              }}
-              style={{
-                padding: "16px 32px",
-                width: "100%",
-                maxWidth: "320px",
-                borderRadius: "999px",
-                background: "#c9a96e",
-                color: "#fff",
-                border: "none",
-                fontFamily: "'Nunito', sans-serif",
-                fontSize: "16px",
-                fontWeight: 500,
-                cursor: "pointer",
-              }}
-            >
-              Sign Up
-            </button>
-          </div>
-        </div>
-      )}
-      <section
-  className="hero-section"
-  ref={heroRef}
-  style={{
-    position: "relative",
-    minHeight: "100vh",
-    display: "flex",
-    flexDirection: "column",
-    justifyContent: "center",
-    backgroundColor: "#0D0D0D", // Deep Obsidian Black
-    overflow: "hidden",
-    padding: "120px 50px",
-    fontFamily: "'SF Pro Display', 'Helvetica Neue', 'Arial', sans-serif",
-  }}
->
-  <div
-    style={{
-      maxWidth: "1440px",
-      margin: "0 auto",
-      width: "100%",
-      position: "relative",
-      zIndex: 1,
-    }}
-  >
-
-    {/* Hard-hitting Typography */}
-    <h1
-      className="fade-up fade-up-2 hero-title"
-      style={{
-        fontFamily: "'SF Pro Display', 'Helvetica Neue', 'Arial', sans-serif",
-        fontSize: "clamp(60px, 8vw, 120px)", // Adjusted slightly for cleaner grid flow
-        fontWeight: 300,
-        lineHeight: 0.95,
-        letterSpacing: "-0.03em",
-        color: "#f5f0e8", // Crisp Bone White
-        margin: "30px 0 60px 0",
-        zIndex: 4,
-        maxWidth: "1100px",
-        textTransform: "uppercase",
-      }}
-    >
-      Autonomous
-      <br />
-      Property Operations.
-    </h1>
-
-    {/* High-Fidelity UI/Image Container */}
-    <div
-      className="hero-image"
-      style={{
-        position: "absolute",
-        right: "5%",
-        top: "15%",
-        width: "360px",
-        height: "480px",
-        backgroundImage: "url(/images/licensed-image.jpg)",
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-        borderRadius: "12px",
-        filter: "grayscale(100%) contrast(120%) brightness(80%)",
-        border: "1px solid rgba(225, 169, 58, 0.2)", // Subtle gold border
-        boxShadow: "0 20px 40px rgba(0,0,0,0.5)",
-        zIndex: 1,
-      }}
-    />
-
-    {/* Core Content Block */}
-    <div
-      className="hero-content"
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        gap: "40px",
-        maxWidth: "520px",
-        marginLeft: "5%", // Brought closer to the left edge for a stronger grid line
-      }}
-    >
-      <div className="fade-up fade-up-3">
-        <p
-          style={{
-            fontSize: "16px",
-            fontWeight: 400,
-            lineHeight: 1.5,
-            letterSpacing: "-0.01em",
-            color: "#E2E8F0", // Clean light slate text
-            marginBottom: "15px",
-          }}
-        >
-          The zero-friction terminal for premium residencies. Instant M-Pesa 
-          ledger reconciliation, automated maintenance routing, and cryptographic 
-          tenant data isolation running entirely on edge architecture.
-        </p>
-        <p
-          style={{ 
-            fontSize: "14px", 
-            fontWeight: 400, 
-            color: "#A0AEC0", // Muted secondary text
-            letterSpacing: "-0.01em" 
-          }}
-        >
-          No chaotic chat threads. No credential loops. Zero operational friction.
-        </p>
-      </div>
-
-      {/* High-Contrast CTAs */}
-      <div
-        className="fade-up fade-up-4 hero-ctas"
-        style={{
-          display: "flex",
-          gap: "30px",
-          alignItems: "center",
-          flexWrap: "wrap",
-        }}
-      >
-        <button
-          onClick={() => {
-            startLoading();
-            router.push("/login");
-          }}
-          style={{
-            padding: "18px 45px",
-            fontSize: 13,
-            fontFamily: "'SF Pro Display', sans-serif",
-            background: "#c9a96e", // Solid Gold pop
-            color: "#0D0D0D", // Deep black text for absolute contrast
-            border: "none",
-            borderRadius: 4, // Sharp, professional geometric corners instead of pill shape
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            fontWeight: 600,
-            textTransform: "uppercase",
-            letterSpacing: "1px",
-            cursor: "pointer",
-            transition: "transform 0.2s ease, background-color 0.2s ease",
-          }}
-        >
-          Access Terminal <span>→</span>
-        </button>
-        <button
-          onClick={() => {
-            startLoading();
-            router.push("/login?demo=true");
-          }}
-          style={{
-            backgroundColor: "transparent",
-            color: "#f5f0e8",
-            fontSize: "13px",
-            fontWeight: 500,
-            border: "none",
-            cursor: "pointer",
-            textTransform: "uppercase",
-            letterSpacing: "1px",
-            textDecoration: "underline",
-            textUnderlineOffset: "6px",
-            transition: "color 0.2s ease",
-          }}
-        >
-          Request Audit
-        </button>
-      </div>
-    </div>
-
-    {/* Hard Metrics Section */}
-    <div
-      className="hero-stats"
-      style={{
-        display: "flex",
-        gap: "100px",
-        marginTop: "120px",
-        flexWrap: "wrap",
-        marginLeft: "5%",
-      }}
-    >
-      {[
-        ["99.8%", "Webhook Uptime"],
-        ["0", "Credential Leaks"],
-        ["100%", "Edge Reconciled"],
-      ].map(([num, label]) => (
-        <div
-          key={label}
-          style={{ display: "flex", flexDirection: "column", gap: "6px" }}
-        >
-          <div
-            style={{
-              fontFamily: "'SF Pro Display', 'Helvetica Neue', 'Arial', sans-serif",
-              fontSize: "28px", // Made larger to act as a definitive visual anchor
-              fontWeight: 300,
-              color: "#f5f0e8",
-            }}
-          >
-            {num}
-          </div>
-          <div
-            style={{
-              fontSize: "10px",
-              fontWeight: 500,
-              letterSpacing: "1px",
-              textTransform: "uppercase",
-              color: "#c9a96e", // Golden metric labels
-            }}
-          >
-            {label}
-          </div>
-        </div>
-      ))}
-    </div>
-  </div>
-</section>
-
-     {/* ── WHAT YOU GET ─────────────────────────────────────────────── */}
-<section
-  style={{
-    backgroundColor: "#faf8f5",
-    padding: "120px 50px",
-    fontFamily:
-      "'TWK Lausanne', 'Inter', ui-sans-serif, system-ui, sans-serif",
-  }}
->
-  <div style={{ maxWidth: "1440px", margin: "0 auto" }}>
-    <div
-      style={{
-        display: "flex",
-        alignItems: "flex-end",
-        justifyContent: "space-between",
-        marginBottom: "80px",
-        flexWrap: "wrap",
-        gap: "40px",
-      }}
-    >
-      <div>
-        <div
-          style={{
-            width: "50px",
-            height: "2px",
-            backgroundColor: "#c9a96e",
-            marginBottom: "45px",
-          }}
-        />
-        <div
-          style={{
-            fontSize: "11px",
-            fontWeight: 350,
-            textTransform: "uppercase",
-            letterSpacing: "0.11px",
-            color: "#615a51",
-            marginBottom: "20px",
-          }}
-        >
-          What You Get
-        </div>
-        <h2
-          style={{
-            fontFamily:
-              "'SF Pro Display', 'Helvetica Neue', 'Arial', sans-serif",
-            fontSize: "clamp(60px, 8vw, 96px)",
-            fontWeight: 300,
-            lineHeight: 0.9,
-            letterSpacing: "-0.02em",
-            color: "#121110",
-            margin: 0,
-          }}
-        >
-          Your Dashboard Has
-          <br />6 Sections.
-        </h2>
-      </div>
-      <p
-        style={{
-          fontSize: "16px",
-          fontWeight: 400,
-          color: "#121110",
-          maxWidth: "340px",
-          lineHeight: 1.4,
-          margin: 0,
-          paddingBottom: "10px",
-        }}
-      >
-        When you log in, this is your navigation. Every section is built
-        specifically for tenants and property managers.
-      </p>
-    </div>
-    <div
-      className="tab-grid"
-      style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))",
-        gap: "60px 40px",
-      }}
-    >
-      {dashboardTabs.map(({ label, icon: Icon, desc }) => (
-        <div
-          key={label}
-          style={{
-            display: "flex",
-            gap: "20px",
-            alignItems: "flex-start",
-          }}
-        >
-          <div
-            style={{
-              width: "32px",
-              height: "32px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              flexShrink: 0,
-            }}
-          >
-            <Icon size={24} color="#121110" strokeWidth={1.5} />
-          </div>
-          <div>
-            <div
-              style={{
-                fontSize: "18px",
-                fontWeight: 400,
-                color: "#121110",
-                marginBottom: "8px",
-              }}
-            >
-              {label}
+            <div className="w-9 h-9 rounded-lg bg-neutral-900 flex items-center justify-center">
+              <Building2 className="w-4.5 h-4.5 text-white" strokeWidth={2} />
             </div>
-            <div
-              style={{
-                fontSize: "14px",
-                fontWeight: 350,
-                color: "#615a51",
-                lineHeight: 1.4,
-                maxWidth: "280px",
-              }}
-            >
-              {desc}
-            </div>
-          </div>
-        </div>
-      ))}
-    </div>
-  </div>
-</section>
+            <span className="text-lg font-bold tracking-tight">LEA Executive</span>
+          </button>
 
-{/* ── HOW IT WORKS ──────────────────────────────────────── */}
-<section
-  id="howitworks"
-  style={{
-    backgroundColor: "#faf8f5",
-    padding: "120px 50px",
-    fontFamily:
-      "'TWK Lausanne', 'Inter', ui-sans-serif, system-ui, sans-serif",
-  }}
->
-  <div style={{ maxWidth: "1440px", margin: "0 auto" }}>
-    <div style={{ marginBottom: "100px" }}>
-      <div
-        style={{
-          width: "50px",
-          height: "2px",
-          backgroundColor: "#c9a96e",
-          marginBottom: "45px",
-        }}
-      />
-      <div
-        style={{
-          fontSize: "11px",
-          fontWeight: 350,
-          textTransform: "uppercase",
-          letterSpacing: "0.11px",
-          color: "#615a51",
-          marginBottom: "20px",
-        }}
-      >
-        Getting Started
-      </div>
-      <h2
-        style={{
-          fontFamily:
-            "'SF Pro Display', 'Helvetica Neue', 'Arial', sans-serif",
-          fontSize: "clamp(80px, 10vw, 140px)",
-          fontWeight: 300,
-          lineHeight: 0.9,
-          letterSpacing: "-0.02em",
-          color: "#121110",
-          margin: 0,
-        }}
-      >
-        How It Works.
-      </h2>
-    </div>
-    <div
-      className="how-grid"
-      style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
-        gap: "80px 40px",
-      }}
-    >
-      {howItWorks.map(({ step, title, desc }) => (
-        <div
-          key={step}
-          style={{
-            position: "relative",
-            display: "flex",
-            flexDirection: "column",
-          }}
-        >
-          <div
-            className="step-number"
-            style={{
-              fontFamily: "'PP Mondwest', 'GT Sectra', serif",
-              fontSize: "clamp(56px, 9vw, 96px)",
-              fontWeight: 400,
-              lineHeight: 0.9,
-              color: "#d4cbc0",
-              marginBottom: "30px",
-              letterSpacing: "-0.04em",
-            }}
-          >
-            0{step}
-          </div>
-          <h3
-            style={{
-              fontSize: "18px",
-              fontWeight: 400,
-              color: "#121110",
-              marginBottom: "15px",
-            }}
-          >
-            {title}
-          </h3>
-          <p
-            style={{
-              fontSize: "16px",
-              fontWeight: 350,
-              color: "#615a51",
-              lineHeight: 1.4,
-              maxWidth: "90%",
-            }}
-          >
-            {desc}
-          </p>
-        </div>
-      ))}
-    </div>
-    <div
-      style={{
-        marginTop: "120px",
-        display: "flex",
-        justifyContent: "flex-start",
-      }}
-    >
-      <button
-        onClick={() => {
-          startLoading()
-          router.push("/login")
-        }}
-        style={{
-          padding: "20px 50px",
-          fontSize: 14,
-          fontFamily: "'Nunito', sans-serif",
-          background: "#c9a96e",
-          color: "#fff",
-          border: "none",
-          borderRadius: 999,
-          display: "flex",
-          alignItems: "center",
-          gap: 6,
-          fontWeight: 550,
-          textTransform: "uppercase",
-          letterSpacing: "0.01em",
-          cursor: "pointer",
-          transition: "transform 0.2s ease",
-        }}
-      >
-        Get Access <span>→</span>
-      </button>
-    </div>
-  </div>
-</section>
-
-{/* ── FEATURES ─────────────────────────────────────────── */}
-<section
-  id="features"
-  style={{
-    backgroundColor: "#faf8f5",
-    padding: "120px 50px",
-    fontFamily:
-      "'TWK Lausanne', 'Inter', ui-sans-serif, system-ui, sans-serif",
-  }}
->
-  <div style={{ maxWidth: "1440px", margin: "0 auto" }}>
-    <div
-      style={{
-        display: "flex",
-        alignItems: "flex-end",
-        justifyContent: "space-between",
-        marginBottom: "80px",
-        flexWrap: "wrap",
-        gap: "40px",
-      }}
-    >
-      <div>
-        <div
-          style={{
-            width: "50px",
-            height: "2px",
-            backgroundColor: "#c9a96e",
-            marginBottom: "45px",
-          }}
-        />
-        <div
-          style={{
-            fontSize: "11px",
-            fontWeight: 350,
-            textTransform: "uppercase",
-            letterSpacing: "0.11px",
-            color: "#615a51",
-            marginBottom: "20px",
-          }}
-        >
-          Platform Features
-        </div>
-        <h2
-          style={{
-            fontFamily:
-              "'SF Pro Display', 'Helvetica Neue', 'Arial', sans-serif",
-            fontSize: "clamp(60px, 8vw, 96px)",
-            fontWeight: 300,
-            lineHeight: 0.9,
-            letterSpacing: "-0.02em",
-            color: "#121110",
-            margin: 0,
-          }}
-        >
-          Everything a Tenant
-          <br />
-          Could Need.
-        </h2>
-      </div>
-      <p
-        style={{
-          fontSize: "16px",
-          fontWeight: 400,
-          color: "#615a51",
-          maxWidth: "340px",
-          lineHeight: 1.4,
-          margin: 0,
-          paddingBottom: "10px",
-        }}
-      >
-        All features are live and functional at lea-residency.vercel.app.
-        Log in to access your dashboard.
-      </p>
-    </div>
-    <div
-      className="feat-grid"
-      style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(auto-fit, minmax(400px, 1fr))",
-        gap: "40px",
-      }}
-    >
-      {features.map(({ icon: Icon, title, desc, num }) => (
-        <div
-          key={num}
-          className="feat-card bg-background"
-          style={{
-            display: "flex",
-            gap: "24px",
-            alignItems: "flex-start",
-            backgroundColor: "#ffffff",
-            padding: "48px 40px",
-            borderRadius: "24px",
-            boxShadow: "0 24px 48px rgba(18, 17, 16, 0.04)",
-            border: "1px solid rgba(18, 17, 16, 0.03)",
-            transition: "transform 0.3s ease, box-shadow 0.3s ease",
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.transform = "translateY(-4px)";
-            e.currentTarget.style.boxShadow =
-              "0 32px 64px rgba(18, 17, 16, 0.08)";
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.transform = "translateY(0)";
-            e.currentTarget.style.boxShadow =
-              "0 24px 48px rgba(18, 17, 16, 0.04)";
-          }}
-        >
-          <div
-            style={{
-              width: "48px",
-              height: "48px",
-              backgroundColor: "#faf8f5",
-              borderRadius: "50%",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              flexShrink: 0,
-              border: "1px solid #f0ebe4",
-            }}
-          >
-            <Icon size={24} color="#121110" strokeWidth={1.5} />
-          </div>
-          <div style={{ flex: 1 }}>
-            <div
-              style={{
-                display: "flex",
-                alignItems: "baseline",
-                gap: "15px",
-                marginBottom: "16px",
-              }}
-            >
-              <h3
-                style={{
-                  fontFamily:
-                    "'SF Pro Display', 'Helvetica Neue', 'Arial', sans-serif",
-                  fontSize: "28px",
-                  fontWeight: 400,
-                  color: "#121110",
-                  lineHeight: 1.1,
-                  margin: 0,
-                }}
-              >
-                {title}
-              </h3>
-              <span
-                style={{
-                  fontSize: "12px",
-                  fontWeight: 500,
-                  color: "#d4cbc0",
-                  letterSpacing: "0.05em",
-                }}
-              >
-                {num}
-              </span>
-            </div>
-            <p
-              style={{
-                fontSize: "15px",
-                fontWeight: 350,
-                color: "#615a51",
-                lineHeight: 1.6,
-                margin: 0,
-                maxWidth: "95%",
-              }}
-            >
-              {desc}
-            </p>
-          </div>
-        </div>
-      ))}
-    </div>
-  </div>
-</section>
-
-{/* ── PAYMENTS ─────────────────────────────────────────── */}
-<section
-  id="payments"
-  style={{
-    backgroundColor: "#faf8f5",
-    padding: "120px 50px",
-    fontFamily:
-      "'TWK Lausanne', 'Inter', ui-sans-serif, system-ui, sans-serif",
-  }}
->
-  <div style={{ maxWidth: "1440px", margin: "0 auto" }}>
-    <div
-      className="payments-grid"
-      style={{
-        display: "grid",
-        gridTemplateColumns: "repeat(auto-fit, minmax(450px, 1fr))",
-        gap: "100px",
-        alignItems: "center",
-      }}
-    >
-      <div>
-        <div
-          style={{
-            width: "50px",
-            height: "2px",
-            backgroundColor: "#c9a96e",
-            marginBottom: "45px",
-          }}
-        />
-        <div
-          style={{
-            fontSize: "11px",
-            fontWeight: 350,
-            textTransform: "uppercase",
-            letterSpacing: "0.11px",
-            color: "#615a51",
-            marginBottom: "20px",
-          }}
-        >
-          Rent Payments
-        </div>
-        <h2
-          style={{
-            fontFamily:
-              "'SF Pro Display', 'Helvetica Neue', 'Arial', sans-serif",
-            fontSize: "clamp(50px, 6vw, 80px)",
-            fontWeight: 300,
-            lineHeight: 0.98,
-            letterSpacing: "-0.02em",
-            color: "#121110",
-            margin: "0 0 30px 0",
-          }}
-        >
-          Pay Rent Via
-          <br />
-          M-Pesa.
-          <br />
-          <span
-            style={{
-              fontSize: "50%",
-              color: "#d4cbc0",
-              display: "block",
-              marginTop: "15px",
-            }}
-          >
-            Logged Automatically
-          </span>
-        </h2>
-        <p
-          style={{
-            fontSize: "16px",
-            fontWeight: 400,
-            color: "#615a51",
-            lineHeight: 1.5,
-            marginBottom: "40px",
-            maxWidth: "480px",
-          }}
-        >
-          Use M-Pesa Paybill to pay rent. Your payment is recognised by
-          the system automatically, logged against your account, and your
-          landlord is notified instantly. No manual confirmation needed.
-        </p>
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: "16px",
-          }}
-        >
-          {[
-            "Tenant initiates payment from their M-Pesa menu",
-            "Payment goes through as usual via M-Pesa",
-            "Our system detects the payment in real time via M-Pesa APIs",
-            "Payment received and logged in real time",
-            "Tenant gets immediate confirmation in-app",
-            "Landlord receives instant notification",
-            "Monthly history and receipts saved forever",
-          ].map((item, idx) => (
-            <div
-              key={idx}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "12px",
-              }}
-            >
-              <div
-                style={{
-                  width: "6px",
-                  height: "6px",
-                  backgroundColor: "#c9a96e",
-                  borderRadius: "50%",
-                }}
-              />
-              <span
-                style={{
-                  fontSize: "14px",
-                  color: "#121110",
-                  fontWeight: 400,
-                }}
-              >
-                {item}
-              </span>
-            </div>
-          ))}
-        </div>
-      </div>
-      <div
-        className="payments-card"
-        style={{
-          backgroundColor: "#ffffff",
-          border: "1px solid #f0ebe4",
-          padding: "60px 50px",
-          boxShadow: "0 30px 60px rgba(18, 17, 16, 0.03)",
-        }}
-      >
-        <div style={{ marginBottom: "40px" }}>
-          <div
-            style={{
-              fontSize: "11px",
-              letterSpacing: "0.11px",
-              textTransform: "uppercase",
-              color: "#615a51",
-              marginBottom: "16px",
-            }}
-          >
-            April 2026 · Rent Status
-          </div>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "flex-end",
-              justifyContent: "space-between",
-              marginBottom: "16px",
-              flexWrap: "wrap",
-              gap: "8px",
-            }}
-          >
-            <span
-              style={{
-                fontFamily: "'Editorial New', serif",
-                fontSize: "clamp(32px, 8vw, 48px)",
-                lineHeight: 0.8,
-                color: "#c9a96e",
-              }}
-            >
-              PAID
-            </span>
-            <span
-              style={{
-                fontSize: "14px",
-                fontWeight: 500,
-                color: "#121110",
-              }}
-            >
-              KES 22,000
-            </span>
-          </div>
-          <div
-            style={{
-              height: "4px",
-              backgroundColor: "#f0ebe4",
-              overflow: "hidden",
-            }}
-          >
-            <div
-              style={{
-                height: "100%",
-                width: "100%",
-                backgroundColor: "#c9a96e",
-              }}
-            />
-          </div>
-        </div>
-        {[
-          {
-            month: "March 2026",
-            amount: "KES 22,000",
-            code: "RGR0012345",
-            status: "PAID",
-          },
-          {
-            month: "February 2026",
-            amount: "KES 22,000",
-            code: "RGR0098231",
-            status: "PAID",
-          },
-          {
-            month: "January 2026",
-            amount: "KES 22,000",
-            code: "RGR0076654",
-            status: "PAID",
-          },
-        ].map((p, idx) => (
-          <div
-            key={p.month}
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              padding: "16px 0",
-              borderTop:
-                idx === 0 ? "1px solid #121110" : "1px solid #f0ebe4",
-              flexWrap: "wrap",
-              gap: "8px",
-            }}
-          >
-            <div>
-              <div
-                style={{
-                  fontSize: "14px",
-                  color: "#121110",
-                  fontWeight: 500,
-                }}
-              >
-                {p.month}
-              </div>
-              <div
-                style={{
-                  fontSize: "12px",
-                  color: "#615a51",
-                  marginTop: "4px",
-                }}
-              >
-                {p.code}
-              </div>
-            </div>
-            <div style={{ textAlign: "right" }}>
-              <div
-                style={{
-                  fontSize: "14px",
-                  color: "#121110",
-                  fontWeight: 500,
-                }}
-              >
-                {p.amount}
-              </div>
-              <div
-                style={{
-                  fontSize: "10px",
-                  color: "#c9a96e",
-                  letterSpacing: "0.05em",
-                  fontWeight: 600,
-                  marginTop: "4px",
-                }}
-              >
-                {p.status}
-              </div>
-            </div>
-          </div>
-        ))}
-        <div
-          style={{
-            marginTop: "40px",
-            padding: "20px",
-            backgroundColor: "rgba(201, 169, 110, 0.06)",
-            borderLeft: "2px solid #c9a96e",
-          }}
-        >
-          <p
-            style={{
-              fontSize: "13px",
-              color: "#121110",
-              lineHeight: 1.5,
-              margin: 0,
-            }}
-          >
-            <strong>Note:</strong> The app also supports STK Push — tap to
-            trigger an M-Pesa prompt directly to your phone without
-            opening the M-Pesa menu.
-          </p>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-      {/* ── TESTIMONIALS ─────────────────────────────────────── */}
-      {/* <section
-        style={{
-          backgroundColor: "#fafffa",
-          padding: "120px 50px",
-          fontFamily:
-            "'TWK Lausanne', 'Inter', ui-sans-serif, system-ui, sans-serif",
-        }}
-      >
-        <div style={{ maxWidth: "1440px", margin: "0 auto" }}>
-          <div style={{ marginBottom: "100px" }}>
-            <div
-              style={{
-                width: "50px",
-                height: "2px",
-                backgroundColor: "#c9a96e",
-                marginBottom: "45px",
-              }}
-            />
-            <div
-              style={{
-                fontSize: "11px",
-                fontWeight: 350,
-                textTransform: "uppercase",
-                letterSpacing: "0.11px",
-                color: "#516254",
-                marginBottom: "20px",
-              }}
-            >
-              From Our Residents
-            </div>
-            <h2
-              style={{
-                fontFamily:
-                  "'SF Pro Display', 'Helvetica Neue', 'Arial', sans-serif",
-                fontSize: "clamp(60px, 8vw, 96px)",
-                fontWeight: 300,
-                lineHeight: 0.9,
-                letterSpacing: "-0.02em",
-                color: "#121613",
-                margin: 0,
-              }}
-            >
-              What Tenants
-              <br />
-              Are Saying.
-            </h2>
-          </div>
-          <div
-            className="testi-grid"
-            style={{
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
-              gap: "60px",
-            }}
-          >
-            {testimonials.map((t) => (
-              <div
-                key={t.name}
-                style={{ display: "flex", flexDirection: "column" }}
-              >
-                <p
-                  style={{
-                    fontFamily: "'Editorial New', 'Playfair Display', serif",
-                    fontSize: "24px",
-                    fontWeight: 400,
-                    lineHeight: 1.3,
-                    color: "#121613",
-                    marginBottom: "30px",
-                    fontStyle: "italic",
-                  }}
-                >
-                  "{t.text}"
-                </p>
-                <div
-                  style={{
-                    marginTop: "auto",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "16px",
-                  }}
-                >
-                  <div
-                    style={{
-                      width: "48px",
-                      height: "48px",
-                      backgroundColor: "#eef2ef",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      fontSize: "14px",
-                      fontWeight: 500,
-                      color: "#121613",
-                    }}
-                  >
-                    {t.avatar}
-                  </div>
-                  <div>
-                    <div
-                      style={{
-                        fontSize: "14px",
-                        fontWeight: 500,
-                        color: "#121613",
-                      }}
-                    >
-                      {t.name}
-                    </div>
-                    <div
-                      style={{
-                        fontSize: "12px",
-                        color: "#516254",
-                        marginTop: "2px",
-                      }}
-                    >
-                      {t.role}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section> */}
-
-{/* ── CTA ─────────────────────────────────────────────── */}
-<section
-  className="cta-section"
-  style={{
-    backgroundColor: "#fafffa",
-    padding: "150px 50px",
-    borderTop: "1px solid #eef2ef",
-    borderBottom: "1px solid #eef2ef",
-    fontFamily: "'TWK Lausanne', 'Inter', ui-sans-serif, system-ui, sans-serif",
-  }}
->
-  <div
-    style={{
-      maxWidth: "800px",
-      margin: "0 auto",
-      textAlign: "center",
-      display: "flex",
-      flexDirection: "column",
-      alignItems: "center",
-    }}
-  >
-    <div
-      style={{
-        width: "2px",
-        height: "50px",
-        backgroundColor: "#c9a96e",
-        marginBottom: "45px",
-      }}
-    />
-    <div
-      style={{
-        fontSize: "11px",
-        fontWeight: 350,
-        textTransform: "uppercase",
-        letterSpacing: "0.11px",
-        color: "#516254",
-        marginBottom: "20px",
-      }}
-    >
-      Ready to Get Started
-    </div>
-    <h2
-      style={{
-        fontFamily: "'SF Pro Display', 'Helvetica Neue', 'Arial', sans-serif",
-        fontSize: "clamp(50px, 6vw, 80px)",
-        fontWeight: 300,
-        lineHeight: 0.9,
-        letterSpacing: "-0.02em",
-        color: "#121613",
-        marginBottom: "30px",
-      }}
-    >
-      Your Dashboard Awaits.
-    </h2>
-    <p
-      style={{
-        fontSize: "16px",
-        color: "#516254",
-        marginBottom: "50px",
-        lineHeight: 1.5,
-        maxWidth: "500px",
-      }}
-    >
-      If you are a resident at LEA Executive Residency, log in to access
-      your full tenant dashboard. New residents are registered by
-      management.
-    </p>
-    <div
-      className="cta-buttons"
-      style={{
-        display: "flex",
-        gap: "20px",
-        justifyContent: "center",
-        flexWrap: "wrap",
-      }}
-    >
-      <button
-        onClick={() => {
-          startLoading();
-          router.push("/login");
-        }}
-        style={{
-          padding: "20px 50px",
-          fontSize: 14,
-          fontFamily: "'Nunito', sans-serif",
-          color: "#c9a96e",
-          border: "1px solid #c9a96e",
-          borderRadius: 999,
-          display: "flex",
-          alignItems: "center",
-          gap: 6,
-          fontWeight: 550,
-          textTransform: "uppercase",
-          letterSpacing: "0.01em",
-          cursor: "pointer",
-          transition: "transform 0.2s ease",
-          background: "transparent",
-        }}
-      >
-        Tenant Login <span>→</span>
-      </button>
-      <button
-        onClick={() => {
-          startLoading();
-          router.push("/contact");
-        }}
-        style={{
-          padding: "20px 50px",
-          fontSize: 14,
-          fontFamily: "'Nunito', sans-serif",
-          background: "#c9a96e",
-          color: "#fff",
-          border: "none",
-          borderRadius: 999,
-          display: "flex",
-          alignItems: "center",
-          gap: 6,
-          fontWeight: 550,
-          textTransform: "uppercase",
-          letterSpacing: "0.01em",
-          cursor: "pointer",
-          transition: "transform 0.2s ease",
-        }}
-      >
-        Contact Management
-      </button>
-    </div>
-  </div>
-</section>
-
-{/* ── FAQ ───────────────────────────────────────────────── */}
-<section
-  id="faq"
-  style={{
-    backgroundColor: "#fafffa",
-    padding: "120px 50px",
-    fontFamily: "'TWK Lausanne', 'Inter', ui-sans-serif, system-ui, sans-serif",
-  }}
->
-  <div style={{ maxWidth: "1440px", margin: "0 auto" }}>
-    <div
-      style={{
-        display: "flex",
-        alignItems: "flex-end",
-        justifyContent: "space-between",
-        marginBottom: "80px",
-        flexWrap: "wrap",
-        gap: "40px",
-      }}
-    >
-      <div>
-        <div
-          style={{
-            width: "50px",
-            height: "2px",
-            backgroundColor: "#c9a96e",
-            marginBottom: "45px",
-          }}
-        />
-        <div
-          style={{
-            fontSize: "11px",
-            fontWeight: 350,
-            textTransform: "uppercase",
-            letterSpacing: "0.11px",
-            color: "#516254",
-            marginBottom: "20px",
-          }}
-        >
-          Before You Ask
-        </div>
-        <h2
-          style={{
-            fontFamily: "'SF Pro Display', 'Helvetica Neue', 'Arial', sans-serif",
-            fontSize: "clamp(60px, 8vw, 96px)",
-            fontWeight: 300,
-            lineHeight: 0.9,
-            letterSpacing: "-0.02em",
-            color: "#121613",
-            margin: 0,
-          }}
-        >
-          Questions You Are
-          <br />
-          Probably Asking.
-        </h2>
-      </div>
-      <p
-        style={{
-          fontSize: "16px",
-          fontWeight: 400,
-          color: "#516254",
-          maxWidth: "340px",
-          lineHeight: 1.4,
-          margin: 0,
-          paddingBottom: "10px",
-        }}
-      >
-        No jargon, no dodging. Just what this app does, who it's for, and
-        why it's not another rental site.
-      </p>
-    </div>
-    
-    <div style={{ borderTop: "1px solid #121613" }}>
-      {faqs.map((item, idx) => (
-        <details
-          key={idx}
-          className="faq-row"
-          style={{ padding: "32px 0" }}
-        >
-          <summary
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              gap: "24px",
-              cursor: "pointer",
-              fontSize: "clamp(20px, 2.5vw, 28px)",
-              fontFamily: "'SF Pro Display', 'Helvetica Neue', 'Arial', sans-serif",
-              fontWeight: 400,
-              color: "#121613",
-              lineHeight: 1.3,
-              listStyle: "none", /* ✅ Removes default browser disclosure arrow */
-            }}
-          >
-            <span
-              style={{
-                display: "flex",
-                alignItems: "baseline",
-                gap: "24px",
-              }}
-            >
-              <span
-                style={{
-                  fontSize: "14px",
-                  color: "#c8d2c8",
-                  fontWeight: 500,
-                  fontFamily: "'TWK Lausanne', 'Inter', sans-serif",
-                }}
-              >
-                {String(idx + 1).padStart(2, "0")}
-              </span>
-              {item.q}
-            </span>
-            <span
-              className="faq-icon"
-              style={{
-                flexShrink: 0,
-                width: "32px",
-                height: "32px",
-                borderRadius: "50%",
-                border: "1px solid #121613",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                position: "relative",
-              }}
-            />
-          </summary>
-          <div className="faq-content">
-            <p
-              style={{
-                fontSize: "16px",
-                fontWeight: 350,
-                color: "#516254",
-                lineHeight: 1.6,
-                maxWidth: "760px",
-                margin: 0,
-                paddingLeft: "calc(14px + 24px)",
-              }}
-            >
-              {item.a}
-            </p>
-          </div>
-        </details>
-      ))}
-    </div>
-
-    <div
-      style={{
-        marginTop: "60px",
-        display: "flex",
-        alignItems: "center",
-        gap: "12px",
-        flexWrap: "wrap",
-      }}
-    >
-      <span style={{ fontSize: "14px", color: "#516254" }}>
-        Want the long version?
-      </span>
-      <button
-        onClick={() => { startLoading(); router.push("/privacy"); }}
-        style={{
-          background: "none",
-          border: "none",
-          padding: 0,
-          cursor: "pointer",
-          fontSize: "14px",
-          color: "#c9a96e",
-          fontWeight: 500,
-          textDecoration: "underline",
-          textUnderlineOffset: "4px",
-        }}
-      >
-        Read the Privacy Policy
-      </button>
-      <span style={{ color: "#c8d2c8" }}>·</span>
-      <button
-        onClick={() => { startLoading(); router.push("/terms"); }}
-        style={{
-          background: "none",
-          border: "none",
-          padding: 0,
-          cursor: "pointer",
-          fontSize: "14px",
-          color: "#c9a96e",
-          fontWeight: 500,
-          textDecoration: "underline",
-          textUnderlineOffset: "4px",
-        }}
-      >
-        Read the Terms & Conditions
-      </button>
-    </div>
-  </div>
-</section>
-
-{/* ── FOOTER ──────────────────────────────────────────── */}
-<footer
-  id="contact"
-  style={{
-    backgroundColor: "#fafffa",
-    borderTop: "1px solid #121613",
-    padding: "100px 50px 40px",
-    fontFamily: "'TWK Lausanne', 'Inter', ui-sans-serif, system-ui, sans-serif",
-  }}
->
-  <div style={{ maxWidth: "1440px", margin: "0 auto" }}>
-    <div
-      className="footer-grid"
-      style={{
-        display: "grid",
-        gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr",
-        gap: "40px",
-        marginBottom: "100px",
-      }}
-    >
-      {/* Column 1: Branding & Info */}
-      <div>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "16px",
-            marginBottom: "24px",
-          }}
-        >
-          <div
-            style={{
-              width: "40px",
-              height: "40px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              backgroundColor: "#fff",
-              border: "1px solid #c9a96e",
-              borderRadius: "50%",
-            }}
-          >
-            <Building2 size={20} color="#c9a96e" strokeWidth={1.5} />
-          </div>
-          <div>
-            <div
-              style={{
-                fontFamily: "'Editorial New', 'Playfair Display','Nunito', serif",
-                fontSize: "24px",
-                fontWeight: 400,
-                color: "#121613",
-                lineHeight: 1,
-              }}
-            >
-              <b>LEA Executive</b>
-            </div>
-            <div
-              style={{
-                fontSize: "10px",
-                letterSpacing: "0.15em",
-                textTransform: "uppercase",
-                color: "#516254",
-                marginTop: "6px",
-              }}
-            >
-              Residency
-            </div>
-          </div>
-        </div>
-        <p
-          style={{
-            fontSize: "14px",
-            color: "#516254",
-            lineHeight: 1.5,
-            maxWidth: "320px",
-            marginBottom: "30px",
-          }}
-        >
-          A digital-first residential property in Nairobi. Tenants manage
-          their entire tenancy — rent, requests, communication and
-          documents — from one platform.
-        </p>
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: "12px",
-          }}
-        >
-          {[
-            { icon: <Phone size={14} />, text: "+254 748 333 763 or +254 799 956574" },
-            {
-              icon: <Mail size={14} />,
-              text: "cbempirefx@gmail.com",
-            },
-            { icon: <MapPin size={14} />, text: "Nairobi, Kenya" },
-          ].map(({ icon, text }) => (
-            <div
-              key={text}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "12px",
-                fontSize: "14px",
-                color: "#121613",
-              }}
-            >
-              <span style={{ color: "#c9a96e" }}>{icon}</span> {text}
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Columns 2, 3, & 4: Navigation links */}
-      {[
-        {
-          title: "Platform",
-          links: [
-            "Tenant Dashboard",
-            "M-Pesa Payments",
-            "Maintenance",
-            "Community Chat",
-          ],
-        },
-        {
-          title: "Support",
-          links: [
-            "How It Works",
-            "Contact Management",
-            "Policy Docs",
-            "Sign In",
-          ],
-        },
-        { title: "Payments", links: ["STK Push", "Payment History"] },
-      ].map((col) => (
-        <div key={col.title}>
-          <div
-            style={{
-              fontSize: "11px",
-              letterSpacing: "0.11px",
-              textTransform: "uppercase",
-              color: "#516254",
-              marginBottom: "24px",
-            }}
-          >
-            {col.title}
-          </div>
-          <div
-            style={{
-              display: "flex",
-              flexDirection: "column",
-              gap: "16px",
-            }}
-          >
-            {col.links.map((link) => (
+          <nav className="hidden md:flex items-center gap-10">
+            {navLinks.map(([label, id]) => (
               <button
-                key={link}
-                style={{
-                  background: "none",
-                  border: "none",
-                  padding: 0,
-                  textAlign: "left",
-                  fontSize: "14px",
-                  color: "#121613",
-                  cursor: "pointer",
-                  transition: "color 0.2s ease",
-                }}
-                onMouseOver={(e) =>
-                  (e.currentTarget.style.color = "#516254")
-                }
-                onMouseOut={(e) =>
-                  (e.currentTarget.style.color = "#121613")
-                }
-                onClick={() => {
-                  startLoading();
-                  router.push("/login");
-                }}
-              >
-                {link}
-              </button>
-            ))}
-          </div>
-        </div>
-      ))}
-
-      {/* Column 5: Brand QR Code */}
-      <div>
-        <div
-          style={{
-            fontSize: "11px",
-            letterSpacing: "0.11px",
-            textTransform: "uppercase",
-            color: "#516254",
-            marginBottom: "24px",
-          }}
-        >
-          Scan to Visit
-        </div>
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "flex-start",
-            gap: "12px",
-          }}
-        >
-          <div
-            style={{
-              backgroundColor: "#ffffff",
-              padding: "12px",
-              borderRadius: "16px",
-              boxShadow: "0 4px 12px rgba(0, 0, 0, 0.03)",
-              border: "1px solid #eef2ef",
-              display: "inline-block",
-            }}
-          >
-            <img
-              src="https://api.qrserver.com/v1/create-qr-code/?size=110x110&data=https://lea-residency.vercel.app&margin=0"
-              alt="LEA Residency QR Code"
-              style={{
-                width: "110px",
-                height: "110px",
-                display: "block",
-              }}
-              loading="lazy"
-            />
-          </div>
-          <span 
-            style={{ 
-              fontSize: "12px", 
-              color: "#516254",
-              fontFamily: "monospace",
-              letterSpacing: "-0.3px"
-            }}
-          >
-            lea-residency.xyz
-          </span>
-        </div>
-      </div>
-    </div>
-
-    {/* Footer Bottom Strip */}
-    <div
-      className="footer-bottom"
-      style={{
-        borderTop: "1px solid #eef2ef",
-        paddingTop: "30px",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        flexWrap: "wrap",
-        gap: "20px",
-      }}
-    >
-      <span style={{ fontSize: "12px", color: "#516254" }}>
-        &copy; {new Date().getFullYear()} LEA Executive Residency. All
-        rights reserved.
-      </span>
-      <div style={{ display: "flex", gap: "30px" }}>
-        {["Privacy Policy", "Terms of Service", "Tenant Rights"].map(
-          (label) => {
-            const routeMap: Record<string, string> = {
-              "Privacy Policy": "/privacy",
-              "Terms of Service": "/terms",
-              "Tenant Rights": "/tenant-rights",
-            };
-            return (
-              <button
-                key={label}
-                onClick={() => {
-                  startLoading(); /* ✅ Triggers state animation uniformly */
-                  router.push(routeMap[label]);
-                }}
-                style={{
-                  fontSize: "12px",
-                  color: "#516254",
-                  cursor: "pointer",
-                  background: "none",
-                  border: "none",
-                  padding: 0,
-                }}
+                key={id}
+                onClick={() => (ROUTE_LINKS[id] ? goTo(ROUTE_LINKS[id]) : scrollTo(id))}
+                className="text-sm font-medium text-neutral-600 hover:text-neutral-900 transition-colors"
               >
                 {label}
               </button>
-            );
-          },
-        )}
-      </div>
-    </div>
-  </div>
-</footer>
+            ))}
+          </nav>
+
+          <div className="hidden md:flex items-center gap-4">
+            <button
+              onClick={() => goTo("/login")}
+              className="text-sm font-medium text-neutral-600 hover:text-neutral-900 transition-colors"
+            >
+              Login
+            </button>
+            <button
+              onClick={() => goTo("/login")}
+              className="inline-flex items-center gap-1.5 rounded-full bg-neutral-900 hover:bg-neutral-800 text-white text-sm font-semibold px-5 py-2.5 transition-colors"
+            >
+              Get Started
+            </button>
+          </div>
+
+          <button
+            onClick={() => setIsMobileMenuOpen(true)}
+            className="md:hidden p-2 -mr-2"
+            aria-label="Open menu"
+          >
+            <Menu className="w-6 h-6" />
+          </button>
+        </div>
+      </header>
+
+      {/* ── MOBILE MENU ────────────────────────────────────── */}
+      {isMobileMenuOpen && (
+        <div className="fixed inset-0 z-[60] bg-white flex flex-col p-6">
+          <div className="flex items-center justify-between mb-12">
+            <span className="text-lg font-bold">LEA Executive</span>
+            <button onClick={() => setIsMobileMenuOpen(false)} aria-label="Close menu">
+              <X className="w-6 h-6" />
+            </button>
+          </div>
+          <div className="flex-1 flex flex-col items-start gap-8 justify-center">
+            {navLinks.map(([label, id]) => (
+              <button
+                key={id}
+                onClick={() => {
+                  setIsMobileMenuOpen(false);
+                  ROUTE_LINKS[id] ? goTo(ROUTE_LINKS[id]) : scrollTo(id);
+                }}
+                className="text-3xl font-bold text-neutral-900"
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={() => { setIsMobileMenuOpen(false); goTo("/login"); }}
+            className="w-full rounded-full bg-neutral-900 text-white font-semibold py-4 mb-4"
+          >
+            Get Started
+          </button>
+          <button
+            onClick={() => { setIsMobileMenuOpen(false); goTo("/login"); }}
+            className="w-full rounded-full border border-neutral-200 font-semibold py-4"
+          >
+            Login
+          </button>
+        </div>
+      )}
+
+      {/* ── HERO ───────────────────────────────────────────── */}
+      <section ref={heroRef} className="relative bg-neutral-950 text-white overflow-hidden">
+        <div className="absolute inset-0">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/images/lea-building.jpg"
+            alt="Modern residential building"
+            className="w-full h-full object-cover opacity-50"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/70 to-neutral-950/30" />
+        </div>
+
+        <div className="relative max-w-7xl mx-auto px-6 lg:px-10 pt-24 pb-20 md:pt-32 md:pb-28">
+          <div className="inline-flex items-center gap-2 rounded-full border border-white/20 px-4 py-1.5 text-xs uppercase tracking-widest text-white/80 mb-8">
+            #1 Kenyan Real Estate Platform
+          </div>
+
+          <h1 className="font-extrabold uppercase leading-[0.92] tracking-tight text-[15vw] sm:text-7xl md:text-8xl mb-8 max-w-4xl">
+            Smart
+            <br />
+            Property
+            <br />
+            Management.
+          </h1>
+
+          <p className="max-w-md text-white/70 text-base md:text-lg leading-relaxed mb-16">
+            LEA Executive helps Kenyan tenants and landlords manage rent,
+            maintenance, and communication — and browse verified listings
+            across the country.
+          </p>
+
+          <div className="flex flex-col md:flex-row gap-10 md:gap-16 md:items-end justify-between border-t border-white/15 pt-10">
+            <div className="grid sm:grid-cols-2 gap-10 max-w-xl">
+              <p className="text-sm text-white/60 leading-relaxed">
+                Browse verified listings and connect directly with landlords
+                across Kenya — no middlemen, no fake ads.
+              </p>
+              <p className="text-sm text-white/60 leading-relaxed">
+                Pay rent via M-Pesa, log maintenance requests, and message
+                management, all logged automatically.
+              </p>
+            </div>
+            <button
+              onClick={() => goTo("/login")}
+              className="shrink-0 inline-flex items-center gap-2 rounded-full bg-white text-neutral-900 font-semibold px-8 py-4 hover:bg-neutral-100 transition-colors"
+            >
+              Get Started <span>→</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* ── WHY US ─────────────────────────────────────────── */}
+      <section className="bg-white py-24 md:py-32">
+        <div className="max-w-7xl mx-auto px-6 lg:px-10">
+          <div className="grid md:grid-cols-2 gap-12 items-start">
+            <div>
+              <div className="w-10 h-0.5 bg-neutral-900 mb-6" />
+              <p className="text-xs uppercase tracking-widest text-neutral-400">Why Us</p>
+            </div>
+            <p className="text-2xl md:text-3xl font-medium leading-snug text-neutral-800">
+              We are your trusted partner in Kenyan real estate. With verified
+              landlords, transparent pricing, and M-Pesa built in from day
+              one, we help tenants find a home and landlords manage one —
+              without the guesswork.
+            </p>
+          </div>
+
+          <div className="grid sm:grid-cols-3 gap-10 mt-20 pt-16 border-t border-neutral-100">
+            {valueProps.map(({ icon: Icon, title, desc }) => (
+              <div key={title}>
+                <Icon className="w-6 h-6 text-neutral-900 mb-4" strokeWidth={1.5} />
+                <h3 className="font-semibold text-neutral-900 mb-2">{title}</h3>
+                <p className="text-sm text-neutral-500 leading-relaxed">{desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── PROMO ──────────────────────────────────────────── */}
+      <section className="bg-neutral-50 py-24 md:py-32">
+        <div className="max-w-7xl mx-auto px-6 lg:px-10 grid md:grid-cols-2 gap-16 items-center">
+          <div>
+            <h2 className="text-4xl md:text-5xl font-bold leading-tight mb-6 text-neutral-900">
+              Property Management,
+              <br />
+              Nairobi to Mombasa.
+            </h2>
+            <p className="text-neutral-600 leading-relaxed mb-8 max-w-md">
+              Whether you manage one building or list a single unit, LEA
+              Executive gives you M-Pesa reconciliation, maintenance
+              tracking, and tenant communication in one dashboard — free of
+              chaotic WhatsApp threads.
+            </p>
+            <button
+              onClick={() => goTo("/login")}
+              className="inline-flex items-center gap-2 rounded-full border border-neutral-300 hover:border-neutral-900 font-semibold px-6 py-3 transition-colors"
+            >
+              Find out more <span>→</span>
+            </button>
+          </div>
+          <div className="rounded-2xl overflow-hidden shadow-xl">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/images/download.jpg"
+              alt="Kenyan residential apartment"
+              className="w-full h-full object-cover"
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* ── LISTINGS ───────────────────────────────────────── */}
+      <section id="featured-listings" className="bg-white py-24 md:py-32">
+        <div className="max-w-7xl mx-auto px-6 lg:px-10">
+          <div className="flex items-end justify-between flex-wrap gap-6 mb-16">
+            <div>
+              <div className="w-10 h-0.5 bg-neutral-900 mb-6" />
+              <h2 className="text-4xl md:text-5xl font-bold text-neutral-900">
+                Featured Listings
+              </h2>
+              <p className="text-neutral-500 mt-4 max-w-lg">
+                Verified properties from landlords across Kenya, browsed and
+                booked directly.
+              </p>
+            </div>
+            {marketListings.length > 3 && (
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-neutral-400 mr-1">
+                  {String(listingsPage + 1).padStart(2, "0")}/{String(pageCount).padStart(2, "0")}
+                </span>
+                <button
+                  onClick={() => setListingsPage((p) => (p - 1 + pageCount) % pageCount)}
+                  className="w-10 h-10 rounded-full border border-neutral-200 flex items-center justify-center hover:border-neutral-900 transition-colors"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => setListingsPage((p) => (p + 1) % pageCount)}
+                  className="w-10 h-10 rounded-full border border-neutral-200 flex items-center justify-center hover:border-neutral-900 transition-colors"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+          </div>
+
+          {marketListingsLoading ? (
+            <div className="text-center py-20 text-neutral-400 text-sm">Loading listings...</div>
+          ) : marketListings.length === 0 ? (
+            <div className="text-center py-20 text-neutral-400 text-sm">
+              No listings yet — be the first landlord to list a property.
+            </div>
+          ) : (
+            <div className="grid md:grid-cols-3 gap-8">
+              {visibleListings.map((listing) => (
+                <div
+                  key={listing.id}
+                  onClick={() => goTo("/listings")}
+                  className="rounded-2xl overflow-hidden border border-neutral-100 hover:shadow-xl transition-shadow cursor-pointer"
+                >
+                  <div
+                    className="h-56 bg-neutral-100 bg-cover bg-center"
+                    style={{ backgroundImage: `url(${listing.image_url})` }}
+                  />
+                  <div className="p-5">
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="font-semibold text-neutral-900 truncate">{listing.title}</h3>
+                      <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-neutral-100 text-neutral-600 shrink-0 ml-2">
+                        For Rent
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-sm text-neutral-500 mb-4">
+                      <MapPin className="w-3.5 h-3.5 shrink-0" />
+                      <span className="truncate">{listing.location}</span>
+                    </div>
+                    <div className="flex items-center justify-between border-t border-neutral-100 pt-4">
+                      <div>
+                        <p className="text-[11px] uppercase tracking-wide text-neutral-400">Rent</p>
+                        <p className="font-semibold text-neutral-900">
+                          KES {listing.price?.toLocaleString("en-KE")}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-3 text-neutral-500 text-sm">
+                        <span className="flex items-center gap-1"><BedDouble className="w-3.5 h-3.5" />{listing.bedrooms}</span>
+                        <span className="flex items-center gap-1"><Bath className="w-3.5 h-3.5" />{listing.bathrooms}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="mt-16">
+            <button
+              onClick={() => goTo("/listings")}
+              className="inline-flex items-center gap-2 rounded-full bg-neutral-900 hover:bg-neutral-800 text-white font-semibold px-8 py-4 transition-colors"
+            >
+              Browse All Listings <span>→</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* ── STEPS ──────────────────────────────────────────── */}
+      <section id="steps" className="bg-neutral-50 py-24 md:py-32">
+        <div className="max-w-7xl mx-auto px-6 lg:px-10">
+          <div className="mb-16">
+            <div className="w-10 h-0.5 bg-neutral-900 mb-6" />
+            <h2 className="text-4xl md:text-5xl font-bold text-neutral-900">
+              4 Steps to Your New Home.
+            </h2>
+          </div>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-12">
+            {steps.map(({ step, title, desc }) => (
+              <div key={step}>
+                <div className="text-6xl font-extrabold text-neutral-200 mb-6 leading-none">
+                  {step}
+                </div>
+                <h3 className="font-semibold text-lg text-neutral-900 mb-3">{title}</h3>
+                <p className="text-sm text-neutral-500 leading-relaxed">{desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── TESTIMONIALS ───────────────────────────────────── */}
+      <section className="bg-white py-24 md:py-32">
+        <div className="max-w-7xl mx-auto px-6 lg:px-10 grid md:grid-cols-3 gap-16 items-center">
+          <div>
+            <div className="w-10 h-0.5 bg-neutral-900 mb-6" />
+            <h2 className="text-4xl md:text-5xl font-bold text-neutral-900">
+              Our Testimoni.
+            </h2>
+          </div>
+          <div className="md:col-span-2">
+            <p className="text-2xl md:text-3xl font-medium leading-snug text-neutral-800 mb-10">
+              &ldquo;{testimonial.text}&rdquo;
+            </p>
+            <div className="flex items-center justify-between flex-wrap gap-6">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-full bg-neutral-100 flex items-center justify-center font-semibold text-neutral-700">
+                  {testimonial.avatar}
+                </div>
+                <div>
+                  <p className="font-semibold text-neutral-900">{testimonial.name}</p>
+                  <p className="text-sm text-neutral-500">{testimonial.role}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-1 text-amber-400">
+                  {Array.from({ length: testimonial.rating }).map((_, i) => (
+                    <Star key={i} className="w-4 h-4 fill-amber-400" />
+                  ))}
+                  <span className="text-sm text-neutral-500 ml-1">{testimonial.rating}/5</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setTestimonialIndex((i) => (i - 1 + testimonials.length) % testimonials.length)}
+                    className="w-9 h-9 rounded-full border border-neutral-200 flex items-center justify-center hover:border-neutral-900 transition-colors"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => setTestimonialIndex((i) => (i + 1) % testimonials.length)}
+                    className="w-9 h-9 rounded-full border border-neutral-200 flex items-center justify-center hover:border-neutral-900 transition-colors"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── FAQ ────────────────────────────────────────────── */}
+      <section id="faq" className="bg-neutral-50 py-24 md:py-32">
+        <div className="max-w-7xl mx-auto px-6 lg:px-10">
+          <div className="flex items-end justify-between flex-wrap gap-6 mb-16">
+            <div>
+              <div className="w-10 h-0.5 bg-neutral-900 mb-6" />
+              <h2 className="text-4xl md:text-5xl font-bold text-neutral-900">
+                Top Questions. Answered.
+              </h2>
+            </div>
+            <p className="text-neutral-500 max-w-sm">
+              No jargon, no dodging. Just what this app does, who it&apos;s
+              for, and why it&apos;s not another rental site.
+            </p>
+          </div>
+
+          <Accordion type="single" collapsible defaultValue="item-0" className="border-t border-neutral-200">
+            {faqs.map((item, idx) => (
+              <AccordionItem key={idx} value={`item-${idx}`} className="border-neutral-200">
+                <AccordionTrigger className="py-6 text-lg md:text-xl font-medium text-neutral-900 hover:no-underline">
+                  <span className="flex items-baseline gap-5">
+                    <span className="text-sm text-neutral-300 font-medium">
+                      {String(idx + 1).padStart(2, "0")}
+                    </span>
+                    {item.q}
+                  </span>
+                </AccordionTrigger>
+                <AccordionContent className="text-neutral-500 leading-relaxed pl-10 max-w-2xl">
+                  {item.a}
+                </AccordionContent>
+              </AccordionItem>
+            ))}
+          </Accordion>
+
+          <div className="flex items-center gap-3 flex-wrap mt-10 text-sm">
+            <span className="text-neutral-500">Want the long version?</span>
+            <button onClick={() => goTo("/privacy")} className="text-neutral-900 font-medium underline underline-offset-4">
+              Read the Privacy Policy
+            </button>
+            <span className="text-neutral-300">·</span>
+            <button onClick={() => goTo("/terms")} className="text-neutral-900 font-medium underline underline-offset-4">
+              Read the Terms & Conditions
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* ── CTA ────────────────────────────────────────────── */}
+      <section className="relative bg-neutral-950 text-white py-32 md:py-44 overflow-hidden">
+        <div className="absolute inset-0">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/images/download.jpg"
+            alt="Kenyan residential building"
+            className="w-full h-full object-cover opacity-20"
+          />
+        </div>
+        <div className="relative max-w-3xl mx-auto px-6 text-center">
+          <h2 className="text-4xl md:text-6xl font-bold mb-6">
+            Find Your Perfect Home Today.
+          </h2>
+          <p className="text-white/70 mb-10 max-w-lg mx-auto">
+            Join tenants and landlords managing their homes and finding new
+            ones, all in one platform built for Kenya.
+          </p>
+          <div className="flex items-center justify-center gap-4 flex-wrap">
+            <button
+              onClick={() => goTo("/login")}
+              className="rounded-full bg-white text-neutral-900 font-semibold px-8 py-4 hover:bg-neutral-100 transition-colors"
+            >
+              Get Started
+            </button>
+            <button
+              onClick={() => goTo("/listings")}
+              className="rounded-full border border-white/30 font-semibold px-8 py-4 hover:border-white transition-colors"
+            >
+              Browse Listings
+            </button>
+          </div>
+        </div>
+        <div
+          aria-hidden
+          className="absolute -bottom-6 left-0 right-0 text-center font-extrabold uppercase leading-none text-[16vw] text-white/5 select-none pointer-events-none whitespace-nowrap"
+        >
+          LEA Executive
+        </div>
+      </section>
+
+      {/* ── FOOTER ─────────────────────────────────────────── */}
+      <footer className="bg-white border-t border-neutral-100 py-20">
+        <div className="max-w-7xl mx-auto px-6 lg:px-10">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-10 mb-16">
+            <div className="col-span-2 md:col-span-1">
+              <div className="flex items-center gap-2.5 mb-5">
+                <div className="w-9 h-9 rounded-lg bg-neutral-900 flex items-center justify-center">
+                  <Building2 className="w-4.5 h-4.5 text-white" strokeWidth={2} />
+                </div>
+                <span className="font-bold">LEA Executive</span>
+              </div>
+              <p className="text-sm text-neutral-500 leading-relaxed max-w-xs mb-6">
+                A digital-first residential platform in Kenya. Tenants manage
+                rent, requests, and communication — landlords manage their
+                buildings and list new ones.
+              </p>
+              <div className="flex flex-col gap-2.5 text-sm text-neutral-600">
+                <span className="flex items-center gap-2"><Phone className="w-3.5 h-3.5" /> +254 799 956574</span>
+                <span className="flex items-center gap-2"><Mail className="w-3.5 h-3.5" /> cbempirefx@gmail.com</span>
+                <span className="flex items-center gap-2"><MapPin className="w-3.5 h-3.5" /> Nairobi, Kenya</span>
+              </div>
+            </div>
+
+            {[
+              {
+                title: "Platform",
+                links: ["Tenant Dashboard", "M-Pesa Payments", "Maintenance", "Community Chat"],
+                path: "/login",
+              },
+              {
+                title: "Support",
+                links: ["How It Works", "Contact", "Policy Docs", "Sign In"],
+                path: "/login",
+              },
+            ].map((col) => (
+              <div key={col.title}>
+                <p className="text-xs uppercase tracking-widest text-neutral-400 mb-5">{col.title}</p>
+                <div className="flex flex-col gap-3">
+                  {col.links.map((link) => (
+                    <button
+                      key={link}
+                      onClick={() => goTo(link === "Contact" ? "/contact" : col.path)}
+                      className="text-sm text-neutral-600 hover:text-neutral-900 text-left transition-colors"
+                    >
+                      {link}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+
+            <div>
+              <p className="text-xs uppercase tracking-widest text-neutral-400 mb-5">Get in Touch</p>
+              <p className="text-sm text-neutral-500 mb-4">
+                Have a property to list, or a question about your tenancy?
+              </p>
+              <button
+                onClick={() => goTo("/contact")}
+                className="w-full rounded-full bg-neutral-900 text-white text-sm font-semibold py-3 hover:bg-neutral-800 transition-colors"
+              >
+                Contact Us
+              </button>
+            </div>
+          </div>
+
+          <div className="border-t border-neutral-100 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <span className="text-xs text-neutral-400">
+              &copy; {new Date().getFullYear()} LEA Executive Residency. All rights reserved.
+            </span>
+            <div className="flex gap-8">
+              {[
+                ["Privacy Policy", "/privacy"],
+                ["Terms of Service", "/terms"],
+                ["Tenant Rights", "/tenant-rights"],
+              ].map(([label, path]) => (
+                <button key={path} onClick={() => goTo(path)} className="text-xs text-neutral-400 hover:text-neutral-900 transition-colors">
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </footer>
+
       <InstallPrompt />
     </div>
   );
