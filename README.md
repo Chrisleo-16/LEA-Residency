@@ -1,324 +1,135 @@
-# LEA Executive Residency - Professional Real Estate Communication Platform
+# LEA Executive Residency
 
-A modern, minimalistic PWA for seamless tenant-landlord communication with real-time messaging, notifications, and property management tools.
+A Kenyan property platform that is two things at once: a dedicated digital
+portal for LEA Executive Residency's own tenants and landlord, and a growing
+marketplace where other Kenyan landlords list properties and prospective
+tenants browse before they move in.
 
-## Features
+## What this is
 
-### Core Features
-- **Real-time Messaging** - Instant communication between tenants and landlords
-- **Conversation Management** - Organized chat interface with search and filtering
-- **Notification System** - Customizable alerts for messages, maintenance, and payments
-- **User Settings** - Profile management, preferences, and security options
-- **Dark Mode Support** - Professional dark theme for reduced eye strain
+**For LEA Executive Residency (the flagship building):**
+- Real-time chat between tenants and property management
+- M-Pesa rent payments with automatic ledger reconciliation
+- Maintenance requests, formal complaints, and service request tracking
+- Community group chat and management announcements
+- Policy & document publishing (house rules, tenancy agreements)
+- Landlord subscription billing
+- A dashboard **Overview** tab with portfolio stats and a property table
 
-### PWA Features
-- **Offline Support** - Access cached messages and draft replies when offline
-- **Installable App** - Install on mobile devices for native-like experience
-- **Push Notifications** - Real-time alerts even when the app is closed
-- **Web App Manifest** - Full PWA manifest configuration with icons and shortcuts
-- **Service Worker** - Advanced caching strategies and offline fallback
+**For the wider market:**
+- A property **Listings** marketplace — landlords across Kenya create
+  listings, tenants search and browse them, independent of any one building
+- Public-facing listings showcase on the landing page
 
-## Tech Stack
+## Tech stack
 
-- **Frontend**: Next.js 16 with React 19
-- **Styling**: Tailwind CSS with custom design tokens
-- **UI Components**: shadcn/ui
-- **Icons**: Lucide React
-- **PWA**: Service Worker API, Push API, Web App Manifest
-- **State Management**: React hooks (localStorage for demo)
+- **Frontend**: Next.js 16, React 19, TypeScript
+- **Styling**: Tailwind CSS v4, CSS custom-property token system with
+  light/dark mode (via `next-themes`), amber accent
+- **UI**: shadcn/ui + Lucide React icons
+- **Backend**: Supabase (Postgres, Auth, Realtime, Storage, Row Level Security)
+- **Payments**: M-Pesa (STK Push, Paybill webhook reconciliation)
+- **PWA**: Service Worker, Web App Manifest, push notifications
 
-## Design System
+## Design system
 
-### Color Palette (Minimalistic Professional)
-- **Primary**: Deep Slate (#1f2937) - Professional, trustworthy
-- **Accent**: Teal (#0D9488) - Modern, energetic
-- **Neutrals**: White, grays, off-whites - Clean, minimal
-- **Background**: Pure white with subtle accents
-- **Dark Mode**: Optimized slate grays with teal accents
+The app uses a CSS variable token system (`app/globals.css`) rather than
+hardcoded colors, so components respond to the theme toggle automatically:
 
-### Typography
-- **Font**: Geist (Google Fonts)
-- **Heading Weight**: Bold (600-700)
-- **Body Weight**: Regular (400)
-- **Line Height**: 1.4-1.6 for optimal readability
+| Token | Light mode | Dark mode |
+|---|---|---|
+| `--background` | White | Near-black (`#0f0f0f`) |
+| `--foreground` | Near-black | Warm white |
+| `--accent` / `--primary` | Amber (`#f59e0b`) | Amber (`#f59e0b`) |
 
-## Project Structure
+Toggle theme with the `ThemeToggle` component (`components/theme-toggle.tsx`),
+built on `next-themes` with `attribute="class"`. New components should use
+semantic classes (`bg-background`, `text-foreground`, `bg-accent`,
+`border-border`, etc.) instead of hardcoded Tailwind color shades, so they
+stay theme-aware.
+
+The public landing page (`components/layout/LandingPage.tsx`) and the
+`/login` screen keep their own fixed dark/gold luxury brand styling
+independent of the toggle — a deliberate choice, same as most marketing
+pages.
+
+## Project structure
 
 ```
 ├── app/
-│   ├── layout.tsx           # Root layout with PWA metadata
-│   ├── page.tsx             # Main entry point (auth routing)
-│   └── globals.css          # Design tokens and base styles
+│   ├── dashboard/           # Authenticated app shell (role-routed)
+│   ├── listings/            # Public + authenticated listings marketplace
+│   ├── login/, onboarding/, complete-setup/
+│   ├── api/                 # Route handlers: billing, mpesa, sms, community,
+│   │                          maintenance, complaints, requests, staff, etc.
+│   └── globals.css          # Design tokens, light/dark theme
 ├── components/
-│   ├── layout/
-│   │   ├── DashboardLayout.tsx
-│   │   └── Sidebar.tsx
-│   ├── chat/
-│   │   └── ChatArea.tsx
-│   ├── pages/
-│   │   └── LoginPage.tsx
-│   ├── settings/
-│   │   └── SettingsPanel.tsx
-│   ├── pwa/
-│   │   └── InstallPrompt.tsx
-│   └── ui/                  # shadcn/ui components
-├── hooks/
-│   ├── usePushNotifications.ts
-│   └── usePWAInstall.ts
-├── public/
-│   ├── manifest.json        # PWA manifest
-│   ├── sw.js               # Service Worker
-│   ├── offline.html        # Offline fallback page
-│   └── icons/              # PWA icons
-└── README.md
+│   ├── layout/               # Sidebar, DashboardLayout, LandingPage, Navbar
+│   ├── pages/                 # OverviewPage, PaymentsPage, ComplaintsPage, ...
+│   ├── listings/              # ListingCard, CreateListingDialog
+│   ├── chat/, settings/, billing/, pwa/
+│   └── theme-provider.tsx, theme-toggle.tsx
+├── lib/
+│   ├── supabase/             # Client/server Supabase helpers
+│   └── engines/               # M-Pesa, USSD, financial, offline-queue engines
+├── supabase/migrations/       # Postgres schema & RLS policies
+└── public/                    # PWA manifest, icons, offline fallback
 ```
 
-## Getting Started
+## Getting started
 
 ### Prerequisites
-- Node.js 18+ 
-- npm, yarn, pnpm, or bun
+- Node.js 18+
+- A Supabase project (Auth + Postgres + Storage enabled)
 
-### Installation
+### Setup
 
 ```bash
-# Clone or extract the project
-cd LEA Executive Residency
-
-# Install dependencies
 npm install
-# or
-pnpm install
+```
 
-# Start development server
+Create `.env.local` with your Supabase project keys:
+
+```
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+```
+
+Run the Supabase migrations in `supabase/migrations/` (via the Supabase SQL
+editor or `supabase migration up`), including
+`20260702_create_listings_table.sql` for the Listings marketplace.
+
+```bash
 npm run dev
-# or
-pnpm dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+Open [http://localhost:3000](http://localhost:3000).
 
-### Demo Login
-- Email: any email (e.g., `test@example.com`)
-- Password: any password (e.g., `demo123`)
-- Note: This is demo mode for testing. Production would use real authentication.
+### Demo mode
 
-## Features Guide
+Visit `/login?demo=true` to try a sandboxed demo dashboard
+(`/demo/dashboard`) without a real Supabase account.
 
-### Authentication
-- Simple login/registration interface
-- Session management with localStorage (demo)
-- Auto-login on page reload if authenticated
+## Roadmap: Kenyan AI real estate features
 
-### Chat Interface
-- Real-time message display with timestamps
-- User avatar indicators (emoji placeholders)
-- Responsive message bubbles (left/right alignment)
-- Send messages with Enter key
-- Call and video icons (ready for integration)
+The next major phase layers AI on top of the marketplace to address gaps
+specific to the Kenyan property market:
 
-### Sidebar
-- Conversation list with unread badges
-- Search functionality
-- Unread notification count
-- Quick access to settings
-- Logout button
-
-### Settings Panel
-- Profile management (name, email)
-- Notification preferences (4 categories)
-- Dark mode toggle
-- Language selector
-- Security options
-- Account deletion (placeholder)
-
-### PWA Features
-
-#### Service Worker
-- Network-first caching strategy
-- Offline fallback page
-- Background sync support
-- Push notification handling
-
-#### Installation Prompt
-- Automatic prompt on compatible browsers
-- One-click install to home screen
-- Install banner in dashboard
-
-#### Notifications
-- Push notification support
-- Web notifications API
-- Customizable notification preferences
-- Badge and icon configuration
-
-## Configuration
-
-### PWA Customization
-
-Edit `public/manifest.json` to customize:
-- App name and description
-- Theme colors
-- Icons
-- Shortcuts
-- Display mode
-
-### Design Tokens
-
-Modify `app/globals.css` to update colors:
-```css
-:root {
-  --primary: oklch(...);
-  --accent: oklch(...);
-  /* ... other tokens ... */
-}
-```
-
-### Environment Variables
-
-For production deployment, add to `.env.local`:
-```
-NEXT_PUBLIC_VAPID_PUBLIC_KEY=your_vapid_public_key
-```
-
-## Deployment
-
-### Deploy to Vercel (Recommended)
-
-1. Push code to GitHub
-2. Connect repository to Vercel
-3. Vercel auto-detects Next.js and deploys
-4. PWA features work out of the box
-
-```bash
-# Deploy via CLI
-npm install -g vercel
-vercel
-```
-
-### Deploy to Other Platforms
-
-The app is a standard Next.js 16 app:
-
-```bash
-# Build for production
-npm run build
-
-# Start production server
-npm start
-```
-
-### PWA Requirements for Production
-- HTTPS enabled (required for service workers)
-- Valid manifest.json
-- Web app icons (all sizes)
-- Proper viewport meta tags
-- Mobile-friendly responsive design
-
-## Browser Support
-
-| Feature | Chrome | Firefox | Safari | Edge |
-|---------|--------|---------|--------|------|
-| Core App | ✓ | ✓ | ✓ | ✓ |
-| Service Worker | ✓ | ✓ | 11.1+ | ✓ |
-| Push API | ✓ | ✓ | ✗ | ✓ |
-| Web App Install | ✓ | ✓ | 15.1+ | ✓ |
-| Dark Mode | ✓ | ✓ | ✓ | ✓ |
-
-## Development
-
-### Adding New Components
-
-Components follow shadcn/ui patterns:
-
-```typescript
-'use client'
-
-import { Button } from '@/components/ui/button'
-
-export default function MyComponent() {
-  return <Button>Click me</Button>
-}
-```
-
-### Styling
-
-Use Tailwind CSS with design tokens:
-
-```tsx
-<div className="bg-background text-foreground">
-  <h1 className="text-lg font-semibold text-primary">Title</h1>
-</div>
-```
-
-### Adding Features
-
-1. Create component in appropriate folder
-2. Use design tokens for colors
-3. Follow mobile-first responsive design
-4. Add TypeScript types for props
-5. Test on multiple devices
-
-## Performance Optimizations
-
-- Image optimization with Next.js Image component
-- Code splitting via dynamic imports
-- Service Worker caching strategies
-- Optimized bundle size with tree-shaking
-- CSS-in-JS via Tailwind
-
-## Security Considerations
-
-- HTTPS required for PWA features
-- Secure session storage (use httpOnly cookies in production)
-- Input validation on all forms
-- CORS headers for API requests
-- Content Security Policy headers
-
-## Maintenance
-
-### Updating Dependencies
-```bash
-npm update
-# or
-pnpm update
-```
-
-### Service Worker Cache
-Modify cache version in `public/sw.js`:
-```javascript
-const CACHE_NAME = 'LEA Executive Residency-v2';
-```
-
-### Monitor PWA Performance
-- Check service worker in DevTools
-- Test offline functionality regularly
-- Monitor installation metrics
-- Track notification engagement
-
-## Roadmap
-
-- Backend API integration for real data
-- WebSocket support for true real-time chat
-- File upload/sharing for documents
-- Voice/video call integration
-- Advanced notification scheduling
-- Payment integration for rent collection
-- Mobile app wrappers (iOS/Android)
-
-## Support & Contributing
-
-For issues or questions:
-1. Check the documentation
-2. Review the code comments
-3. Test in development mode
-4. Contact support
+1. **Fraud & verification** ✅ *shipped* — landlords submit an ID document
+   for review (`Settings → Landlord Verification`); developers approve/reject
+   from `/developer-dashboard/verifications`, which flips `profiles.kyc_verified`.
+   Verified listings show a green badge. Listings also get a rule-based
+   fraud-risk flag (price far below comparable listings, minimal description,
+   or a brand-new account posting several listings at once) — no AI model
+   yet, just honest heuristics on real data.
+2. **Pricing transparency** — AI-estimated fair rent by location and size,
+   since no standardized pricing data source exists for Kenya today
+3. **Smart matching & search** — match tenants to listings by budget,
+   commute, and needs instead of an unfiltered list
+4. **Property management automation** — AI-assisted rent tracking,
+   maintenance triage, and tenant communication
 
 ## License
 
-This project is provided as-is for professional real estate communication.
-
----
-
-**Built with Next.js, React, and Tailwind CSS**
-**Optimized for modern browsers and mobile devices**
-**Production-ready PWA platform for real estate professionals**
+Provided as-is for LEA Executive Residency and its Kenyan real estate
+platform.

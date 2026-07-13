@@ -96,7 +96,7 @@ export default function TenantRights() {
       id: '11',
       title: 'Contact',
       body: [
-        'Questions about your rights as a tenant can be directed to management via the Contact page, or by calling +254 748 333 763.',
+        'Questions about your rights as a tenant can be directed to management via the Contact page, or by calling +254 799 956574.',
       ],
     },
   ]

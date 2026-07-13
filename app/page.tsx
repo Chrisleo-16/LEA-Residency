@@ -26,7 +26,7 @@ export default function Home() {
             "@type": "LocalBusiness",
             name: "LEA Executive Residency",
             url: "https://lea-residency.xyz",
-            telephone: ["+254748333763", "+254799956574"],
+            telephone: ["+254799956574"],
             email: "cbempirefx@gmail.com",
             description:
               "Digital tenant management platform for LEA Executive Residency, a residential property in Nairobi, Kenya. Manage rent payments via M-Pesa, maintenance requests, and communication with property management.",

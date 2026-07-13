@@ -9,6 +9,7 @@
     "lint": "eslint ."
   },
   "dependencies": {
+    "@heroui/react": "^3.2.1",
     "@hookform/resolvers": "^3.9.1",
     "@logtail/node": "^0.5.8",
     "@radix-ui/react-accordion": "1.2.12",
@@ -51,6 +52,7 @@
     "date-fns": "4.1.0",
     "dotenv": "^17.4.1",
     "embla-carousel-react": "8.6.0",
+    "framer-motion": "^12.42.2",
     "input-otp": "1.4.2",
     "jspdf": "^4.2.1",
     "logrocket": "^12.1.1",
@@ -71,7 +73,7 @@
     "zod": "^3.24.1"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4.2.0",
+    "@tailwindcss/postcss": "^4.3.2",
     "@types/node": "^22",
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
@@ -79,7 +81,7 @@
     "postcss": "^8.5",
     "sharp": "^0.34.5",
     "supabase": "^2.101.0",
-    "tailwindcss": "^4.2.0",
+    "tailwindcss": "^4.3.2",
     "tw-animate-css": "1.3.3",
     "typescript": "5.7.3"
   }

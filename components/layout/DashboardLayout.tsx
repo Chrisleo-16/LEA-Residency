@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { Inter } from 'next/font/google'
 import { User } from '@supabase/supabase-js'
 import { Menu, Building2 } from 'lucide-react'
 import Sidebar from '@/components/layout/Sidebar'
@@ -16,6 +17,8 @@ import PaymentsPage from '@/components/pages/PaymentsPage'
 import BillingPage from '@/components/pages/BillingPage'
 import SubscriptionModal from '@/components/billing/SubscriptionModal'
 import { createClient } from '@/lib/supabase/client'
+
+const inter = Inter({ subsets: ['latin'], weight: ['400', '500', '600', '700'] })
 
 interface DashboardLayoutProps {
   user: User | null
@@ -138,7 +141,7 @@ export default function DashboardLayout({ user }: DashboardLayoutProps) {
 
   return (
     <>
-      <div className="flex h-dvh bg-background overflow-hidden">
+      <div className={`${inter.className} flex h-dvh bg-background overflow-hidden`}>
 
         {/* Mobile overlay */}
         {sidebarOpen && !showModal && (

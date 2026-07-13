@@ -114,7 +114,7 @@ export default function TermsAndConditions() {
       id: '13',
       title: 'Contact',
       body: [
-        'Questions about these Terms can be directed to management via the Contact page, or by contacting tel +254748333763.',
+        'Questions about these Terms can be directed to management via the Contact page, or by contacting tel +254799956574.',
       ],
     },
   ]

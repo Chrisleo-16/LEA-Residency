@@ -5,6 +5,7 @@ import './globals.css'
 import LogRocketInit from '@/components/LogRocketInit'
 import SupabaseListener from '@/components/SupabaseListener'
 import RouteLoaderProvider from '@/components/RouteLoaderProvider'
+import { ThemeProvider } from '@/components/theme-provider'
 import {Toaster} from "@/components/ui/toaster"
 
 const nunito = Nunito({
@@ -53,12 +54,14 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
       </head>
       <body className={`${nunito.className} antialiased`}>
-        <LogRocketInit />
-        <SupabaseListener />
-      <RouteLoaderProvider>
-          {children}
-        </RouteLoaderProvider>
-        <Toaster />
+        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} disableTransitionOnChange>
+          <LogRocketInit />
+          <SupabaseListener />
+          <RouteLoaderProvider>
+            {children}
+          </RouteLoaderProvider>
+          <Toaster />
+        </ThemeProvider>
         <Analytics />
         {/* ✅ Only register SW in production — fixes 404 in dev */}
         {(process.env.NODE_ENV === 'production' || process.env.NODE_ENV === 'development') && (

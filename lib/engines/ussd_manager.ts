@@ -403,7 +403,7 @@ export class UssdManager {
    */
   private getHelpMenu(session: UssdSession): MenuResponse {
     return {
-      text: 'LEA Help:\nFor tenant support:\nCall: +254 748 333 763\nEmail: support@lea.app\n\n1. Back',
+      text: 'LEA Help:\nFor tenant support:\nCall: +254 799 956574\nEmail: support@lea.app\n\n1. Back',
       options: [
         {
           id: '1',

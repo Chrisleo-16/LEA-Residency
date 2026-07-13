@@ -74,7 +74,6 @@ export default function WhatYouCanDoPage() {
       <ul>
         <li>
           <strong>Phone:</strong>{" "}
-          <a href="tel:+254748333763">+254 748 333 763</a> or{" "}
           <a href="tel:+254799956574">+254 799 956574</a>
         </li>
         <li>

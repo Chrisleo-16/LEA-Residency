@@ -173,7 +173,7 @@ function JoinForm() {
       <div className="hidden lg:flex lg:w-[52%] relative overflow-hidden">
         <div
           className="absolute inset-0 bg-cover bg-center"
-          style={{ backgroundImage: "url('/images/lea-building.jpg')" }}
+          style={{ backgroundImage: "url('/images/building-facade.jpg')" }}
         />
         <div className="absolute inset-0 bg-linear-to-br from-black/80 via-black/60 to-black/40" />
         <div className="absolute bottom-0 left-0 right-0 h-1 bg-accent" />
