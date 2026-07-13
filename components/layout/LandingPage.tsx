@@ -279,7 +279,7 @@ export default function Home() {
         <div className="absolute inset-0">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="/images/lea-building.jpg"
+            src="/images/building-facade.jpg"
             alt="Modern residential building"
             className="w-full h-full object-cover opacity-50"
           />
@@ -379,8 +379,8 @@ export default function Home() {
           <div className="rounded-2xl overflow-hidden shadow-xl">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/images/download.jpg"
-              alt="Kenyan residential apartment"
+              src="/images/community-courtyard.jpg"
+              alt="Residential community courtyard"
               className="w-full h-full object-cover"
             />
           </div>
@@ -504,7 +504,7 @@ export default function Home() {
       </section>
 
       {/* ── TESTIMONIALS ───────────────────────────────────── */}
-      <section className="bg-white py-24 md:py-32">
+      {/* <section className="bg-white py-24 md:py-32">
         <div className="max-w-7xl mx-auto px-6 lg:px-10 grid md:grid-cols-3 gap-16 items-center">
           <div>
             <div className="w-10 h-0.5 bg-neutral-900 mb-6" />
@@ -551,7 +551,7 @@ export default function Home() {
             </div>
           </div>
         </div>
-      </section>
+      </section> */}
 
       {/* ── FAQ ────────────────────────────────────────────── */}
       <section id="faq" className="bg-neutral-50 py-24 md:py-32">
@@ -605,8 +605,8 @@ export default function Home() {
         <div className="absolute inset-0">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="/images/download.jpg"
-            alt="Kenyan residential building"
+            src="/images/move-in-keys.jpg"
+            alt="New tenant receiving keys to their home"
             className="w-full h-full object-cover opacity-20"
           />
         </div>
