@@ -526,7 +526,7 @@ export default function PolicyPage({ user }: PolicyPageProps) {
           {role === 'landlord' && (
             <Button
               onClick={() => setShowForm(!showForm)}
-              className="bg-accent hover:bg-accent/90 text-white gap-2 rounded-xl shadow-md shadow-accent/20 shrink-0"
+              className="bg-accent hover:bg-accent/90 text-white gap-2 rounded-xl shadow-md shadow-accent/20 shrink-0 dark:text-accent-foreground"
             >
               <Plus className="w-4 h-4" />
               New Policy
@@ -651,13 +651,13 @@ export default function PolicyPage({ user }: PolicyPageProps) {
             onClick={() => setActiveCategory('all')}
             className={`flex items-center gap-1.5 text-xs px-3.5 py-2 rounded-xl border whitespace-nowrap transition-all shrink-0 font-medium ${
               activeCategory === 'all'
-                ? 'bg-accent text-white border-accent shadow-sm shadow-accent/20'
+                ? 'bg-accent text-white border-accent shadow-sm shadow-accent/20 dark:text-accent-foreground'
                 : 'border-border text-muted-foreground hover:bg-secondary hover:text-foreground'
             }`}
           >
             All
             <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
-              activeCategory === 'all' ? 'bg-white/20 text-white' : 'bg-secondary text-muted-foreground'
+              activeCategory === 'all' ? 'bg-white/20 text-white dark:text-accent-foreground dark:bg-white/20' : 'bg-secondary text-muted-foreground'
             }`}>
               {policies.length}
             </span>
@@ -672,7 +672,7 @@ export default function PolicyPage({ user }: PolicyPageProps) {
                 onClick={() => setActiveCategory(cat.value)}
                 className={`flex items-center gap-1.5 text-xs px-3.5 py-2 rounded-xl border whitespace-nowrap transition-all shrink-0 font-medium ${
                   activeCategory === cat.value
-                    ? 'bg-accent text-white border-accent shadow-sm shadow-accent/20'
+                    ? 'bg-accent text-white border-accent shadow-sm shadow-accent/20 dark:text-accent-foreground'
                     : 'border-border text-muted-foreground hover:bg-secondary hover:text-foreground'
                 }`}
               >
@@ -680,7 +680,7 @@ export default function PolicyPage({ user }: PolicyPageProps) {
                 {cat.label}
                 {count > 0 && (
                   <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${
-                    activeCategory === cat.value ? 'bg-white/20 text-white' : 'bg-secondary text-muted-foreground'
+                    activeCategory === cat.value ? 'bg-white/20 text-white dark:text-accent-foreground' : 'bg-secondary text-muted-foreground'
                   }`}>
                     {count}
                   </span>

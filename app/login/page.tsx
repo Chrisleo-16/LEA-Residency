@@ -267,7 +267,7 @@ function LoginPageContent() {
                 <>
                   Your home,
                   <br />
-                  <span className="text-secondary">managed</span>
+                  <span className="text-light">managed</span>
                   <br />
                   professionally.
                 </>

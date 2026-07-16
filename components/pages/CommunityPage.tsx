@@ -467,7 +467,7 @@ export default function CommunityPage({ user }: CommunityPageProps) {
               <p className="font-semibold text-foreground text-sm">
                 LEA Community Chat
               </p>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-muted-foreground dark:text-accent-foreground">
                 {messages.length} message{messages.length !== 1 ? "s" : ""} ·
                 All residents
               </p>

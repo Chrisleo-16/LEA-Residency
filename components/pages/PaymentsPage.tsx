@@ -580,7 +580,7 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
               <Button
                 onClick={exportToCSV}
                 variant="outline"
-                className="border-border rounded-xl h-10 gap-2 text-sm hover:text-accent"
+                className="border-border rounded-xl h-10 gap-2 text-sm hover:bg-accent dark:hover:text-accent text-accent "
               >
                 <Download className="w-4 h-4" />
                 <span className="hidden sm:inline">Export CSV</span>
@@ -588,7 +588,7 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
               <Button
                 onClick={smartSyncPayHero}
                 variant="outline"
-                className="border-border rounded-xl h-10 gap-2 text-sm hover:text-accent"
+                className="border-border rounded-xl h-10 gap-2 text-sm hover:bg-accent dark:hover:text-accent text-accent"
               >
                 <RefreshCw className="w-4 h-4" />
                 <span className="hidden sm:inline">Smart Sync</span>
@@ -596,7 +596,7 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
               <Button
                 onClick={() => setShowSettingsForm(!showSettingsForm)}
                 variant="outline"
-                className="border-border rounded-xl h-10 gap-2 text-sm hover:text-accent"
+                className="border-border rounded-xl h-10 gap-2 text-sm hover:bg-accent dark:hover:text-accent text-accent"
               >
                 <CreditCard className="w-4 h-4" />
                 <span className="hidden sm:inline">Set Rent</span>
@@ -650,7 +650,7 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
                 label: "Pending",
                 value: `${unpaidCount} tenants`,
                 icon: <Clock className="w-4 h-4" />,
-                color: "text-amber-600",
+                color: "text-amber-600 dark:text-amber-",
                 bg: "bg-amber-50 dark:bg-amber-950/20",
               },
               {
@@ -837,7 +837,7 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
                 onClick={() => setActiveMonth(value)}
                 className={`text-xs px-3.5 py-2 rounded-xl border whitespace-nowrap transition-all shrink-0 font-medium ${
                   activeMonth === value
-                    ? "bg-accent text-white border-accent shadow-sm shadow-accent/20"
+                    ? "bg-accent dark:text-accent-foreground text-white border-accent shadow-sm shadow-accent/20"
                     : "border-border text-muted-foreground hover:bg-secondary hover:text-foreground"
                 }`}
               >
@@ -1310,7 +1310,7 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
                     onClick={exportToCSV}
                     variant="outline"
                     size="sm"
-                    className="border-border rounded-xl h-8 gap-2 text-xs hover:text-accent"
+                    className="border-border rounded-xl h-8 gap-2 text-xs text-accent dark:hover:text-accent"
                     disabled={filteredPayments.length === 0}
                   >
                     <Download className="w-3 h-3" />
