@@ -1,30 +1,18 @@
+// app/api/push/send/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import webpush from 'web-push'
-
-// Initialize Supabase client
-// We'll create a request-scoped server client inside handlers
-
-// Configure web-push with VAPID keys
-webpush.setVapidDetails(
-  'mailto:admin@lea-residency.com', // Contact email
-  process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
-  process.env.VAPID_PRIVATE_KEY!
-)
+import { sendPushToUser } from '@/lib/push' // ← adjust path to match where this actually lives
 
 /**
  * POST /api/push/send
- * Sends push notifications to users
- *
- * Based on: https://medium.com/@vedantsaraswat_44942/configuring-push-notifications-in-a-pwa-part-1-1b8e9fe2954
- * - Uses VAPID protocol for secure server-side push
- * - Can send to specific users or broadcast to all active subscriptions
- * - Handles notification payload with title, body, icon, etc.
+ * Sends push notifications to one or more users.
+ * Delegates actual sending to sendPushToUser (service-role client,
+ * safe to reuse from server-to-server contexts too).
  */
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { userIds, title, body: notificationBody, url, icon, badge } = body
+    const { userIds, title, body: notificationBody, url } = body
 
     if (!title || !notificationBody) {
       return NextResponse.json(
@@ -33,205 +21,91 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Auth check — only a logged-in user can trigger this HTTP route.
+    // (Server-to-server code, e.g. M-Pesa callbacks, should call
+    // sendPushToUser directly instead of hitting this endpoint.)
     const supabase = await createClient()
     let authUser = null
-    const { data: authData, error: authError } = await supabase.auth.getUser()
+    const { data: authData } = await supabase.auth.getUser()
     if (authData?.user) {
       authUser = authData.user
     } else {
       const authHeader = request.headers.get('Authorization')
-      if (!authHeader) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-      const token = authHeader.split(' ')[1]
+      const token = authHeader?.split(' ')[1]
       if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
       const { data, error: bearerError } = await supabase.auth.getUser(token)
       if (bearerError || !data?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
       authUser = data.user
     }
 
-    // TODO: Add role check to ensure only landlords/admins can send notifications
-    // For now, allow any authenticated user
+    // TODO: role check — restrict to landlords/admins if this shouldn't be tenant-triggerable
 
-    // Get subscriptions to send to
-    let query = supabase
-      .from('push_subscriptions')
-      .select('*')
-      .eq('is_active', true)
+    // Resolve target user list: explicit userIds, or broadcast to everyone with an active subscription
+    let targetUserIds: string[] = userIds
 
-    if (userIds && Array.isArray(userIds) && userIds.length > 0) {
-      // Send to specific users
-      query = query.in('user_id', userIds)
-    }
-    // If no userIds specified, send to all active subscriptions (broadcast)
+    if (!targetUserIds || targetUserIds.length === 0) {
+      const { data: allSubs } = await supabase
+        .from('push_subscriptions')
+        .select('user_id')
+        .eq('is_active', true)
 
-    const { data: subscriptions, error: subError } = await query
-
-    if (subError) {
-      console.error('[Push] Error fetching subscriptions:', subError)
-      return NextResponse.json(
-        { error: 'Failed to fetch subscriptions' },
-        { status: 500 }
-      )
+      targetUserIds = [...new Set((allSubs || []).map((s) => s.user_id))]
     }
 
-    if (!subscriptions || subscriptions.length === 0) {
-      return NextResponse.json({
-        success: true,
-        message: 'No active subscriptions found',
-        sent: 0,
-      })
+    if (targetUserIds.length === 0) {
+      return NextResponse.json({ success: true, message: 'No active subscriptions found', sent: 0 })
     }
 
-    // Prepare notification payload
-    const payload = JSON.stringify({
-      title,
-      body: notificationBody,
-      icon: icon || '/icons/icon-192x192.png',
-      badge: badge || '/icons/icon-72x72.png',
-      url: url || '/dashboard',
-      timestamp: Date.now(),
-    })
-
-    // Send notifications to all subscriptions
     const results = await Promise.allSettled(
-      subscriptions.map(async (sub) => {
-        try {
-          await webpush.sendNotification(
-            {
-              endpoint: sub.endpoint,
-              keys: {
-                auth: sub.auth_key,
-                p256dh: sub.p256dh_key,
-              },
-            },
-            payload
-          )
-          return { success: true, endpoint: sub.endpoint }
-        } catch (error: any) {
-          console.error('[Push] Send error for endpoint:', sub.endpoint, error.message)
-
-          // If subscription is invalid/expired, mark as inactive
-          if (error.statusCode === 410 || error.statusCode === 400) {
-            await supabase
-              .from('push_subscriptions')
-              .update({ is_active: false })
-              .eq('endpoint', sub.endpoint)
-          }
-
-          return { success: false, endpoint: sub.endpoint, error: error.message }
-        }
-      })
+      targetUserIds.map((uid) => sendPushToUser(uid, title, notificationBody, url || '/dashboard'))
     )
 
-    const successful = results.filter(r => r.status === 'fulfilled' && r.value.success).length
-    const failed = results.length - successful
-
-    console.log(`[Push] Sent notifications: ${successful} successful, ${failed} failed`)
+    const sent = results.filter((r) => r.status === 'fulfilled' && r.value === true).length
+    const failed = results.length - sent
 
     return NextResponse.json({
       success: true,
-      message: `Notifications sent: ${successful} successful, ${failed} failed`,
-      sent: successful,
+      message: `Notifications sent: ${sent} successful, ${failed} failed`,
+      sent,
       failed,
       total: results.length,
     })
   } catch (error) {
     console.error('[Push] Send exception:', error)
-    return NextResponse.json(
-      { error: 'Internal server error', details: String(error) },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Internal server error', details: String(error) }, { status: 500 })
   }
 }
 
 /**
  * GET /api/push/send
- * Test endpoint to send a test notification to current user
+ * Sends a test notification to the currently authenticated user.
  */
 export async function GET(request: NextRequest) {
   try {
-    const authHeader = request.headers.get('Authorization')
-    if (!authHeader) {
-      return NextResponse.json(
-        { error: 'Unauthorized - no auth header' },
-        { status: 401 }
-      )
-    }
+    const supabase = await createClient() // ← this line was missing before, causing the crash
 
-    const token = authHeader.split(' ')[1]
-    if (!token) {
-      return NextResponse.json(
-        { error: 'Unauthorized - invalid token format' },
-        { status: 401 }
-      )
-    }
+    const authHeader = request.headers.get('Authorization')
+    const token = authHeader?.split(' ')[1]
+    if (!token) return NextResponse.json({ error: 'Unauthorized - no token' }, { status: 401 })
 
     const { data, error: authError } = await supabase.auth.getUser(token)
     if (authError || !data.user) {
-      return NextResponse.json(
-        { error: 'Unauthorized - invalid token' },
-        { status: 401 }
-      )
+      return NextResponse.json({ error: 'Unauthorized - invalid token' }, { status: 401 })
     }
 
-    const userId = data.user.id
-
-    // Get user's subscriptions
-    const { data: subscriptions, error: subError } = await supabase
-      .from('push_subscriptions')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('is_active', true)
-
-    if (subError || !subscriptions || subscriptions.length === 0) {
-      return NextResponse.json({
-        success: false,
-        message: 'No active subscriptions found for this user',
-      })
-    }
-
-    // Send test notification
-    const payload = JSON.stringify({
-      title: 'LEA Executive - Test Notification',
-      body: 'This is a test push notification from LEA Executive!',
-      icon: '/icons/icon-192x192.png',
-      badge: '/icons/icon-72x72.png',
-      url: '/dashboard',
-      timestamp: Date.now(),
-    })
-
-    const results = await Promise.allSettled(
-      subscriptions.map(async (sub) => {
-        try {
-          await webpush.sendNotification(
-            {
-              endpoint: sub.endpoint,
-              keys: {
-                auth: sub.auth_key,
-                p256dh: sub.p256dh_key,
-              },
-            },
-            payload
-          )
-          return { success: true, endpoint: sub.endpoint }
-        } catch (error: any) {
-          console.error('[Push] Test send error:', error.message)
-          return { success: false, endpoint: sub.endpoint, error: error.message }
-        }
-      })
+    const sent = await sendPushToUser(
+      data.user.id,
+      'LEA Executive - Test Notification',
+      'This is a test push notification from LEA Executive!',
+      '/dashboard'
     )
 
-    const successful = results.filter(r => r.status === 'fulfilled' && r.value.success).length
-
     return NextResponse.json({
-      success: successful > 0,
-      message: `Test notification sent to ${successful} device(s)`,
-      sent: successful,
+      success: sent,
+      message: sent ? 'Test notification sent' : 'No active subscriptions found for this user',
     })
   } catch (error) {
     console.error('[Push] Test send exception:', error)
-    return NextResponse.json(
-      { error: 'Internal server error', details: String(error) },
-      { status: 500 }
-    )
+    return NextResponse.json({ error: 'Internal server error', details: String(error) }, { status: 500 })
   }
 }

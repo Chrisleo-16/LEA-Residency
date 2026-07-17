@@ -99,7 +99,7 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
     { id: 'complaints', label: 'My Complaints',      icon: AlertCircle },
     { id: 'requests',   label: 'My Requests',        icon: ClipboardList },
     { id: 'payments',   label: 'Payments',           icon: Receipt },
-    { id: 'listings',   label: 'Listings',           icon: Grid3x3 },
+    // { id: 'listings',   label: 'Listings',           icon: Grid3x3 },
     { id: 'policy',     label: 'Policy & Docs',      icon: FileText },
   ]
 
@@ -109,7 +109,7 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
     { id: 'complaints', label: 'Complaints',           icon: AlertCircle },
     { id: 'requests',   label: 'Requests',             icon: ClipboardList },
     { id: 'payments',   label: 'Rent Ledger',          icon: Receipt },
-    { id: 'listings',   label: 'My Listings',          icon: Grid3x3 },
+    // { id: 'listings',   label: 'My Listings',          icon: Grid3x3 },
     { id: 'policy',     label: 'Manage Policies',      icon: FileText },
     { id: 'billing',    label: 'Subscription Billing', icon: Activity },
   ]

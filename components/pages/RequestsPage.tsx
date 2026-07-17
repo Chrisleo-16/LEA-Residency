@@ -214,7 +214,7 @@ export default function RequestsPage({ user }: RequestsPageProps) {
             <Button
               onClick={() => setShowForm(!showForm)}
               disabled={activeCount >= 5}
-              className="bg-accent hover:bg-accent/90 text-white gap-2 rounded-xl shadow-md shadow-accent/20 shrink-0"
+              className="bg-accent hover:bg-accent/90 text-white gap-2 rounded-xl shadow-md shadow-accent/20 shrink-0 dark:text-accent-foreground"
             >
               <Plus className="w-4 h-4" />
               New Request
@@ -344,8 +344,8 @@ export default function RequestsPage({ user }: RequestsPageProps) {
               </div>
 
               <div className="flex gap-2 pt-1">
-                <Button type="button" variant="outline" onClick={() => setShowForm(false)} className="flex-1 rounded-xl border-border">Cancel</Button>
-                <Button type="submit" disabled={isSubmitting} className="flex-1 bg-accent hover:bg-accent/90 text-white rounded-xl shadow-sm shadow-accent/20">
+                <Button type="button" variant="outline" onClick={() => setShowForm(false)} className="flex-1 rounded-xl border-border text-accent-foreground dark:text-accent">Cancel</Button>
+                <Button type="submit" disabled={isSubmitting} className="flex-1 bg-accent hover:bg-accent/90 text-white rounded-xl shadow-sm shadow-accent/20 dark:text-accent-foreground">
                   {isSubmitting ? 'Submitting...' : 'Submit Request'}
                 </Button>
               </div>

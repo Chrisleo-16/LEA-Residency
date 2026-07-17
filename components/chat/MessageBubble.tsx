@@ -128,7 +128,7 @@ export default function MessageBubble({
     <div className={`flex gap-2 group ${isMe ? 'flex-row-reverse' : 'flex-row'} items-end`}>
 
       {showAvatar && (
-        <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center shrink-0 text-xs font-bold text-accent mb-1 overflow-hidden border border-accent/20">
+        <div className="w-8 h-8 rounded-full bg-slate-500 dark:bg-slate-600 flex items-center justify-center shrink-0 text-xs font-bold text-white mb-1 overflow-hidden border border-slate-400/30 shadow-sm">
           {message.profiles?.avatar_url
             ? <img src={message.profiles.avatar_url} alt="" className="w-full h-full object-cover" />
             : message.profiles?.full_name?.charAt(0).toUpperCase() || '?'
@@ -139,7 +139,7 @@ export default function MessageBubble({
       <div className={`flex flex-col max-w-[78%] sm:max-w-[68%] ${isMe ? 'items-end' : 'items-start'}`}>
 
         {!isMe && showAvatar && (
-          <p className="text-xs text-muted-foreground mb-1 px-1 font-semibold">
+          <p className="text-xs text-muted-foreground dark:text-gray-400 mb-1 px-1 font-semibold">
             {message.profiles?.full_name || 'Unknown'}
           </p>
         )}
@@ -153,7 +153,7 @@ export default function MessageBubble({
             <p className="font-bold text-accent text-[11px] mb-0.5">
               ↩ {message.reply_to.profiles?.full_name || 'Unknown'}
             </p>
-            <p className="text-muted-foreground truncate max-w-[200px] italic">
+            <p className="text-muted-foreground dark:text-gray-400 truncate max-w-[200px] italic">
               {replyPreviewText}
             </p>
           </div>
@@ -173,7 +173,7 @@ export default function MessageBubble({
                 className="w-7 h-7 rounded-full bg-card/90 backdrop-blur border border-border shadow-sm flex items-center justify-center hover:bg-accent/10 hover:border-accent/30 active:scale-95 transition-all"
                 title="Reply"
               >
-                <Reply className="w-3 h-3 text-muted-foreground" />
+                <Reply className="w-3 h-3 text-muted-foreground dark:text-gray-300" />
               </button>
 
               {isMe && (
@@ -183,7 +183,7 @@ export default function MessageBubble({
                     className="w-7 h-7 rounded-full bg-card/90 backdrop-blur border border-border shadow-sm flex items-center justify-center hover:bg-accent/10 hover:border-accent/30 active:scale-95 transition-all"
                     title="Edit"
                   >
-                    <Pencil className="w-3 h-3 text-muted-foreground" />
+                    <Pencil className="w-3 h-3 text-muted-foreground dark:text-gray-300" />
                   </button>
 
                   <button
@@ -191,7 +191,7 @@ export default function MessageBubble({
                     className="w-7 h-7 rounded-full bg-card/90 backdrop-blur border border-border shadow-sm flex items-center justify-center hover:bg-red-500/10 hover:border-red-500/30 active:scale-95 transition-all group/delete"
                     title="Delete for everyone"
                   >
-                    <Trash2 className="w-3 h-3 text-muted-foreground group-hover/delete:text-red-500 transition-colors" />
+                    <Trash2 className="w-3 h-3 text-muted-foreground dark:text-gray-300 group-hover/delete:text-red-500 transition-colors" />
                   </button>
                 </>
               )}
@@ -202,7 +202,7 @@ export default function MessageBubble({
                   className="w-7 h-7 rounded-full bg-card/90 backdrop-blur border border-border shadow-sm flex items-center justify-center hover:bg-accent/10 hover:border-accent/30 active:scale-95 transition-all"
                   title="React"
                 >
-                  <SmilePlus className="w-3 h-3 text-muted-foreground" />
+                  <SmilePlus className="w-3 h-3 text-muted-foreground dark:text-gray-300" />
                 </button>
 
                 {showEmojiPicker && (
@@ -233,14 +233,14 @@ export default function MessageBubble({
           <div className={`
             px-3.5 py-2.5 rounded-2xl text-sm shadow-sm
             ${deleted
-              ? 'bg-muted/60 border border-border text-muted-foreground italic rounded-2xl'
+              ? 'bg-gray-200 dark:bg-neutral-700 border border-border text-gray-600 dark:text-gray-200 italic rounded-2xl'
               : isMe
-                ? 'bg-accent text-white rounded-br-md'
+                ? 'bg-gray-200 dark:bg-neutral-700 text-gray-600 dark:text-gray-200 rounded-br-md'
                 : 'bg-card border border-border text-foreground rounded-bl-md'
             }
           `}>
             {deleted ? (
-              <p className="text-sm italic opacity-80">{DELETED_MESSAGE_PLACEHOLDER}</p>
+              <p className="text-sm italic opacity-90 text-gray-600 dark:text-gray-200">{DELETED_MESSAGE_PLACEHOLDER}</p>
             ) : isEditing ? (
               <div className="flex items-center gap-2 min-w-[180px]">
                 <input
@@ -251,13 +251,13 @@ export default function MessageBubble({
                     if (e.key === 'Enter') handleEditSave()
                     if (e.key === 'Escape') handleEditCancel()
                   }}
-                  className="flex-1 bg-transparent border-b border-white/40 outline-none text-sm pb-0.5 text-white placeholder:text-white/50"
+                  className="flex-1 bg-transparent border-b border-gray-500/40 outline-none text-sm pb-0.5 text-gray-600 dark:text-gray-200 placeholder:text-gray-500/50"
                 />
                 <button onClick={handleEditSave} className="shrink-0 hover:scale-110 transition-transform">
-                  <Check className="w-3.5 h-3.5 text-white/80" />
+                  <Check className="w-3.5 h-3.5 text-gray-600 dark:text-gray-200" />
                 </button>
                 <button onClick={handleEditCancel} className="shrink-0 hover:scale-110 transition-transform">
-                  <X className="w-3.5 h-3.5 text-white/80" />
+                  <X className="w-3.5 h-3.5 text-gray-600 dark:text-gray-200" />
                 </button>
               </div>
             ) : (
@@ -276,11 +276,11 @@ export default function MessageBubble({
 
             <div className={`flex items-center gap-1.5 mt-1 ${isMe && !deleted ? 'justify-end' : 'justify-start'}`}>
               {!deleted && message.is_edited && (
-                <span className={`text-[10px] italic ${isMe ? 'text-white/40' : 'text-muted-foreground'}`}>
+                <span className={`text-[10px] italic ${isMe ? 'text-gray-600 dark:text-gray-200' : 'text-muted-foreground dark:text-gray-400'}`}>
                   edited
                 </span>
               )}
-              <p className={`text-[11px] ${deleted ? 'text-muted-foreground' : isMe ? 'text-white/50' : 'text-muted-foreground'}`}>
+              <p className={`text-[11px] ${deleted ? 'text-gray-500 dark:text-gray-400' : isMe ? 'text-gray-600 dark:text-gray-200' : 'text-muted-foreground dark:text-gray-400'}`}>
                 {formatTime(message.created_at)}
               </p>
             </div>
@@ -323,7 +323,7 @@ export default function MessageBubble({
                     <div className="space-y-1.5">
                       {reaction.users.map(u => (
                         <div key={u.id} className="flex items-center gap-2">
-                          <div className="w-5 h-5 rounded-full bg-accent/20 border border-accent/20 flex items-center justify-center text-xs text-accent font-bold overflow-hidden shrink-0">
+                          <div className="w-5 h-5 rounded-full bg-slate-500 dark:bg-slate-600 border border-slate-400/30 flex items-center justify-center text-xs text-white font-bold overflow-hidden shrink-0">
                             {u.avatar_url
                               ? <img src={u.avatar_url} alt="" className="w-full h-full object-cover" />
                               : u.full_name?.charAt(0).toUpperCase()
@@ -353,7 +353,7 @@ export default function MessageBubble({
                 <div
                   key={read.user_id}
                   style={{ zIndex: 3 - i }}
-                  className="w-4 h-4 rounded-full bg-accent border-2 border-background flex items-center justify-center overflow-hidden"
+                  className="w-4 h-4 rounded-full bg-slate-500 dark:bg-slate-600 border-2 border-background flex items-center justify-center overflow-hidden"
                 >
                   {read.profiles?.avatar_url
                     ? <img src={read.profiles.avatar_url} alt="" className="w-full h-full object-cover" />
@@ -364,7 +364,7 @@ export default function MessageBubble({
                 </div>
               ))}
             </div>
-            <span className="text-[10px] text-muted-foreground">
+            <span className="text-[10px] text-gray-500 dark:text-gray-400">
               {seenCount > 1 ? `Seen by ${seenCount}` : 'Seen'}
             </span>
 
@@ -374,10 +374,10 @@ export default function MessageBubble({
                 <div className="space-y-2">
                   {readsExcludingMe.map(read => (
                     <div key={read.user_id} className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-full bg-accent/20 flex items-center justify-center overflow-hidden shrink-0 border border-accent/20">
+                      <div className="w-6 h-6 rounded-full bg-slate-500 dark:bg-slate-600 flex items-center justify-center overflow-hidden shrink-0 border border-slate-400/30">
                         {read.profiles?.avatar_url
                           ? <img src={read.profiles.avatar_url} alt="" className="w-full h-full object-cover" />
-                          : <span className="text-[10px] font-bold text-accent">
+                          : <span className="text-[10px] font-bold text-white">
                               {read.profiles?.full_name?.charAt(0).toUpperCase() || '?'}
                             </span>
                         }
@@ -386,7 +386,7 @@ export default function MessageBubble({
                         <p className="text-xs font-medium text-foreground truncate max-w-[110px]">
                           {read.profiles?.full_name || 'Unknown'}
                         </p>
-                        <p className="text-[10px] text-muted-foreground">
+                        <p className="text-[10px] text-muted-foreground dark:text-gray-400">
                           {formatTime(read.seen_at)}
                         </p>
                       </div>
