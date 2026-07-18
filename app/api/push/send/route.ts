@@ -1,7 +1,7 @@
 // app/api/push/send/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { sendPushToUser } from '@/lib/push' // ← adjust path to match where this actually lives
+import { sendPushToUser } from '@/lib/pushServer' // ← correct, matches your actual file// ← adjust path to match where this actually lives
 
 /**
  * POST /api/push/send
