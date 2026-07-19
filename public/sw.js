@@ -92,6 +92,7 @@ self.addEventListener('push', (event) => {
 
     // Enhanced notification options based on message type
     const isMessage = data.type === 'message' || data.senderName
+    const isWishlistMatch = data.type === 'wishlist_match'
     const options = {
       body: data.body || 'You have a new message',
       icon: '/placeholder-logo.png',
@@ -103,20 +104,25 @@ self.addEventListener('push', (event) => {
         messageId: data.messageId || null,
         senderId: data.senderId || null,
         chatId: data.chatId || null,
+        wishlistId: data.wishlistId || null,
+        listingId: data.listingId || null,
         type: data.type || 'general'
       },
       actions: isMessage ? [
         { action: 'reply', title: 'Reply', icon: '/icons/reply.png' },
         { action: 'mark-read', title: 'Mark as read', icon: '/icons/check.png' },
         { action: 'open', title: 'Open Chat', icon: '/icons/chat.png' }
+      ] : isWishlistMatch ? [
+        { action: 'pitch', title: '🏠 Pitch My Room' },
+        { action: 'dismiss', title: 'Dismiss' },
       ] : [
         { action: 'open', title: 'Open App' },
         { action: 'dismiss', title: 'Dismiss' },
       ],
       // Enhanced notification options
-      requireInteraction: isMessage, // Keep message notifications visible
+      requireInteraction: isMessage || isWishlistMatch, // Keep actionable notifications visible
       silent: false,
-      tag: data.tag || (isMessage ? `message-${data.chatId}` : 'lea-notification'),
+      tag: data.tag || (isMessage ? `message-${data.chatId}` : isWishlistMatch ? `wishlist-${data.wishlistId}-${data.listingId}` : 'lea-notification'),
       renotify: true, // Renotify if tag is same
       timestamp: Date.now(),
     }
@@ -181,6 +187,39 @@ self.addEventListener('notificationclick', (event) => {
           return clients.openWindow(replyUrl)
         }
       })
+    )
+    return
+  }
+
+  // Handle one-tap "Pitch My Room" action — fires immediately from the
+  // notification itself, no need to open the app first.
+  if (event.action === 'pitch') {
+    console.log('[SW] Pitch action triggered')
+    event.waitUntil(
+      fetch('/api/wishlist/pitch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin',
+        body: JSON.stringify({
+          wishlistId: data.wishlistId,
+          listingId: data.listingId,
+        }),
+      })
+        .then((res) => res.ok)
+        .catch(() => false)
+        .then((ok) =>
+          self.registration.showNotification(
+            ok ? 'Pitch sent ✅' : 'Could not send pitch',
+            {
+              body: ok
+                ? "The tenant will see your listing in their next digest."
+                : 'Open the app and try again from your dashboard.',
+              icon: '/placeholder-logo.png',
+              badge: '/placeholder-logo.png',
+              tag: notification.tag,
+            }
+          )
+        )
     )
     return
   }

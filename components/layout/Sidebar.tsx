@@ -6,7 +6,7 @@ import { Inter } from 'next/font/google'
 import {
   MessageSquare, Settings, LogOut, Search,
   AlertCircle, ClipboardList, FileText, Users,
-  Building2, Activity,
+  Building2, Activity, Sparkles,
   Receipt, Grid3x3, HelpCircle,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -14,6 +14,7 @@ import { User, RealtimeChannel } from '@supabase/supabase-js'
 import { useRouteLoader } from '@/components/RouteLoaderProvider'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import ThemeToggle from '@/components/theme-toggle'
+import { getVisibleMenuIds } from '@/lib/focusAreas'
 
 const inter = Inter({ subsets: ['latin'], weight: ['400', '500', '600', '700'] })
 
@@ -29,6 +30,7 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
   const [role, setRole] = useState<string | null>(null)
   const [fullName, setFullName] = useState('')
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
+  const [focusAreas, setFocusAreas] = useState<string[] | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const { startLoading } = useRouteLoader();
 
@@ -48,7 +50,7 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
 
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .select('role, full_name, avatar_url')
+        .select('role, full_name, avatar_url, focus_areas')
         .eq('id', session.user.id)
         .maybeSingle()
 
@@ -62,6 +64,7 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
         setRole(profile.role)
         setFullName(profile.full_name || '')
         setAvatarUrl(profile.avatar_url || null)
+        setFocusAreas(profile.focus_areas || null)
       }
 
       channel = supabase
@@ -75,6 +78,7 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
           setFullName(payload.new.full_name || '')
           setAvatarUrl(payload.new.avatar_url || null)
           setRole(payload.new.role || null)
+          setFocusAreas(payload.new.focus_areas || null)
         })
 
       channel.subscribe()
@@ -105,18 +109,23 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
 
   const landlordMenu = [
     { id: 'chat',       label: 'Conversations',       icon: MessageSquare },
+    { id: 'leads',      label: 'Tenant Leads',         icon: Sparkles },
     { id: 'community',  label: 'Community',           icon: Users },
     { id: 'complaints', label: 'Complaints',           icon: AlertCircle },
     { id: 'requests',   label: 'Requests',             icon: ClipboardList },
     { id: 'payments',   label: 'Rent Ledger',          icon: Receipt },
-    // { id: 'listings',   label: 'My Listings',          icon: Grid3x3 },
+    { id: 'listings',   label: 'My Listings',          icon: Grid3x3 },
     { id: 'policy',     label: 'Manage Policies',      icon: FileText },
     { id: 'billing',    label: 'Subscription Billing', icon: Activity },
   ]
 
   const menu = role === 'landlord' ? landlordMenu : tenantMenu
 
-  const filteredMenu = menu.filter(t =>
+  // null visibleIds = show everything (legacy landlords / setup skipped personalization)
+  const visibleIds = role === 'landlord' ? getVisibleMenuIds(focusAreas) : null
+  const scopedMenu = visibleIds ? menu.filter((t) => visibleIds.has(t.id)) : menu
+
+  const filteredMenu = scopedMenu.filter(t =>
     t.label.toLowerCase().includes(searchQuery.toLowerCase())
   )
 

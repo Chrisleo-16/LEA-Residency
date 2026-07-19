@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import {
   AlertCircle, CheckCircle2, Copy, Check,
-  Building2, Wallet, Loader2
+  Building2, Wallet, Loader2, ShieldCheck, Sparkles
 } from 'lucide-react'
 
 interface Subscription {
@@ -86,28 +86,38 @@ export default function SubscriptionModal({ subscription, onPaid }: Subscription
   }
 
   const messageColors = {
-    success: 'text-green-600 bg-green-50 border-green-200',
-    error: 'text-red-600 bg-red-50 border-red-200',
-    info: 'text-blue-600 bg-blue-50 border-blue-200',
+    success: 'text-emerald-700 bg-emerald-50 border-emerald-200 dark:text-emerald-400 dark:bg-emerald-950/30 dark:border-emerald-800',
+    error: 'text-destructive bg-destructive/8 border-destructive/20',
+    info: 'text-accent bg-accent/8 border-accent/20',
   }
 
   return (
     <div className="fixed inset-0 z-50 bg-background/95 backdrop-blur-md overflow-y-auto">
       <div className="min-h-full flex items-center justify-center p-4 py-8">
-        <div className="w-full max-w-3xl">
-          <div className="bg-card border border-border rounded-3xl overflow-hidden shadow-2xl grid sm:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
+        <div className="w-full max-w-3xl animate-in fade-in zoom-in-95 duration-300">
+          <div className="relative bg-card border border-border rounded-3xl overflow-hidden shadow-2xl shadow-black/20 dark:shadow-black/50 grid sm:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
 
             {/* Left: brand + amount */}
-            <div className={`bg-gradient-to-br ${tierGradient} p-6 sm:p-7 text-white flex flex-col justify-between`}>
-              <div>
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="w-10 h-10 rounded-2xl bg-white/20 flex items-center justify-center shrink-0">
-                    <Building2 className="w-5 h-5 text-white" />
+            <div className={`relative overflow-hidden bg-gradient-to-br ${tierGradient} p-6 sm:p-7 text-white flex flex-col justify-between`}>
+              {/* Decorative depth orbs — purely cosmetic, clipped by overflow-hidden */}
+              <div className="pointer-events-none absolute -top-16 -right-16 w-56 h-56 rounded-full bg-white/10 blur-3xl" />
+              <div className="pointer-events-none absolute -bottom-20 -left-10 w-48 h-48 rounded-full bg-black/10 blur-3xl" />
+
+              <div className="relative">
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center shrink-0 ring-1 ring-white/30">
+                      <Building2 className="w-5 h-5 text-white" />
+                    </div>
+                    <div>
+                      <h2 className="font-bold text-base leading-tight">LEA Executive</h2>
+                      <p className="text-white/70 text-xs">Residency & Apts</p>
+                    </div>
                   </div>
-                  <div>
-                    <h2 className="font-bold text-base leading-tight">LEA Executive</h2>
-                    <p className="text-white/70 text-xs">Residency & Apts</p>
-                  </div>
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider bg-white/15 px-2.5 py-1 rounded-full ring-1 ring-white/20">
+                    <Sparkles className="w-3 h-3" />
+                    {subscription.tier}
+                  </span>
                 </div>
                 <h3 className="text-xl font-bold mb-1.5">
                   {isSetup ? 'Activate Your Account' : 'Subscription Required'}
@@ -119,19 +129,19 @@ export default function SubscriptionModal({ subscription, onPaid }: Subscription
                 </p>
               </div>
 
-              <div className="mt-8 sm:mt-6">
+              <div className="relative mt-8 sm:mt-6">
                 <p className="text-xs font-medium text-white/60 uppercase tracking-wider mb-1">
                   {isSetup ? 'One-time setup fee' : 'Amount due'}
                 </p>
-                <p className="text-4xl font-bold tracking-tight">
+                <p className="text-4xl font-bold tracking-tight drop-shadow-sm">
                   KES {amount.toLocaleString()}
                 </p>
-                <p className="text-xs text-white/60 mt-1.5 capitalize">
-                  {subscription.tier} plan · {subscription.unit_count} units
+                <p className="text-xs text-white/60 mt-1.5">
+                  {subscription.unit_count} unit{subscription.unit_count !== 1 ? 's' : ''} under management
                 </p>
 
-                <div className="flex items-start gap-2 bg-white/10 rounded-xl p-3 mt-5">
-                  <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
+                <div className="flex items-start gap-2 bg-white/10 backdrop-blur-sm ring-1 ring-white/10 rounded-xl p-3 mt-5">
+                  <ShieldCheck className="w-4 h-4 shrink-0 mt-0.5" />
                   <p className="text-xs leading-relaxed text-white/80">
                     Tenants pay only their rent — no hidden fees, ever.
                   </p>
@@ -152,17 +162,17 @@ export default function SubscriptionModal({ subscription, onPaid }: Subscription
                 <button
                   type="button"
                   onClick={handleCopy}
-                  className="w-full bg-secondary border border-border rounded-xl p-4 flex items-center justify-between gap-3 text-left transition-colors hover:border-accent/40"
+                  className="w-full bg-secondary border border-border rounded-xl p-4 flex items-center justify-between gap-3 text-left transition-all hover:border-accent/40 hover:shadow-sm active:scale-[0.99]"
                 >
                   <div>
                     <p className="text-xs text-muted-foreground mb-0.5">Pochi Number</p>
                     <p className="text-lg font-bold text-foreground tracking-wide">{POCHI_NUMBER}</p>
                   </div>
-                  <span className="shrink-0 w-9 h-9 rounded-lg bg-background flex items-center justify-center">
+                  <span className={`shrink-0 w-9 h-9 rounded-lg flex items-center justify-center transition-colors ${copied ? 'bg-emerald-100 dark:bg-emerald-950/50' : 'bg-accent/10'}`}>
                     {copied ? (
-                      <Check className="w-4 h-4 text-green-600" />
+                      <Check className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
                     ) : (
-                      <Copy className="w-4 h-4 text-muted-foreground" />
+                      <Copy className="w-4 h-4 text-accent" />
                     )}
                   </span>
                 </button>
@@ -184,7 +194,7 @@ export default function SubscriptionModal({ subscription, onPaid }: Subscription
                 </ol>
 
                 {message && (
-                  <div className={`flex items-start gap-2 rounded-xl px-3 py-2.5 border text-xs leading-relaxed ${messageColors[messageType]}`}>
+                  <div className={`flex items-start gap-2 rounded-xl px-3 py-2.5 border text-xs leading-relaxed animate-in fade-in slide-in-from-top-1 duration-200 ${messageColors[messageType]}`}>
                     {messageType === 'success'
                       ? <CheckCircle2 className="w-3.5 h-3.5 shrink-0 mt-0.5" />
                       : messageType === 'error'
@@ -200,7 +210,7 @@ export default function SubscriptionModal({ subscription, onPaid }: Subscription
                 <Button
                   onClick={handleConfirmPayment}
                   disabled={confirming}
-                  className="w-full h-12 rounded-2xl font-semibold text-sm gap-2 bg-accent hover:bg-accent/90 text-white shadow-lg shadow-accent/25"
+                  className="w-full h-12 rounded-2xl font-semibold text-sm gap-2 bg-accent hover:bg-accent/90 text-white shadow-lg shadow-accent/25 transition-all hover:shadow-xl hover:shadow-accent/30 hover:-translate-y-0.5 active:translate-y-0"
                 >
                   {confirming ? (
                     <>

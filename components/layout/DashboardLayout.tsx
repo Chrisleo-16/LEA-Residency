@@ -13,6 +13,7 @@ import RequestsPage from '@/components/pages/RequestsPage'
 import StaffManagementPage from '@/components/pages/StaffManagementPage'
 import PolicyPage from '@/components/pages/PolicyPage'
 import CommunityPage from '@/components/pages/CommunityPage'
+import LeadsPage from '@/components/pages/LeadsPage'
 import PaymentsPage from '@/components/pages/PaymentsPage'
 import BillingPage from '@/components/pages/BillingPage'
 import SubscriptionModal from '@/components/billing/SubscriptionModal'
@@ -96,6 +97,7 @@ export default function DashboardLayout({ user }: DashboardLayoutProps) {
   const getPageTitle = () => {
     const titles: Record<string, string> = {
       chat: 'Messages',
+      leads: 'Tenant Leads',
       community: 'Community',
       complaints: 'Complaints',
       requests: 'Requests',
@@ -111,6 +113,7 @@ export default function DashboardLayout({ user }: DashboardLayoutProps) {
   const getPageSubtitle = () => {
     const subtitles: Record<string, string> = {
       chat: 'Your private conversations',
+      leads: 'Tenants whose wishlist matches your listings',
       community: 'Group chat & announcements',
       complaints: 'Submit and track your issues',
       requests: 'Service & maintenance requests',
@@ -127,6 +130,7 @@ export default function DashboardLayout({ user }: DashboardLayoutProps) {
   const renderContent = () => {
     switch (activeTab) {
       case 'chat':       return <ChatArea user={user} />
+      case 'leads':      return <LeadsPage user={user} />
       case 'community':  return <CommunityPage user={user} />
       case 'complaints': return <ComplaintsPage user={user} />
       case 'requests':   return <RequestsPage user={user} />

@@ -20,6 +20,7 @@ import {
   Mail,
 } from "lucide-react";
 import InstallPrompt from "@/components/pwa/InstallPrompt";
+import WishlistDialog from "@/components/wishlist/WishlistDialog";
 import { useRouteLoader } from "@/components/RouteLoaderProvider";
 import { createClient } from "@/lib/supabase/client";
 import type { Listing } from "@/app/listings/page";
@@ -154,6 +155,7 @@ export default function Home() {
   const [listingsPage, setListingsPage] = useState(0);
   const [marketListings, setMarketListings] = useState<Listing[]>([]);
   const [marketListingsLoading, setMarketListingsLoading] = useState(true);
+  const [wishlistOpen, setWishlistOpen] = useState(false);
   const heroRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
@@ -400,6 +402,14 @@ export default function Home() {
                 Verified properties from landlords across Kenya, browsed and
                 booked directly.
               </p>
+              <button
+                onClick={() => setWishlistOpen(true)}
+                className="inline-flex w-full sm:w-auto items-center justify-center gap-2 mt-6 rounded-full border border-neutral-300 hover:border-neutral-900 text-sm font-semibold px-5 py-3 sm:py-2.5 transition-colors"
+              >
+                <span className="sm:hidden">Broadcast your wishlist</span>
+                <span className="hidden sm:inline">Can&apos;t find it? Broadcast your wishlist</span>
+                <span>→</span>
+              </button>
             </div>
             {marketListings.length > 3 && (
               <div className="flex items-center gap-3">
@@ -726,6 +736,7 @@ export default function Home() {
       </footer>
 
       <InstallPrompt />
+      <WishlistDialog open={wishlistOpen} onOpenChange={setWishlistOpen} />
     </div>
   );
 }

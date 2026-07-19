@@ -55,6 +55,7 @@
     "framer-motion": "^12.42.2",
     "input-otp": "1.4.2",
     "jspdf": "^4.2.1",
+    "kenya-locations": "^0.9.0",
     "logrocket": "^12.1.1",
     "lucide-react": "^0.564.0",
     "next": "16.1.6",

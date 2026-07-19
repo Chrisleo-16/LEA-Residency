@@ -16,7 +16,8 @@ export async function sendPushToUser(
   userId: string,
   title: string,
   body: string,
-  url: string = '/dashboard'
+  url: string = '/dashboard',
+  extra: Record<string, unknown> = {}
 ) {
   const { data: subscriptions } = await supabase
     .from('push_subscriptions')
@@ -36,6 +37,7 @@ export async function sendPushToUser(
     badge: '/icons/icon-72x72.png',
     url,
     timestamp: Date.now(),
+    ...extra,
   })
 
   const results = await Promise.allSettled(

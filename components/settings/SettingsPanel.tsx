@@ -36,6 +36,9 @@ import {
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import NotificationPermission from "@/components/notifications/NotificationPermission";
 import VerificationSection from "@/components/settings/VerificationSection";
+import FocusAreaPicker from "@/components/onboarding/FocusAreaPicker";
+import PaymentChannelSetup, { PaymentChannel } from "@/components/payments/PaymentChannelSetup";
+import { LayoutGrid, Wallet } from "lucide-react";
 
 const TZ = "Africa/Nairobi";
 
@@ -85,6 +88,11 @@ export default function SettingsPanel({ user }: SettingsPanelProps) {
   const [isGeneratingLink, setIsGeneratingLink] = useState(false);
   // Tracks whether the landlord has a block at all
   const [hasNoBlock, setHasNoBlock] = useState(false);
+
+  // Menu personalization + payment channels (landlord only)
+  const [focusAreas, setFocusAreas] = useState<string[]>([]);
+  const [isSavingFocusAreas, setIsSavingFocusAreas] = useState(false);
+  const [paymentChannels, setPaymentChannels] = useState<PaymentChannel[]>([]);
 
   const fileRef = useRef<HTMLInputElement>(null);
   const { subscribe, unsubscribe } = usePushNotifications();
@@ -143,7 +151,7 @@ export default function SettingsPanel({ user }: SettingsPanelProps) {
     setIsLoading(true);
     const { data: profile } = await supabase
       .from("profiles")
-      .select("full_name, email, role, avatar_url, phone_number, landlord_block_id, business_name, invite_link")
+      .select("full_name, email, role, avatar_url, phone_number, landlord_block_id, business_name, invite_link, focus_areas")
       .eq("id", user!.id)
       .single();
 
@@ -154,6 +162,7 @@ export default function SettingsPanel({ user }: SettingsPanelProps) {
       setAvatarUrl(profile.avatar_url || null);
       setPhoneNumber(profile.phone_number || "");
       setBusinessName(profile.business_name || "");
+      setFocusAreas(profile.focus_areas || []);
 
       const blockId = profile.landlord_block_id || null;
       setLandlordBlockId(blockId);
@@ -172,6 +181,21 @@ export default function SettingsPanel({ user }: SettingsPanelProps) {
             await generateAndSaveInviteLink(blockId);
           }
         }
+
+        const { data: channels } = await supabase
+          .from("landlord_payment_settings")
+          .select("payment_type, paybill_number, account_name, bank_account_number, payhero_channel_id")
+          .eq("landlord_id", user!.id);
+
+        setPaymentChannels(
+          (channels || []).map((c) => ({
+            type: c.payment_type,
+            number: c.paybill_number,
+            account: c.account_name,
+            bankAccount: c.bank_account_number || undefined,
+            id: c.payhero_channel_id,
+          }))
+        );
       }
 
       const response = await fetch("/api/account-deletion-requests");
@@ -265,6 +289,23 @@ export default function SettingsPanel({ user }: SettingsPanelProps) {
       showFeedback(err.message, true);
     } finally {
       setIsSavingProfile(false);
+    }
+  };
+
+  const handleSaveFocusAreas = async (next: string[]) => {
+    setFocusAreas(next);
+    setIsSavingFocusAreas(true);
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ focus_areas: next.length > 0 ? next : null })
+        .eq("id", user!.id);
+      if (error) throw error;
+      showFeedback("Menu updated!");
+    } catch (err: any) {
+      showFeedback(err.message, true);
+    } finally {
+      setIsSavingFocusAreas(false);
     }
   };
 
@@ -677,6 +718,44 @@ export default function SettingsPanel({ user }: SettingsPanelProps) {
             </div>
           </div>
         </Section>
+
+        {/* ── LANDLORD ONLY: Menu personalization ── */}
+        {role === "landlord" && (
+          <Section>
+            <SectionHeader
+              icon={<LayoutGrid className="w-4 h-4 text-accent" />}
+              title="Customize Your Menu"
+            />
+            <p className="text-sm text-muted-foreground mb-4">
+              Pick what LEA helps you with — your sidebar will only show those sections. Leave
+              everything unselected to show the full menu.
+            </p>
+            <FocusAreaPicker selected={focusAreas} onChange={handleSaveFocusAreas} />
+            {isSavingFocusAreas && (
+              <p className="text-xs text-muted-foreground mt-3">Saving...</p>
+            )}
+          </Section>
+        )}
+
+        {/* ── LANDLORD ONLY: Payment channels ── */}
+        {role === "landlord" && (
+          <Section>
+            <SectionHeader
+              icon={<Wallet className="w-4 h-4 text-accent" />}
+              title="Payment Channels"
+            />
+            <p className="text-sm text-muted-foreground mb-4">
+              Add or review the Paybill, Till, or bank channels tenants can pay rent into.
+            </p>
+            <PaymentChannelSetup
+              channels={paymentChannels}
+              onAdd={(c) => {
+                setPaymentChannels((prev) => [...prev, c]);
+                showFeedback("Payment channel added!");
+              }}
+            />
+          </Section>
+        )}
 
         {/* ── LANDLORD ONLY: Verification ── */}
         {role === "landlord" && <VerificationSection user={user} />}
