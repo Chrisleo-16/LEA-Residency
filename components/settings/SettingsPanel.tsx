@@ -32,6 +32,7 @@ import {
   Link2,
   Copy,
   QrCode,
+  HelpCircle,
 } from "lucide-react";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import NotificationPermission from "@/components/notifications/NotificationPermission";
@@ -39,6 +40,7 @@ import VerificationSection from "@/components/settings/VerificationSection";
 import FocusAreaPicker from "@/components/onboarding/FocusAreaPicker";
 import PaymentChannelSetup, { PaymentChannel } from "@/components/payments/PaymentChannelSetup";
 import { LayoutGrid, Wallet } from "lucide-react";
+import { startTour } from "@/components/tour/AppTour";
 
 const TZ = "Africa/Nairobi";
 
@@ -719,6 +721,25 @@ export default function SettingsPanel({ user }: SettingsPanelProps) {
           </div>
         </Section>
 
+        {/* ── Guided tour replay ── */}
+        <Section>
+          <SectionHeader
+            icon={<HelpCircle className="w-4 h-4 text-accent" />}
+            title="Guided Tour"
+          />
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-foreground">Retake the tour</p>
+              <p className="text-xs text-muted-foreground">
+                Replay the walkthrough that points out what's where in the dashboard.
+              </p>
+            </div>
+            <Button variant="outline" onClick={() => startTour(role)}>
+              Take a tour
+            </Button>
+          </div>
+        </Section>
+
         {/* ── LANDLORD ONLY: Menu personalization ── */}
         {role === "landlord" && (
           <Section>
@@ -1004,11 +1025,11 @@ export default function SettingsPanel({ user }: SettingsPanelProps) {
                         ⚠️ This action is irreversible
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        All data for{" "}
+                        Messages, complaints, requests and the profile for{" "}
                         <span className="font-semibold text-foreground">
                           {req.profiles?.full_name}
                         </span>{" "}
-                        will be permanently deleted including messages, complaints, requests and profile.
+                        will be permanently deleted. Payment/rent records are retained for your financial history.
                       </p>
                       <div className="flex gap-2">
                         <Button
@@ -1113,7 +1134,7 @@ export default function SettingsPanel({ user }: SettingsPanelProps) {
             </div>
 
             <p className="text-sm text-muted-foreground mb-5 leading-relaxed">
-              This request will be sent to your landlord. Once approved, all your data will be permanently deleted.
+              This request will be sent to your landlord. Once approved, your account data will be permanently deleted — payment records are kept for financial history.
             </p>
 
             <div className="space-y-4">
@@ -1138,6 +1159,9 @@ export default function SettingsPanel({ user }: SettingsPanelProps) {
                   <li>All your complaints and requests</li>
                   <li>Your profile and account data</li>
                 </ul>
+                <p className="text-xs text-muted-foreground pt-1">
+                  Payment/rent records are not deleted — they're retained for financial history.
+                </p>
               </div>
 
               <div className="flex gap-2">

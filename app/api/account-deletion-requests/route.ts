@@ -242,6 +242,27 @@ export async function PUT(request: NextRequest) {
         return NextResponse.json({ error: 'Failed to approve request' }, { status: 500 })
       }
 
+      // Snapshot tenant identity onto their payment history before the profile
+      // is deleted below — payments.tenant_id becomes NULL on delete (not
+      // cascaded), so this keeps the ledger readable after removal.
+      const { data: targetProfile } = await supabase
+        .from('profiles')
+        .select('full_name, email')
+        .eq('id', targetId)
+        .maybeSingle()
+
+      if (targetProfile) {
+        const { error: snapshotError } = await supabase
+          .from('payments')
+          .update({ tenant_name: targetProfile.full_name, tenant_email: targetProfile.email })
+          .eq('tenant_id', targetId)
+
+        if (snapshotError) {
+          console.error('[Deletion Requests API] Payment snapshot error:', snapshotError)
+          return NextResponse.json({ error: 'Failed to preserve payment records' }, { status: 500 })
+        }
+      }
+
       const deletions = [
         supabase.from('message_reads').delete().eq('user_id', targetId),
         supabase.from('message_reactions').delete().eq('user_id', targetId),

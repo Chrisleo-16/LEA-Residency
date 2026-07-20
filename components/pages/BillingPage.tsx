@@ -13,6 +13,7 @@ interface Subscription {
   setup_fee_paid: boolean
   current_period_start: string
   current_period_end: string
+  free_access_until?: string | null
 }
 
 interface Payment {
@@ -94,7 +95,10 @@ export default function BillingPage({ user }: BillingPageProps) {
 
   const config = statusConfig[subscription.status] || statusConfig.pending
   const StatusIcon = config.icon
-  const needsPayment = subscription.status !== 'active' && subscription.status !== 'exempt'
+  const hasFreeAccess =
+    !!subscription.free_access_until && new Date(subscription.free_access_until) > new Date()
+  const needsPayment =
+    subscription.status !== 'active' && subscription.status !== 'exempt' && !hasFreeAccess
 
   return (
     <div className="p-5 sm:p-8 max-w-2xl mx-auto space-y-5">
@@ -117,6 +121,12 @@ export default function BillingPage({ user }: BillingPageProps) {
             {config.label}
           </div>
         </div>
+
+        {hasFreeAccess && (
+          <p className="text-xs text-muted-foreground">
+            Free access until {formatDate(subscription.free_access_until as string)}
+          </p>
+        )}
 
         <div className="grid grid-cols-2 gap-4 pt-2 border-t border-border">
           <div>

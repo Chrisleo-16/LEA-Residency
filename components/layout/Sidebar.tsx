@@ -175,6 +175,7 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
           return (
             <button
               key={tab.id}
+              data-tour={`nav-${tab.id}`}
               onClick={() => handleNav(tab.id)}
               className={`
                 w-full flex items-center gap-3 px-3 py-2 rounded-md text-left text-sm
@@ -205,6 +206,7 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
           Contact Support
         </button>
         <button
+          data-tour="nav-settings"
           onClick={() => handleNav('settings')}
           className={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-left text-sm transition-colors ${
             activeTab === 'settings'

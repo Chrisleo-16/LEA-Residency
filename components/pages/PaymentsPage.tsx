@@ -32,7 +32,9 @@ const toUTC = (s: string) => new Date(s.endsWith("Z") ? s : s + "Z");
 
 interface Payment {
   id: string;
-  tenant_id: string;
+  tenant_id: string | null;
+  tenant_name?: string | null;
+  tenant_email?: string | null;
   amount: number;
   phone_number: string | null;
   mpesa_code: string | null;
@@ -433,8 +435,8 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
       const paymentType = getPaymentTypeFromNotes(payment.notes);
       
       return [
-        tenant?.full_name || 'Unknown',
-        tenant?.email || 'Unknown',
+        tenant?.full_name || payment.tenant_name || 'Unknown',
+        tenant?.email || payment.tenant_email || 'Unknown',
         paymentType,
         payment.amount.toString(),
         payment.mpesa_code || 'N/A',
@@ -1411,11 +1413,11 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
                           <td className="p-3 whitespace-nowrap">
                             <div className="flex items-center gap-2 min-w-0">
                               <div className="w-6 h-6 rounded-full bg-accent/10 flex items-center justify-center text-xs font-bold text-accent flex-shrink-0">
-                                {tenant?.full_name?.charAt(0).toUpperCase() || '?'}
+                                {(tenant?.full_name || payment.tenant_name)?.charAt(0).toUpperCase() || '?'}
                               </div>
                               <div className="min-w-0">
-                                <p className="text-sm font-medium text-foreground truncate">{tenant?.full_name || 'Unknown'}</p>
-                                <p className="text-xs text-muted-foreground truncate">{tenant?.email || ''}</p>
+                                <p className="text-sm font-medium text-foreground truncate">{tenant?.full_name || payment.tenant_name || 'Unknown'}</p>
+                                <p className="text-xs text-muted-foreground truncate">{tenant?.email || payment.tenant_email || ''}</p>
                               </div>
                             </div>
                           </td>

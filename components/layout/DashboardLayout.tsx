@@ -1,10 +1,11 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { Inter } from 'next/font/google'
 import { User } from '@supabase/supabase-js'
 import { Menu, Building2 } from 'lucide-react'
 import Sidebar from '@/components/layout/Sidebar'
+import { startTour } from '@/components/tour/AppTour'
 import ChatArea from '@/components/chat/ChatArea'
 import SettingsPanel from '@/components/settings/SettingsPanel'
 import InstallPrompt from '@/components/pwa/InstallPrompt'
@@ -31,6 +32,8 @@ export default function DashboardLayout({ user }: DashboardLayoutProps) {
   const [userRole, setUserRole] = useState<string | null>(null)
   const [subscription, setSubscription] = useState<any>(null)
   const [subscriptionChecked, setSubscriptionChecked] = useState(false)
+  const [tourCompleted, setTourCompleted] = useState<boolean | null>(null)
+  const tourStartedRef = useRef(false)
 
   // Step 1: fetch role
   useEffect(() => {
@@ -40,7 +43,7 @@ export default function DashboardLayout({ user }: DashboardLayoutProps) {
         const supabase = createClient()
         const { data, error } = await supabase
           .from('profiles')
-          .select('role')
+          .select('role, tour_completed')
           .eq('id', user.id)
           .maybeSingle()
         if (error) {
@@ -48,6 +51,7 @@ export default function DashboardLayout({ user }: DashboardLayoutProps) {
           setUserRole(null)
         } else {
           setUserRole(data?.role || null)
+          setTourCompleted(data?.tour_completed ?? true)
         }
       } catch (err: any) {
         console.error('Unexpected error fetching role:', err)
@@ -81,12 +85,38 @@ export default function DashboardLayout({ user }: DashboardLayoutProps) {
     }
   }, [user, userRole])
 
+  const hasFreeAccess =
+    !!subscription?.free_access_until && new Date(subscription.free_access_until) > new Date()
+
   const showModal =
     userRole === 'landlord' &&
     subscriptionChecked &&
     subscription !== null &&
     subscription.status !== 'active' &&
-    subscription.status !== 'exempt'
+    subscription.status !== 'exempt' &&
+    !hasFreeAccess
+
+  // Step 3: auto-start the guided tour once, after role/subscription are known
+  useEffect(() => {
+    if (!user || !userRole || tourCompleted !== false || tourStartedRef.current) return
+    if (userRole === 'landlord' && !subscriptionChecked) return
+    if (showModal) return
+
+    tourStartedRef.current = true
+    const isMobile = typeof window !== 'undefined' && window.innerWidth < 768
+    if (isMobile) setSidebarOpen(true)
+
+    startTour(userRole, {
+      delayMs: isMobile ? 350 : 0,
+      onComplete: async () => {
+        if (isMobile) setSidebarOpen(false)
+        setTourCompleted(true)
+        const supabase = createClient()
+        await supabase.from('profiles').update({ tour_completed: true }).eq('id', user.id)
+      },
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, userRole, subscriptionChecked, tourCompleted, showModal])
 
   const handleTabChange = (tab: string) => {
     if (showModal) return // block navigation while unpaid
