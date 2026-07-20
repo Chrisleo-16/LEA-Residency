@@ -1,0 +1,73 @@
+.lea-tour-popover.driver-popover {
+  background-color: var(--popover);
+  color: var(--popover-foreground);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-tooltip);
+  max-width: 320px;
+  padding: 16px;
+}
+
+.lea-tour-popover .driver-popover-title {
+  color: var(--popover-foreground);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.lea-tour-popover .driver-popover-description {
+  color: var(--muted-foreground);
+  font-size: 13px;
+}
+
+.lea-tour-popover .driver-popover-close-btn {
+  color: var(--muted-foreground);
+}
+
+.lea-tour-popover .driver-popover-close-btn:hover,
+.lea-tour-popover .driver-popover-close-btn:focus {
+  color: var(--popover-foreground);
+}
+
+.lea-tour-popover .driver-popover-progress-text {
+  color: var(--muted-foreground);
+  font-size: 12px;
+}
+
+.lea-tour-popover .driver-popover-footer-btn {
+  background-color: var(--secondary);
+  color: var(--secondary-foreground);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  text-shadow: none;
+  padding: 5px 10px;
+}
+
+.lea-tour-popover .driver-popover-footer-btn:hover,
+.lea-tour-popover .driver-popover-footer-btn:focus {
+  background-color: var(--secondary);
+  opacity: 0.85;
+}
+
+.lea-tour-popover .driver-popover-next-btn,
+.lea-tour-popover .driver-popover-done-btn {
+  background-color: var(--primary);
+  color: var(--primary-foreground);
+  border-color: var(--primary);
+}
+
+.lea-tour-popover .driver-popover-arrow-side-left {
+  border-right-color: var(--popover);
+}
+.lea-tour-popover .driver-popover-arrow-side-right {
+  border-left-color: var(--popover);
+}
+.lea-tour-popover .driver-popover-arrow-side-top {
+  border-bottom-color: var(--popover);
+}
+.lea-tour-popover .driver-popover-arrow-side-bottom {
+  border-top-color: var(--popover);
+}
+
+.driver-active-element {
+  border-radius: var(--radius-sm);
+}
