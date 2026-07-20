@@ -63,8 +63,8 @@ export default function RootLayout({
           <Toaster />
         </ThemeProvider>
         <Analytics />
-        {/* ✅ Only register SW in production — fixes 404 in dev */}
-        {(process.env.NODE_ENV === 'production' || process.env.NODE_ENV === 'development') && (
+        {/* Only register SW in production — fixes 404 in dev */}
+        {process.env.NODE_ENV === 'production' && (
           <script
             dangerouslySetInnerHTML={{
               __html: `

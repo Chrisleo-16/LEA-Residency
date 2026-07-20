@@ -10,6 +10,7 @@ export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get('code')
   const ref = searchParams.get('ref') ?? searchParams.get('state')
+  const mode = searchParams.get('mode') // 'login' | 'signup' | null — set by app/login/page.tsx
 
   if (!code) {
     return NextResponse.redirect(`${origin}/login?error=auth_failed&message=no_authorization_code`)
@@ -91,6 +92,22 @@ export async function GET(request: NextRequest) {
     const isNew =
       !profile?.role ||
       (profile.role === 'tenant' && !profile.landlord_block_id)
+
+    // Keep "Sign in" and "Sign up" distinct: signing in must not silently
+    // create an account, and signing up must not silently log into an
+    // existing one. Sign out the just-created OAuth session in both cases
+    // so the user isn't left in a half-authenticated state.
+    if (mode === 'signup' && !isNew) {
+      await supabase.auth.signOut()
+      const msg = encodeURIComponent('An account with this Google email already exists. Please sign in instead.')
+      return redirect(origin, `/login?error=auth_failed&message=${msg}`, request, cookieResponse)
+    }
+
+    if (mode === 'login' && isNew) {
+      await supabase.auth.signOut()
+      const msg = encodeURIComponent('No account found for this Google email. Please sign up first.')
+      return redirect(origin, `/login?error=auth_failed&message=${msg}`, request, cookieResponse)
+    }
 
     if (isNew) {
       console.log('[OAuth Callback] New user — setting landlord')
