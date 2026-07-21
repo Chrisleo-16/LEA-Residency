@@ -19,8 +19,8 @@ export const FOCUS_AREAS: FocusArea[] = [
   {
     id: 'tenants',
     label: 'Find tenants',
-    description: 'Manage listings and matched tenant leads',
-    menuIds: ['listings', 'leads'],
+    description: 'Matched tenant leads',
+    menuIds: ['leads'],
   },
   {
     id: 'maintenance',

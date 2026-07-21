@@ -7,7 +7,7 @@ import {
   MessageSquare, Settings, LogOut, Search,
   AlertCircle, ClipboardList, FileText, Users,
   Building2, Activity, Sparkles,
-  Receipt, Grid3x3, HelpCircle,
+  Receipt, HelpCircle,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { User, RealtimeChannel } from '@supabase/supabase-js'
@@ -114,7 +114,6 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
     { id: 'complaints', label: 'Complaints',           icon: AlertCircle },
     { id: 'requests',   label: 'Requests',             icon: ClipboardList },
     { id: 'payments',   label: 'Rent Ledger',          icon: Receipt },
-    { id: 'listings',   label: 'My Listings',          icon: Grid3x3 },
     { id: 'policy',     label: 'Manage Policies',      icon: FileText },
     { id: 'billing',    label: 'Subscription Billing', icon: Activity },
   ]
@@ -130,12 +129,7 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
   )
 
   const handleNav = (id: string) => {
-    if (id === 'listings') {
-      startLoading('/listings')
-      router.push('/listings')
-    } else {
-      setActiveTab(id)
-    }
+    setActiveTab(id)
   }
 
   return (

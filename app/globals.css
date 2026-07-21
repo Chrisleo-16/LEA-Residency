@@ -1034,14 +1034,6 @@
   transform-origin: center;
 }
 
-/* AlignUI Body Styles */
-body {
-  background: var(--color-bg-white-0);
-  color: var(--color-text-strong-950);
-  font-family: Inter, Arial, Helvetica, sans-serif;
-  margin: 0;
-  padding: 0;
-}
 @layer base {
   :root {
     font-family: var(--font-nunito), 'Nunito', sans-serif;
@@ -1165,4 +1157,18 @@ body {
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+@keyframes shimmer {
+  to {
+    transform: translateX(100%);
+  }
 }

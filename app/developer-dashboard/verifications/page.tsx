@@ -2,11 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Inter } from 'next/font/google'
 import { ShieldCheck, ShieldX, FileText, ArrowLeft, Loader2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-
-const inter = Inter({ subsets: ['latin'], weight: ['400', '500', '600', '700'] })
 
 interface VerificationRequest {
   id: string
@@ -110,7 +107,7 @@ export default function VerificationsAdminPage() {
   }
 
   return (
-    <div className={`${inter.className} min-h-screen bg-background`}>
+    <div className="min-h-screen bg-background">
       <div className="max-w-5xl mx-auto px-6 py-8">
         <button
           onClick={() => router.push('/developer-dashboard')}

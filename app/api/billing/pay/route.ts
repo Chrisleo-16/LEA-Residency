@@ -100,7 +100,7 @@ export async function POST(req: NextRequest) {
         provider: 'm-pesa',
         network_code: '63902',                        // ✅ added
         external_reference: reference,
-        callback_url: `${process.env.NEXT_PUBLIC_SITE_URL}/api/mpesa/callback`, // ✅ correct env var
+        callback_url: `${process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, '')}/api/mpesa/stkpush-callback`,
       }),
     })
 

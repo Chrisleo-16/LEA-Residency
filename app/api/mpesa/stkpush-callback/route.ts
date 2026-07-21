@@ -9,6 +9,25 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
+async function getDeveloperUserIds(): Promise<string[]> {
+  const { data } = await supabase.from('profiles').select('id').eq('role', 'developer')
+  return (data || []).map((p) => p.id)
+}
+
+async function getLandlordDisplayName(landlordId: string): Promise<string> {
+  const { data } = await supabase
+    .from('profiles')
+    .select('full_name, landlord_code')
+    .eq('id', landlordId)
+    .maybeSingle()
+  return data?.full_name || data?.landlord_code || landlordId
+}
+
+async function notifyDevelopers(title: string, body: string) {
+  const devIds = await getDeveloperUserIds()
+  await Promise.all(devIds.map((id) => sendPushToUser(id, title, body, '/developer-dashboard?tab=subscriptions')))
+}
+
 export async function POST(req: NextRequest) {
   let body: any
   try {
@@ -73,6 +92,12 @@ async function processPayment(body: any) {
           .from('landlord_subscriptions')
           .update({ status: 'overdue' })
           .eq('landlord_id', landlordId)
+
+        const landlordName = await getLandlordDisplayName(landlordId)
+        await notifyDevelopers(
+          '⚠️ Subscription payment failed',
+          `${landlordName}'s M-Pesa payment (${billingPeriod}) did not go through.`
+        )
         return
       }
     }
@@ -141,6 +166,13 @@ await sendPushToUser(
   '✅ Subscription payment confirmed',
   `KES ${Number(amount).toLocaleString()} received. Your LEA account is active for another 30 days. Code: ${generateCoupon(landlordId, billingPeriod)}`,
   '/dashboard?tab=billing'
+)
+
+// ── Push notification to developer(s) ──
+const landlordName = await getLandlordDisplayName(landlordId)
+await notifyDevelopers(
+  '💰 Subscription payment received',
+  `${landlordName} paid KES ${Number(amount).toLocaleString()} (${payment.payment_type}). Active until ${newPeriodEnd.toLocaleDateString('en-KE', { day: 'numeric', month: 'short' })}.`
 )
 
 console.log(`✅ Subscription payment confirmed for landlord ${landlordId}, period: ${billingPeriod}`)

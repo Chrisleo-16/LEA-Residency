@@ -7,6 +7,11 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
+// PAYHERO_AUTH was never a real env var (only PAYHERO_USERNAME/PAYHERO_PASSWORD
+// are set) — build the Basic auth header the same way app/api/billing/pay/route.ts does.
+const getPayHeroAuth = () =>
+  Buffer.from(`${process.env.PAYHERO_USERNAME}:${process.env.PAYHERO_PASSWORD}`).toString('base64')
+
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get('authorization')
   if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -109,7 +114,7 @@ export async function GET(req: NextRequest) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Basic ${process.env.PAYHERO_AUTH}`,
+          Authorization: `Basic ${getPayHeroAuth()}`,
         },
         body: JSON.stringify({
           amount: sub.monthly_fee,
@@ -117,7 +122,7 @@ export async function GET(req: NextRequest) {
           channel_id: process.env.PAYHERO_CHANNEL_ID,
           provider: 'm-pesa',
           external_reference: reference,
-          callback_url: `${process.env.NEXT_PUBLIC_APP_URL}/api/payments/payhero-callback`,
+          callback_url: `${process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, '')}/api/mpesa/stkpush-callback`,
         }),
       })
 
