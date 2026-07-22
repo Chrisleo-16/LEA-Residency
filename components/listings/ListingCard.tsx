@@ -2,7 +2,8 @@
 
 import { useState } from 'react'
 import Image from 'next/image'
-import { Heart, MapPin, BedDouble, Bath, Trash2, ShieldCheck, ShieldAlert, Star } from 'lucide-react'
+import Link from 'next/link'
+import { Heart, MapPin, BedDouble, Bath, Trash2, ShieldCheck, ShieldAlert, Star, CalendarClock, HandHeart } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Listing } from '@/app/listings/page'
 
@@ -13,8 +14,12 @@ interface ListingCardProps {
   isVerified: boolean
   isFeatured: boolean
   riskFlags: string[]
+  isSaved: boolean
+  isInterested: boolean
   onDelete: () => void
   onView: (listing: Listing) => void
+  onToggleSave: (listingId: string) => void
+  onExpressInterest: (listingId: string) => void
 }
 
 const isNew = (createdAt: string) => {
@@ -22,8 +27,39 @@ const isNew = (createdAt: string) => {
   return days <= 7
 }
 
-export default function ListingCard({ listing, viewMode, isOwner, isVerified, isFeatured, riskFlags, onDelete, onView }: ListingCardProps) {
-  const [isFavorite, setIsFavorite] = useState(false)
+const TYPE_LABELS: Record<Listing['listing_type'], string> = {
+  sale: 'For Sale',
+  long_term_rent: 'For Rent',
+  short_term_rent: 'Short-let',
+  commercial: 'Commercial',
+  land: 'Land',
+}
+
+const PRICE_SUFFIX: Record<Listing['listing_type'], string> = {
+  sale: '',
+  long_term_rent: '/month',
+  short_term_rent: '/night',
+  commercial: '/month',
+  land: '',
+}
+
+const isResidentialListing = (type: Listing['listing_type']) =>
+  type === 'sale' || type === 'long_term_rent' || type === 'short_term_rent'
+
+export default function ListingCard({
+  listing,
+  viewMode,
+  isOwner,
+  isVerified,
+  isFeatured,
+  riskFlags,
+  isSaved,
+  isInterested,
+  onDelete,
+  onView,
+  onToggleSave,
+  onExpressInterest,
+}: ListingCardProps) {
   const [isDeleting, setIsDeleting] = useState(false)
   const supabase = createClient()
 
@@ -43,6 +79,41 @@ export default function ListingCard({ listing, viewMode, isOwner, isVerified, is
       setIsDeleting(false)
     }
   }
+
+  const handleToggleSave = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    onToggleSave(listing.id)
+  }
+
+  const handleExpressInterest = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (isInterested) return
+    onExpressInterest(listing.id)
+  }
+
+  const actionRow = !isOwner && (
+    <div className="flex items-center gap-2 mt-3" onClick={(e) => e.stopPropagation()}>
+      <Link
+        href={`/viewing?listingId=${listing.id}`}
+        className="flex-1 inline-flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-full border border-neutral-900 text-neutral-900 hover:bg-neutral-900 hover:text-white transition-colors"
+      >
+        <CalendarClock className="w-3.5 h-3.5" />
+        Schedule Viewing
+      </Link>
+      <button
+        onClick={handleExpressInterest}
+        disabled={isInterested}
+        className={`flex-1 inline-flex items-center justify-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-full transition-colors ${
+          isInterested
+            ? 'bg-green-50 text-green-700 cursor-default'
+            : 'bg-neutral-900 text-white hover:bg-neutral-800'
+        }`}
+      >
+        <HandHeart className="w-3.5 h-3.5" />
+        {isInterested ? 'Interest sent' : "I'm Interested"}
+      </button>
+    </div>
+  )
 
   if (viewMode === 'list') {
     return (
@@ -78,21 +149,29 @@ export default function ListingCard({ listing, viewMode, isOwner, isVerified, is
                 {isNew(listing.created_at) && (
                   <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-blue-50 text-blue-700">New</span>
                 )}
+                <button
+                  onClick={handleToggleSave}
+                  className="p-1.5 rounded-full hover:bg-neutral-100 transition-colors"
+                >
+                  <Heart className={`w-4 h-4 ${isSaved ? 'fill-red-500 text-red-500' : 'text-neutral-400'}`} />
+                </button>
               </div>
             </div>
             <div className="flex items-center gap-1.5 text-neutral-500 text-sm mt-1">
               <MapPin className="w-3.5 h-3.5 shrink-0" />
               <span className="truncate">{listing.location}</span>
             </div>
-            <div className="flex gap-4 text-sm text-neutral-500 mt-3">
-              <span className="flex items-center gap-1"><BedDouble className="w-3.5 h-3.5" />{listing.bedrooms} Beds</span>
-              <span className="flex items-center gap-1"><Bath className="w-3.5 h-3.5" />{listing.bathrooms} Baths</span>
-            </div>
+            {isResidentialListing(listing.listing_type) && (
+              <div className="flex gap-4 text-sm text-neutral-500 mt-3">
+                <span className="flex items-center gap-1"><BedDouble className="w-3.5 h-3.5" />{listing.bedrooms} Beds</span>
+                <span className="flex items-center gap-1"><Bath className="w-3.5 h-3.5" />{listing.bathrooms} Baths</span>
+              </div>
+            )}
           </div>
           <div className="flex items-center justify-between mt-3">
             <span className="text-xl font-bold text-neutral-900">
               KES {listing.price.toLocaleString()}
-              <span className="text-xs font-normal text-neutral-400"> /month</span>
+              <span className="text-xs font-normal text-neutral-400"> {PRICE_SUFFIX[listing.listing_type]}</span>
             </span>
             {isOwner && (
               <button
@@ -104,6 +183,7 @@ export default function ListingCard({ listing, viewMode, isOwner, isVerified, is
               </button>
             )}
           </div>
+          {actionRow}
         </div>
       </div>
     )
@@ -121,7 +201,7 @@ export default function ListingCard({ listing, viewMode, isOwner, isVerified, is
         <Image src={listing.image_url} alt={listing.title} fill className="object-cover group-hover:scale-105 transition-transform duration-300" />
 
         <div className="absolute top-3 left-3 right-14 flex flex-wrap gap-2">
-          <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-white/90 text-neutral-700">For Rent</span>
+          <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-white/90 text-neutral-700">{TYPE_LABELS[listing.listing_type]}</span>
           {isFeatured && (
             <span className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full bg-amber-500 text-white">
               <Star className="w-3 h-3 fill-white" /> Featured
@@ -143,10 +223,10 @@ export default function ListingCard({ listing, viewMode, isOwner, isVerified, is
         </div>
 
         <button
-          onClick={(e) => { e.stopPropagation(); setIsFavorite(!isFavorite) }}
+          onClick={handleToggleSave}
           className="absolute top-3 right-3 w-8 h-8 rounded-full bg-white/90 flex items-center justify-center hover:bg-white transition-colors"
         >
-          <Heart className={`w-4 h-4 ${isFavorite ? 'fill-red-500 text-red-500' : 'text-neutral-600'}`} />
+          <Heart className={`w-4 h-4 ${isSaved ? 'fill-red-500 text-red-500' : 'text-neutral-600'}`} />
         </button>
 
         {isOwner && (
@@ -167,17 +247,19 @@ export default function ListingCard({ listing, viewMode, isOwner, isVerified, is
           <span className="truncate">{listing.location}</span>
         </div>
 
-        <div className="flex items-center gap-4 text-sm text-neutral-500 mb-4 pb-4 border-b border-neutral-100">
-          <span className="flex items-center gap-1"><BedDouble className="w-3.5 h-3.5" />{listing.bedrooms} Beds</span>
-          <span className="flex items-center gap-1"><Bath className="w-3.5 h-3.5" />{listing.bathrooms} Baths</span>
-        </div>
+        {isResidentialListing(listing.listing_type) && (
+          <div className="flex items-center gap-4 text-sm text-neutral-500 mb-4 pb-4 border-b border-neutral-100">
+            <span className="flex items-center gap-1"><BedDouble className="w-3.5 h-3.5" />{listing.bedrooms} Beds</span>
+            <span className="flex items-center gap-1"><Bath className="w-3.5 h-3.5" />{listing.bathrooms} Baths</span>
+          </div>
+        )}
 
         <div className="flex items-center justify-between gap-2">
           <div>
             <span className="text-lg font-bold text-neutral-900">
               KES {listing.price.toLocaleString()}
             </span>
-            <span className="text-xs text-neutral-400"> /month</span>
+            <span className="text-xs text-neutral-400"> {PRICE_SUFFIX[listing.listing_type]}</span>
           </div>
           <button
             onClick={(e) => { e.stopPropagation(); onView(listing) }}
@@ -186,6 +268,7 @@ export default function ListingCard({ listing, viewMode, isOwner, isVerified, is
             View Details
           </button>
         </div>
+        {actionRow}
       </div>
     </div>
   )

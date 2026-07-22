@@ -191,6 +191,11 @@ CREATE TABLE payment_notifications (
 
 -- ============================================================================
 -- MARKETPLACE (AIRBNB-STYLE SHORT-TERM RENTALS)
+-- DEPRECATED / NOT APPLIED — this block was never run against the live
+-- database and does not match the listings table the app actually queries.
+-- The live schema lives in supabase/migrations (see 20260702_create_listings_table.sql
+-- and 20260722_listing_types_and_details.sql for the real, current shape).
+-- Kept here for historical reference only.
 -- ============================================================================
 
 -- Listings

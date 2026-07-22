@@ -1,19 +1,58 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
+import { Inter } from "next/font/google";
 import {
   ArrowLeft,
-  Building2,
   CheckCircle,
-  Calendar,
   Clock,
   Users,
   Home,
   Send,
   ChevronLeft,
   ChevronRight,
+  MessageCircle,
+  Mail,
+  ShieldCheck,
+  MapPin,
 } from "lucide-react";
 import Link from "next/link";
+import { createClient } from "@/lib/supabase/client";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+
+const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700"] });
+
+interface ViewingListing {
+  id: string;
+  title: string;
+  location: string;
+  price: number;
+  image_url: string;
+}
+
+interface ListingOwner {
+  full_name: string | null;
+  phone_number: string | null;
+  email: string | null;
+  kyc_verified: boolean;
+}
+
+const isValidPhone = (phone?: string | null) =>
+  !!phone && /^(?:\+?254|0)?7\d{8}$/.test(phone.replace(/\s/g, ""));
+
+const isValidEmail = (email?: string | null) =>
+  !!email && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+
+const toWhatsAppDigits = (phone: string) => {
+  let clean = phone.replace(/\D/g, "");
+  if (clean.startsWith("0")) clean = "254" + clean.substring(1);
+  if (!clean.startsWith("254")) clean = "254" + clean;
+  return clean;
+};
 
 const STEPS = ["Personal Info", "Preferences", "Schedule", "Confirm"];
 
@@ -45,25 +84,59 @@ const URGENCY_OPTIONS = [
 ];
 
 const MONTHS = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
-  "May",
-  "Jun",
-  "Jul",
-  "Aug",
-  "Sep",
-  "Oct",
-  "Nov",
-  "Dec",
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
 ];
 
 export default function ViewingPage() {
+  return (
+    <Suspense fallback={null}>
+      <ViewingPageInner />
+    </Suspense>
+  );
+}
+
+function pillClass(active: boolean) {
+  return `text-sm font-medium px-3.5 py-2.5 rounded-xl border transition-colors text-left ${
+    active
+      ? "border-neutral-900 bg-neutral-900 text-white"
+      : "border-neutral-200 text-neutral-600 hover:border-neutral-400"
+  }`;
+}
+
+function ViewingPageInner() {
+  const searchParams = useSearchParams();
+  const listingId = searchParams.get("listingId");
+  const supabase = createClient();
+
   const [step, setStep] = useState(0);
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [listing, setListing] = useState<ViewingListing | null>(null);
+  const [owner, setOwner] = useState<ListingOwner | null>(null);
+
+  useEffect(() => {
+    if (!listingId) return;
+    (async () => {
+      const { data: listingData } = await supabase
+        .from("listings")
+        .select("id, title, location, price, image_url, created_by")
+        .eq("id", listingId)
+        .maybeSingle();
+
+      if (!listingData) return;
+      setListing(listingData);
+
+      const { data: ownerData } = await supabase
+        .from("profiles")
+        .select("full_name, phone_number, email, kyc_verified")
+        .eq("id", listingData.created_by)
+        .maybeSingle();
+
+      if (ownerData) setOwner(ownerData);
+    })();
+  }, [listingId]);
 
   // Calendar state
   const today = new Date();
@@ -125,12 +198,35 @@ export default function ViewingPage() {
 
   const handleSubmit = async () => {
     setSubmitting(true);
+    setError("");
     try {
-      await fetch("/api/viewing", {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const res = await fetch("/api/viewing", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...form, date: selectedDate?.toISOString() }),
+        body: JSON.stringify({
+          firstName: form.firstName,
+          lastName: form.lastName,
+          email: form.email,
+          phone: form.phone,
+          propertyType: form.propertyType,
+          preferredDate: selectedDate
+            ? `${selectedDate.getFullYear()}-${String(selectedDate.getMonth() + 1).padStart(2, "0")}-${String(selectedDate.getDate()).padStart(2, "0")}`
+            : "",
+          preferredTime: form.timeSlot,
+          message: form.message,
+          groupSize: form.groupSize,
+          budget: form.budget,
+          urgency: form.urgency,
+          agreeToTerms: form.agreed,
+          listingId: listingId || undefined,
+          tenantId: sessionData.session?.user?.id,
+        }),
       });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || "Request failed");
+      }
       setSubmitted(true);
     } catch {
       setError("Something went wrong. Please try again.");
@@ -139,178 +235,79 @@ export default function ViewingPage() {
     }
   };
 
-  const inputStyle: React.CSSProperties = {
-    fontFamily: "'DM Sans', sans-serif",
-    fontSize: 13,
-    background: "#161616",
-    border: "1px solid rgba(242,237,228,.1)",
-    color: "#f2ede4",
-    padding: "12px 14px",
-    width: "100%",
-    outline: "none",
-    transition: "border-color .25s",
-  };
-  const labelStyle: React.CSSProperties = {
-    fontFamily: "'DM Sans', sans-serif",
-    fontSize: 10,
-    letterSpacing: ".16em",
-    textTransform: "uppercase",
-    color: "rgba(242,237,228,.45)",
-    display: "block",
-    marginBottom: 8,
-  };
+  const waMessage = listing
+    ? `Hi, I'd like to schedule a viewing for "${listing.title}"${selectedDate ? ` on ${selectedDate.toLocaleDateString("en-KE", { weekday: "long", day: "numeric", month: "long" })}` : ""}${form.timeSlot ? ` (${form.timeSlot})` : ""}. My name is ${form.firstName} ${form.lastName}.`
+    : "";
+  const waLink =
+    owner && isValidPhone(owner.phone_number)
+      ? `https://wa.me/${toWhatsAppDigits(owner.phone_number as string)}?text=${encodeURIComponent(waMessage)}`
+      : null;
+  const mailLink =
+    owner && isValidEmail(owner.email)
+      ? `mailto:${owner.email}?subject=${encodeURIComponent(`Viewing request: ${listing?.title || "your property"}`)}&body=${encodeURIComponent(waMessage)}`
+      : null;
 
   // ── Success ────────────────────────────────────────────────────────
   if (submitted) {
     return (
-      <div
-        style={{
-          fontFamily: "'Cormorant Garamond', Georgia, serif",
-          background: "#0a0a0a",
-          color: "#f2ede4",
-          minHeight: "100vh",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          padding: 24,
-        }}
-      >
-        <style>{`@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:wght@300;400;500;600&display=swap');`}</style>
-        <div
-          style={{
-            background: "#131313",
-            border: "1px solid rgba(201,169,110,.25)",
-            padding: "56px 48px",
-            maxWidth: 460,
-            width: "100%",
-            textAlign: "center",
-          }}
-        >
-          <div
-            style={{
-              width: 64,
-              height: 64,
-              background: "rgba(74,222,128,.1)",
-              border: "1px solid rgba(74,222,128,.3)",
-              borderRadius: "50%",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              margin: "0 auto 24px",
-            }}
-          >
-            <CheckCircle size={28} color="#4ade80" />
+      <div className={`${inter.className} min-h-screen bg-neutral-50 flex items-center justify-center p-6`}>
+        <div className="bg-white border border-neutral-200 rounded-2xl p-10 max-w-md w-full text-center">
+          <div className="w-14 h-14 rounded-full bg-green-50 border border-green-200 flex items-center justify-center mx-auto mb-5">
+            <CheckCircle className="w-7 h-7 text-green-600" />
           </div>
-          <div
-            style={{
-              fontFamily: "'DM Sans', sans-serif",
-              fontSize: 10,
-              letterSpacing: ".2em",
-              textTransform: "uppercase",
-              color: "#c9a96e",
-              marginBottom: 12,
-            }}
-          >
-            Confirmed
-          </div>
-          <h2 style={{ fontSize: 36, fontWeight: 300, marginBottom: 16 }}>
-            Viewing{" "}
-            <em style={{ color: "#c9a96e", fontStyle: "italic" }}>Scheduled</em>
-          </h2>
-          <p
-            style={{
-              fontFamily: "'DM Sans', sans-serif",
-              fontSize: 14,
-              color: "rgba(242,237,228,.55)",
-              lineHeight: 1.8,
-              marginBottom: 32,
-            }}
-          >
+          <p className="text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-2">Confirmed</p>
+          <h2 className="text-2xl font-bold text-neutral-900 mb-3">Viewing Scheduled</h2>
+          <p className="text-sm text-neutral-500 leading-relaxed mb-6">
             Thank you, {form.firstName}. Your viewing request has been received.
-            We will confirm your appointment within 24 hours via email or phone.
+            We&apos;ll confirm your appointment within 24 hours via email or phone.
           </p>
+
           {selectedDate && (
-            <div
-              style={{
-                background: "#0f0f0f",
-                border: "1px solid rgba(242,237,228,.08)",
-                padding: "20px 24px",
-                marginBottom: 32,
-                textAlign: "left",
-              }}
-            >
-              <div
-                style={{
-                  fontFamily: "'DM Sans', sans-serif",
-                  fontSize: 10,
-                  letterSpacing: ".16em",
-                  textTransform: "uppercase",
-                  color: "rgba(242,237,228,.4)",
-                  marginBottom: 8,
-                }}
-              >
-                Requested Slot
-              </div>
-              <div
-                style={{
-                  fontFamily: "'Cormorant Garamond', serif",
-                  fontSize: 20,
-                  color: "#f2ede4",
-                }}
-              >
-                {selectedDate.toLocaleDateString("en-KE", {
-                  weekday: "long",
-                  day: "numeric",
-                  month: "long",
-                  year: "numeric",
-                })}
-              </div>
-              <div
-                style={{
-                  fontFamily: "'DM Sans', sans-serif",
-                  fontSize: 13,
-                  color: "rgba(242,237,228,.5)",
-                  marginTop: 4,
-                }}
-              >
-                {form.timeSlot}
-              </div>
+            <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-5 mb-6 text-left">
+              <p className="text-xs font-semibold tracking-wide uppercase text-neutral-400 mb-1">Requested Slot</p>
+              <p className="text-base font-semibold text-neutral-900">
+                {selectedDate.toLocaleDateString("en-KE", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
+              </p>
+              <p className="text-sm text-neutral-500 mt-0.5">{form.timeSlot}</p>
             </div>
           )}
-          {[
-            { emoji: "📧", t: "Check email for confirmation" },
-            { emoji: "📱", t: "SMS reminder before your visit" },
-            { emoji: "🏠", t: "Prepare your questions" },
-          ].map(({ emoji, t }) => (
-            <div
-              key={t}
-              style={{
-                fontFamily: "'DM Sans', sans-serif",
-                fontSize: 13,
-                color: "rgba(242,237,228,.45)",
-                marginBottom: 8,
-              }}
-            >
-              {emoji} {t}
+
+          <div className="space-y-2 mb-2">
+            {[
+              { emoji: "📱", t: "We'll confirm by SMS or call" },
+              { emoji: "🏠", t: "Prepare your questions" },
+            ].map(({ emoji, t }) => (
+              <p key={t} className="text-sm text-neutral-500">{emoji} {t}</p>
+            ))}
+          </div>
+
+          {(waLink || mailLink) && (
+            <div className="flex flex-col gap-2.5 mt-6 pt-6 border-t border-neutral-100">
+              <p className="text-xs font-semibold tracking-wide uppercase text-neutral-400 mb-1">Reach the owner directly</p>
+              {waLink && (
+                <a
+                  href={waLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center gap-2 text-sm font-semibold px-5 py-3 rounded-full bg-[#25D366] text-white hover:opacity-90 transition-opacity"
+                >
+                  <MessageCircle className="w-4 h-4" /> Message on WhatsApp
+                </a>
+              )}
+              {mailLink && (
+                <a
+                  href={mailLink}
+                  className="inline-flex items-center justify-center gap-2 text-sm font-semibold px-5 py-3 rounded-full border border-neutral-200 text-neutral-900 hover:bg-neutral-50 transition-colors"
+                >
+                  <Mail className="w-4 h-4" /> Email Owner
+                </a>
+              )}
             </div>
-          ))}
+          )}
+
           <Link
             href="/"
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 8,
-              marginTop: 32,
-              fontFamily: "'DM Sans', sans-serif",
-              fontSize: 11,
-              fontWeight: 600,
-              letterSpacing: ".12em",
-              textTransform: "uppercase",
-              background: "#c9a96e",
-              color: "#0a0a0a",
-              padding: "13px 32px",
-              textDecoration: "none",
-            }}
+            className="inline-flex items-center gap-1.5 mt-8 text-sm font-semibold px-6 py-3 rounded-full bg-neutral-900 text-white hover:bg-neutral-800 transition-colors"
           >
             Back to Home
           </Link>
@@ -320,287 +317,90 @@ export default function ViewingPage() {
   }
 
   return (
-    <div
-      style={{
-        fontFamily: "'Cormorant Garamond', Georgia, serif",
-        background: "#0a0a0a",
-        color: "#f2ede4",
-        minHeight: "100vh",
-      }}
-    >
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:wght@300;400;500;600&display=swap');
-        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-        body { background: #0a0a0a; }
-
-        input, textarea { appearance: none; }
-        input:focus, textarea:focus { border-color: rgba(201,169,110,.5) !important; }
-        input::placeholder, textarea::placeholder { color: rgba(242,237,228,.28); }
-        textarea { resize: none; }
-
-        .sel-pill { font-family: 'DM Sans', sans-serif; font-size: 12px; font-weight: 500; background: transparent; border: 1px solid rgba(242,237,228,.12); color: rgba(242,237,228,.5); padding: 10px 18px; cursor: pointer; transition: all .25s; text-align: center; }
-        .sel-pill.active { border-color: #c9a96e; color: #c9a96e; background: rgba(201,169,110,.07); }
-        .sel-pill:hover { border-color: rgba(201,169,110,.4); color: rgba(242,237,228,.85); }
-
-        .cal-day { width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; font-family: 'DM Sans', sans-serif; font-size: 13px; cursor: pointer; transition: all .2s; border: 1px solid transparent; }
-        .cal-day.today { border-color: rgba(201,169,110,.3); color: #c9a96e; }
-        .cal-day.selected { background: #c9a96e; color: #0a0a0a; font-weight: 600; }
-        .cal-day.disabled { color: rgba(242,237,228,.18); cursor: not-allowed; }
-        .cal-day:not(.disabled):not(.selected):hover { border-color: rgba(201,169,110,.35); background: rgba(201,169,110,.06); }
-
-        .step-dot { width: 8px; height: 8px; border-radius: 50%; transition: all .3s; }
-
-        .btn-primary { font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; background: #c9a96e; color: #0a0a0a; border: none; cursor: pointer; padding: 14px 32px; transition: all .3s; display: inline-flex; align-items: center; gap: 8px; }
-        .btn-primary:hover:not(:disabled) { background: #b8914f; transform: translateY(-1px); }
-        .btn-primary:disabled { opacity: .4; cursor: not-allowed; }
-
-        .btn-ghost { font-family: 'DM Sans', sans-serif; font-size: 11px; font-weight: 500; letter-spacing: .12em; text-transform: uppercase; background: transparent; color: rgba(242,237,228,.5); border: 1px solid rgba(242,237,228,.12); cursor: pointer; padding: 13px 28px; transition: all .25s; display: inline-flex; align-items: center; gap: 8px; }
-        .btn-ghost:hover { border-color: rgba(242,237,228,.3); color: #f2ede4; }
-
-        @media (max-width: 768px) {
-          .two-col { grid-template-columns: 1fr !important; }
-          .sidebar { display: none !important; }
-        }
-        .step-label { display: none; }
-        @media (min-width: 601px) {
-          .step-label { display: block; }
-        }
-      `}</style>
-
-      {/* ── NAV ─────────────────────────────── */}
-      <nav
-        style={{
-          position: "sticky",
-          margin:"30px",
-          display:"flex",
-          justifyContent:"center",
-          gap:2
-
-        }}
-      >
-        <Link
-          href="/gallery"
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            textDecoration: "none",
-            color: "rgba(242,237,228,.5)",
-            fontFamily: "'DM Sans', sans-serif",
-            fontSize: 11,
-            letterSpacing: ".1em",
-            textTransform: "uppercase",
-          }}
-          onMouseOver={(e) => (e.currentTarget.style.color = "#c9a96e")}
-          onMouseOut={(e) =>
-            (e.currentTarget.style.color = "rgba(242,237,228,.5)")
-          }
-        >
-          <ArrowLeft size={13} /> Gallery
-        </Link>
-        <div
-          style={{ width: 1, height: 60, background: "rgba(242,237,228,.1)", marginLeft:10 }}
-        />
-        <div style={{ display: "flex", alignItems: "center", gap: 10 , marginLeft:20, marginRight:10}}>
-          <div
-            style={{
-              width: 30,
-              height: 30,
-              border: "1px solid #c9a96e",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <Calendar size={14} color="#c9a96e" />
-          </div>
-          <div>
-            <div
-              style={{
-                fontFamily: "'Cormorant Garamond', serif",
-                fontSize: 17,
-                fontWeight: 500,
-                color: "#f2ede4",
-              }}
-            >
-              Schedule a Viewing
-            </div>
-            <div
-              style={{
-                fontFamily: "'DM Sans', sans-serif",
-                fontSize: 9,
-                letterSpacing: ".18em",
-                textTransform: "uppercase",
-                color: "rgba(201,169,110,.65)",
-              }}
-            >
-              LEA Executive Residency
+    <div className={`${inter.className} min-h-screen bg-neutral-50`}>
+      {/* Header */}
+      <div className="sticky top-0 z-40 bg-white border-b border-neutral-100">
+        <div className="px-6 py-5 max-w-7xl mx-auto flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4 min-w-0">
+            <Link href="/listings" className="text-neutral-500 hover:text-neutral-900 transition-colors shrink-0">
+              <ArrowLeft className="w-5 h-5" />
+            </Link>
+            <div className="min-w-0">
+              <h1 className="text-lg font-bold text-neutral-900 truncate">Schedule a Viewing</h1>
+              <p className="text-sm text-neutral-500 truncate">{listing ? listing.title : "Pick the date and time that works for you"}</p>
             </div>
           </div>
-        </div>
-
-        {/* Step indicator */}
-        <div
-          style={{
-            marginLeft: "auto",
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-          }}
-        >
-          {STEPS.map((s, i) => (
-            <div
-              key={s}
-              style={{ display: "flex", alignItems: "center", gap: 8 }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <div className="hidden sm:flex items-center gap-2 shrink-0">
+            {STEPS.map((s, i) => (
+              <div key={s} className="flex items-center gap-2">
                 <div
-                  className="step-dot"
-                  style={{
-                    background:
-                      i < step
-                        ? "#c9a96e"
-                        : i === step
-                          ? "#c9a96e"
-                          : "rgba(242,237,228,.15)",
-                    transform: i === step ? "scale(1.4)" : "scale(1)",
-                  }}
+                  className={`w-2 h-2 rounded-full transition-colors ${
+                    i <= step ? "bg-neutral-900" : "bg-neutral-200"
+                  }`}
                 />
-                <span
-                  className="step-label"
-                  style={{
-                    fontFamily: "'DM Sans', sans-serif",
-                    fontSize: 10,
-                    letterSpacing: ".1em",
-                    textTransform: "uppercase",
-                    color: i <= step ? "#c9a96e" : "rgba(242,237,228,.3)",
-                  }}
-                >
-                  {s}
-                </span>
+                {i < STEPS.length - 1 && <div className="w-4 h-px bg-neutral-200" />}
               </div>
-              {i < STEPS.length - 1 && (
-                <div
-                  style={{
-                    width: 20,
-                    height: 1,
-                    background: i < step ? "#c9a96e" : "rgba(242,237,228,.12)",
-                  }}
-                />
-              )}
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-      </nav>
+      </div>
 
-      <div
-        style={{
-          maxWidth: 1100,
-          margin: "0 auto",
-          padding: "32px 20px",
-          display: "grid",
-          gridTemplateColumns: "1fr 320px",
-          gap: 32,
-        }}
-        className="two-col"
-      >
+      <div className="px-6 py-8 max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-8">
         {/* ── MAIN FORM ─────────────────────── */}
-        <div>
-          {/* Step header */}
-          <div style={{ marginBottom: 40 }}>
-            <div
-              style={{
-                fontFamily: "'DM Sans', sans-serif",
-                fontSize: 10,
-                letterSpacing: ".22em",
-                textTransform: "uppercase",
-                color: "#c9a96e",
-                marginBottom: 8,
-              }}
-            >
+        <div className="bg-white border border-neutral-200 rounded-2xl p-6 sm:p-8">
+          <div className="mb-8">
+            <p className="text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-2">
               Step {step + 1} of {STEPS.length}
-            </div>
-            <h2 style={{ fontSize: "clamp(28px, 4vw, 44px)", fontWeight: 300 }}>
-              {step === 0 && (
-                <>
-                  <em style={{ color: "#c9a96e", fontStyle: "italic" }}>Who</em>{" "}
-                  are you?
-                </>
-              )}
-              {step === 1 && (
-                <>
-                  What are you{" "}
-                  <em style={{ color: "#c9a96e", fontStyle: "italic" }}>
-                    looking for?
-                  </em>
-                </>
-              )}
-              {step === 2 && (
-                <>
-                  Pick a{" "}
-                  <em style={{ color: "#c9a96e", fontStyle: "italic" }}>
-                    date & time
-                  </em>
-                </>
-              )}
-              {step === 3 && (
-                <>
-                  Review &{" "}
-                  <em style={{ color: "#c9a96e", fontStyle: "italic" }}>
-                    Confirm
-                  </em>
-                </>
-              )}
+            </p>
+            <h2 className="text-2xl sm:text-3xl font-bold text-neutral-900">
+              {step === 0 && "Who are you?"}
+              {step === 1 && "What are you looking for?"}
+              {step === 2 && "Pick a date & time"}
+              {step === 3 && "Review & Confirm"}
             </h2>
           </div>
 
           {/* ── STEP 0: Personal Info ─────────── */}
           {step === 0 && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr 1fr",
-                  gap: 12,
-                }}
-              >
+            <div className="flex flex-col gap-5">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label style={labelStyle}>First Name *</label>
-                  <input
-                    style={inputStyle}
+                  <Label className="text-neutral-900 mb-2 block">First Name *</Label>
+                  <Input
                     placeholder="Jane"
                     value={form.firstName}
                     onChange={(e) => set("firstName", e.target.value)}
+                    className="bg-white border-neutral-200 text-neutral-900 rounded-xl"
                   />
                 </div>
                 <div>
-                  <label style={labelStyle}>Last Name *</label>
-                  <input
-                    style={inputStyle}
+                  <Label className="text-neutral-900 mb-2 block">Last Name *</Label>
+                  <Input
                     placeholder="Doe"
                     value={form.lastName}
                     onChange={(e) => set("lastName", e.target.value)}
+                    className="bg-white border-neutral-200 text-neutral-900 rounded-xl"
                   />
                 </div>
               </div>
               <div>
-                <label style={labelStyle}>Email Address *</label>
-                <input
+                <Label className="text-neutral-900 mb-2 block">Email Address *</Label>
+                <Input
                   type="email"
-                  style={inputStyle}
                   placeholder="jane.doe@example.com"
                   value={form.email}
                   onChange={(e) => set("email", e.target.value)}
+                  className="bg-white border-neutral-200 text-neutral-900 rounded-xl"
                 />
               </div>
               <div>
-                <label style={labelStyle}>Phone Number *</label>
-                <input
+                <Label className="text-neutral-900 mb-2 block">Phone Number *</Label>
+                <Input
                   type="tel"
-                  style={inputStyle}
                   placeholder="+254 700 123 456"
                   value={form.phone}
                   onChange={(e) => set("phone", e.target.value)}
+                  className="bg-white border-neutral-200 text-neutral-900 rounded-xl"
                 />
               </div>
             </div>
@@ -608,65 +408,44 @@ export default function ViewingPage() {
 
           {/* ── STEP 1: Preferences ──────────── */}
           {step === 1 && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 28 }}>
+            <div className="flex flex-col gap-7">
               <div>
-                <label style={labelStyle}>Property Type *</label>
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(2,1fr)",
-                    gap: 10,
-                  }}
-                >
+                <Label className="text-neutral-900 mb-2.5 block">Property Type *</Label>
+                <div className="grid grid-cols-2 gap-2.5">
                   {PROPERTY_TYPES.map((t) => (
-                    <button
-                      key={t}
-                      className={`sel-pill${form.propertyType === t ? " active" : ""}`}
-                      onClick={() => set("propertyType", t)}
-                    >
+                    <button key={t} className={pillClass(form.propertyType === t)} onClick={() => set("propertyType", t)}>
                       {t}
                     </button>
                   ))}
                 </div>
               </div>
               <div>
-                <label style={labelStyle}>Group Size *</label>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+                <Label className="text-neutral-900 mb-2.5 block">Group Size *</Label>
+                <div className="flex flex-wrap gap-2.5">
                   {GROUP_SIZES.map((g) => (
-                    <button
-                      key={g}
-                      className={`sel-pill${form.groupSize === g ? " active" : ""}`}
-                      onClick={() => set("groupSize", g)}
-                    >
+                    <button key={g} className={pillClass(form.groupSize === g)} onClick={() => set("groupSize", g)}>
                       {g}
                     </button>
                   ))}
                 </div>
               </div>
               <div>
-                <label style={labelStyle}>Move-in Urgency *</label>
-                <div
-                  style={{ display: "flex", flexDirection: "column", gap: 8 }}
-                >
+                <Label className="text-neutral-900 mb-2.5 block">Move-in Urgency *</Label>
+                <div className="flex flex-col gap-2">
                   {URGENCY_OPTIONS.map((u) => (
-                    <button
-                      key={u}
-                      className={`sel-pill${form.urgency === u ? " active" : ""}`}
-                      style={{ textAlign: "left" }}
-                      onClick={() => set("urgency", u)}
-                    >
+                    <button key={u} className={pillClass(form.urgency === u)} onClick={() => set("urgency", u)}>
                       {u}
                     </button>
                   ))}
                 </div>
               </div>
               <div>
-                <label style={labelStyle}>Budget Range (KES / month)</label>
-                <input
-                  style={inputStyle}
+                <Label className="text-neutral-900 mb-2 block">Budget Range (KES / month)</Label>
+                <Input
                   placeholder="e.g. 45,000 – 80,000"
                   value={form.budget}
                   onChange={(e) => set("budget", e.target.value)}
+                  className="bg-white border-neutral-200 text-neutral-900 rounded-xl"
                 />
               </div>
             </div>
@@ -674,133 +453,40 @@ export default function ViewingPage() {
 
           {/* ── STEP 2: Schedule ─────────────── */}
           {step === 2 && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
-              {/* Calendar */}
+            <div className="flex flex-col gap-8">
               <div>
-                <label style={labelStyle}>
+                <Label className="text-neutral-900 mb-2.5 block">
                   Preferred Date *{" "}
                   {selectedDate && (
-                    <span style={{ color: "#c9a96e" }}>
-                      —{" "}
-                      {selectedDate.toLocaleDateString("en-KE", {
-                        weekday: "short",
-                        day: "numeric",
-                        month: "short",
-                      })}
+                    <span className="text-neutral-500 font-normal">
+                      — {selectedDate.toLocaleDateString("en-KE", { weekday: "short", day: "numeric", month: "short" })}
                     </span>
                   )}
-                </label>
-                <div
-                  style={{
-                    background: "#131313",
-                    border: "1px solid rgba(242,237,228,.08)",
-                    padding: "24px 20px",
-                    display: "inline-block",
-                    minWidth: 280,
-                  }}
-                >
-                  {/* Month nav */}
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      marginBottom: 20,
-                    }}
-                  >
+                </Label>
+                <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-5 inline-block min-w-70">
+                  <div className="flex items-center justify-between mb-5">
                     <button
                       onClick={prevMonth}
-                      style={{
-                        background: "none",
-                        border: "1px solid rgba(242,237,228,.1)",
-                        width: 32,
-                        height: 32,
-                        cursor: "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        color: "rgba(242,237,228,.5)",
-                        transition: "all .2s",
-                      }}
-                      onMouseOver={(e) =>
-                        (e.currentTarget.style.borderColor = "#c9a96e")
-                      }
-                      onMouseOut={(e) =>
-                        (e.currentTarget.style.borderColor =
-                          "rgba(242,237,228,.1)")
-                      }
+                      className="w-8 h-8 rounded-lg border border-neutral-200 flex items-center justify-center text-neutral-500 hover:border-neutral-400 transition-colors"
                     >
-                      <ChevronLeft size={14} />
+                      <ChevronLeft className="w-3.5 h-3.5" />
                     </button>
-                    <span
-                      style={{
-                        fontFamily: "'Cormorant Garamond', serif",
-                        fontSize: 18,
-                        fontWeight: 400,
-                        color: "#f2ede4",
-                      }}
-                    >
-                      {MONTHS[calMonth]} {calYear}
-                    </span>
+                    <span className="text-base font-semibold text-neutral-900">{MONTHS[calMonth]} {calYear}</span>
                     <button
                       onClick={nextMonth}
-                      style={{
-                        background: "none",
-                        border: "1px solid rgba(242,237,228,.1)",
-                        width: 32,
-                        height: 32,
-                        cursor: "pointer",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        color: "rgba(242,237,228,.5)",
-                        transition: "all .2s",
-                      }}
-                      onMouseOver={(e) =>
-                        (e.currentTarget.style.borderColor = "#c9a96e")
-                      }
-                      onMouseOut={(e) =>
-                        (e.currentTarget.style.borderColor =
-                          "rgba(242,237,228,.1)")
-                      }
+                      className="w-8 h-8 rounded-lg border border-neutral-200 flex items-center justify-center text-neutral-500 hover:border-neutral-400 transition-colors"
                     >
-                      <ChevronRight size={14} />
+                      <ChevronRight className="w-3.5 h-3.5" />
                     </button>
                   </div>
-                  {/* Day headers */}
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "repeat(7,36px)",
-                      gap: 4,
-                      marginBottom: 8,
-                    }}
-                  >
+                  <div className="grid grid-cols-7 gap-1 mb-1.5">
                     {["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"].map((d) => (
-                      <div
-                        key={d}
-                        style={{
-                          fontFamily: "'DM Sans', sans-serif",
-                          fontSize: 10,
-                          letterSpacing: ".08em",
-                          textTransform: "uppercase",
-                          color: "rgba(242,237,228,.3)",
-                          textAlign: "center",
-                          padding: "4px 0",
-                        }}
-                      >
+                      <div key={d} className="w-9 text-center text-[10px] font-semibold tracking-wide uppercase text-neutral-400 py-1">
                         {d}
                       </div>
                     ))}
                   </div>
-                  {/* Days */}
-                  <div
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "repeat(7,36px)",
-                      gap: 4,
-                    }}
-                  >
+                  <div className="grid grid-cols-7 gap-1">
                     {calDays().map((d, i) => {
                       if (!d) return <div key={i} />;
                       const dis = isDisabled(d);
@@ -809,58 +495,44 @@ export default function ViewingPage() {
                       return (
                         <div
                           key={i}
-                          className={`cal-day${dis ? " disabled" : ""}${sel ? " selected" : ""}${isToday && !sel ? " today" : ""}`}
                           onClick={() => !dis && setSelectedDate(d)}
+                          className={`w-9 h-9 flex items-center justify-center text-sm rounded-lg transition-colors ${
+                            dis
+                              ? "text-neutral-300 cursor-not-allowed"
+                              : sel
+                              ? "bg-neutral-900 text-white font-semibold cursor-pointer"
+                              : isToday
+                              ? "border border-neutral-300 text-neutral-900 cursor-pointer"
+                              : "text-neutral-700 hover:bg-neutral-100 cursor-pointer"
+                          }`}
                         >
                           {d.getDate()}
                         </div>
                       );
                     })}
                   </div>
-                  <div
-                    style={{
-                      fontFamily: "'DM Sans', sans-serif",
-                      fontSize: 10,
-                      color: "rgba(242,237,228,.3)",
-                      marginTop: 12,
-                      letterSpacing: ".06em",
-                    }}
-                  >
-                    Sundays unavailable
-                  </div>
+                  <p className="text-[11px] text-neutral-400 mt-3">Sundays unavailable</p>
                 </div>
               </div>
 
-              {/* Time slots */}
               <div>
-                <label style={labelStyle}>Preferred Time *</label>
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(2,1fr)",
-                    gap: 10,
-                  }}
-                >
+                <Label className="text-neutral-900 mb-2.5 block">Preferred Time *</Label>
+                <div className="grid grid-cols-2 gap-2.5">
                   {TIME_SLOTS.map((t) => (
-                    <button
-                      key={t}
-                      className={`sel-pill${form.timeSlot === t ? " active" : ""}`}
-                      onClick={() => set("timeSlot", t)}
-                    >
+                    <button key={t} className={pillClass(form.timeSlot === t)} onClick={() => set("timeSlot", t)}>
                       {t}
                     </button>
                   ))}
                 </div>
               </div>
 
-              {/* Additional notes */}
               <div>
-                <label style={labelStyle}>Additional Notes</label>
-                <textarea
-                  style={{ ...inputStyle, minHeight: 90 }}
+                <Label className="text-neutral-900 mb-2 block">Additional Notes</Label>
+                <Textarea
                   placeholder="Any specific units you'd like to see, accessibility requirements, or questions..."
                   value={form.message}
                   onChange={(e) => set("message", e.target.value)}
+                  className="bg-white border-neutral-200 text-neutral-900 rounded-xl min-h-24"
                 />
               </div>
             </div>
@@ -868,460 +540,163 @@ export default function ViewingPage() {
 
           {/* ── STEP 3: Confirm ──────────────── */}
           {step === 3 && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
-              {/* Summary */}
+            <div className="flex flex-col gap-4">
               {[
-                {
-                  label: "Personal",
-                  items: [
-                    `${form.firstName} ${form.lastName}`,
-                    form.email,
-                    form.phone,
-                  ],
-                },
+                { label: "Personal", items: [`${form.firstName} ${form.lastName}`, form.email, form.phone] },
                 {
                   label: "Preferences",
-                  items: [
-                    form.propertyType,
-                    form.groupSize,
-                    form.urgency,
-                    form.budget ? `Budget: ${form.budget}` : null,
-                  ].filter(Boolean) as string[],
+                  items: [form.propertyType, form.groupSize, form.urgency, form.budget ? `Budget: ${form.budget}` : null].filter(Boolean) as string[],
                 },
                 {
                   label: "Viewing",
                   items: [
-                    selectedDate?.toLocaleDateString("en-KE", {
-                      weekday: "long",
-                      day: "numeric",
-                      month: "long",
-                      year: "numeric",
-                    }) || "",
+                    selectedDate?.toLocaleDateString("en-KE", { weekday: "long", day: "numeric", month: "long", year: "numeric" }) || "",
                     form.timeSlot,
                   ],
                 },
               ].map(({ label, items }) => (
-                <div
-                  key={label}
-                  style={{
-                    background: "#131313",
-                    border: "1px solid rgba(242,237,228,.07)",
-                    padding: "20px 24px",
-                  }}
-                >
-                  <div
-                    style={{
-                      fontFamily: "'DM Sans', sans-serif",
-                      fontSize: 10,
-                      letterSpacing: ".18em",
-                      textTransform: "uppercase",
-                      color: "#c9a96e",
-                      marginBottom: 12,
-                    }}
-                  >
-                    {label}
-                  </div>
+                <div key={label} className="bg-neutral-50 border border-neutral-200 rounded-xl p-5">
+                  <p className="text-xs font-semibold tracking-wide uppercase text-neutral-400 mb-2.5">{label}</p>
                   {items.map((item) => (
-                    <div
-                      key={item}
-                      style={{
-                        fontFamily: "'DM Sans', sans-serif",
-                        fontSize: 13,
-                        color: "rgba(242,237,228,.7)",
-                        marginBottom: 6,
-                        paddingLeft: 8,
-                        borderLeft: "2px solid rgba(201,169,110,.2)",
-                      }}
-                    >
-                      {item}
-                    </div>
+                    <p key={item} className="text-sm text-neutral-700 mb-1.5 pl-2.5 border-l-2 border-neutral-200">{item}</p>
                   ))}
                 </div>
               ))}
 
               {form.message && (
-                <div
-                  style={{
-                    background: "#131313",
-                    border: "1px solid rgba(242,237,228,.07)",
-                    padding: "20px 24px",
-                  }}
-                >
-                  <div
-                    style={{
-                      fontFamily: "'DM Sans', sans-serif",
-                      fontSize: 10,
-                      letterSpacing: ".18em",
-                      textTransform: "uppercase",
-                      color: "#c9a96e",
-                      marginBottom: 12,
-                    }}
-                  >
-                    Notes
-                  </div>
-                  <div
-                    style={{
-                      fontFamily: "'DM Sans', sans-serif",
-                      fontSize: 13,
-                      color: "rgba(242,237,228,.65)",
-                      lineHeight: 1.7,
-                    }}
-                  >
-                    {form.message}
-                  </div>
+                <div className="bg-neutral-50 border border-neutral-200 rounded-xl p-5">
+                  <p className="text-xs font-semibold tracking-wide uppercase text-neutral-400 mb-2.5">Notes</p>
+                  <p className="text-sm text-neutral-600 leading-relaxed">{form.message}</p>
                 </div>
               )}
 
-              {/* Agreement */}
               <div
-                style={{
-                  display: "flex",
-                  alignItems: "flex-start",
-                  gap: 14,
-                  padding: "20px",
-                  background: "#131313",
-                  border: `1px solid ${form.agreed ? "rgba(201,169,110,.3)" : "rgba(242,237,228,.07)"}`,
-                  cursor: "pointer",
-                  transition: "border-color .25s",
-                }}
                 onClick={() => set("agreed", !form.agreed)}
+                className={`flex items-start gap-3.5 p-5 rounded-xl border cursor-pointer transition-colors ${
+                  form.agreed ? "border-neutral-900 bg-neutral-50" : "border-neutral-200"
+                }`}
               >
                 <div
-                  style={{
-                    width: 18,
-                    height: 18,
-                    border: `1px solid ${form.agreed ? "#c9a96e" : "rgba(242,237,228,.3)"}`,
-                    background: form.agreed ? "#c9a96e" : "transparent",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    flexShrink: 0,
-                    marginTop: 1,
-                    transition: "all .2s",
-                  }}
+                  className={`w-[18px] h-[18px] rounded-md border flex items-center justify-center shrink-0 mt-0.5 transition-colors ${
+                    form.agreed ? "border-neutral-900 bg-neutral-900" : "border-neutral-300"
+                  }`}
                 >
-                  {form.agreed && <CheckCircle size={12} color="#0a0a0a" />}
+                  {form.agreed && <CheckCircle className="w-3 h-3 text-white" />}
                 </div>
-                <p
-                  style={{
-                    fontFamily: "'DM Sans', sans-serif",
-                    fontSize: 13,
-                    color: "rgba(242,237,228,.6)",
-                    lineHeight: 1.7,
-                  }}
-                >
-                  I agree to the terms and conditions. I understand this is a
-                  viewing request and LEA Executive will confirm the appointment
-                  within 24 hours.
+                <p className="text-sm text-neutral-600 leading-relaxed">
+                  I agree to the terms and conditions. I understand this is a viewing request and LEA will confirm the appointment within 24 hours.
                 </p>
               </div>
 
               {error && (
-                <div
-                  style={{
-                    padding: "14px 18px",
-                    background: "rgba(239,68,68,.1)",
-                    border: "1px solid rgba(239,68,68,.25)",
-                  }}
-                >
-                  <p
-                    style={{
-                      fontFamily: "'DM Sans', sans-serif",
-                      fontSize: 13,
-                      color: "#f87171",
-                    }}
-                  >
-                    {error}
-                  </p>
+                <div className="p-3.5 bg-red-50 border border-red-200 rounded-xl">
+                  <p className="text-sm text-red-600">{error}</p>
                 </div>
               )}
             </div>
           )}
 
           {/* ── Navigation ───────────────────── */}
-          <div
-            style={{
-              display: "flex",
-              gap: 12,
-              marginTop: 40,
-              paddingTop: 32,
-              borderTop: "1px solid rgba(242,237,228,.06)",
-            }}
-          >
+          <div className="flex gap-3 mt-10 pt-8 border-t border-neutral-100">
             {step > 0 && (
-              <button
-                className="btn-ghost"
+              <Button
+                type="button"
+                variant="outline"
                 onClick={() => setStep((s) => s - 1)}
+                className="bg-white border-neutral-200 text-neutral-900 rounded-full hover:bg-neutral-50"
               >
-                <ChevronLeft size={14} /> Back
-              </button>
+                <ChevronLeft className="w-4 h-4" /> Back
+              </Button>
             )}
             {step < 3 ? (
-              <button
-                className="btn-primary"
+              <Button
+                type="button"
                 disabled={!canNext()}
                 onClick={() => setStep((s) => s + 1)}
-                style={{ marginLeft: step > 0 ? 0 : 0 }}
+                className="bg-neutral-900 hover:bg-neutral-800 text-white font-semibold rounded-full"
               >
-                Continue <ChevronRight size={14} />
-              </button>
+                Continue <ChevronRight className="w-4 h-4" />
+              </Button>
             ) : (
-              <button
-                className="btn-primary"
+              <Button
+                type="button"
                 disabled={!form.agreed || submitting}
                 onClick={handleSubmit}
+                className="bg-neutral-900 hover:bg-neutral-800 text-white font-semibold rounded-full"
               >
-                {submitting ? (
-                  <>
-                    <div
-                      style={{
-                        width: 14,
-                        height: 14,
-                        border: "2px solid rgba(10,10,10,.4)",
-                        borderTopColor: "#0a0a0a",
-                        borderRadius: "50%",
-                        animation: "spin .8s linear infinite",
-                      }}
-                    />{" "}
-                    Scheduling...
-                  </>
-                ) : (
-                  <>
-                    <Send size={14} /> Schedule Viewing
-                  </>
-                )}
-              </button>
+                {submitting ? "Scheduling..." : (<><Send className="w-4 h-4" /> Schedule Viewing</>)}
+              </Button>
             )}
           </div>
-          <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
         </div>
 
         {/* ── SIDEBAR ──────────────────────── */}
-        <div
-          className="sidebar"
-          style={{ display: "flex", flexDirection: "column", gap: 20 }}
-        >
-          {/* Viewing info card */}
-          <div
-            style={{
-              background: "#131313",
-              border: "1px solid rgba(242,237,228,.07)",
-              padding: "28px 24px",
-            }}
-          >
-            <div
-              style={{
-                fontFamily: "'DM Sans', sans-serif",
-                fontSize: 10,
-                letterSpacing: ".2em",
-                textTransform: "uppercase",
-                color: "#c9a96e",
-                marginBottom: 16,
-              }}
-            >
-              What to Expect
-            </div>
+        <div className="hidden lg:flex flex-col gap-5">
+          {/* What to expect */}
+          <div className="bg-white border border-neutral-200 rounded-2xl p-6">
+            <p className="text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-4">What to Expect</p>
             {[
-              {
-                icon: <Clock size={14} color="#c9a96e" />,
-                t: "30–45 min tour",
-                s: "Comprehensive walkthrough",
-              },
-              {
-                icon: <Users size={14} color="#c9a96e" />,
-                t: "Personal guide",
-                s: "One-on-one with manager",
-              },
-              {
-                icon: <Home size={14} color="#c9a96e" />,
-                t: "Multiple units",
-                s: "See available options",
-              },
-            ].map(({ icon, t, s }) => (
-              <div
-                key={t}
-                style={{
-                  display: "flex",
-                  gap: 12,
-                  marginBottom: 16,
-                  paddingBottom: 16,
-                  borderBottom: "1px solid rgba(242,237,228,.05)",
-                }}
-              >
-                <div
-                  style={{
-                    width: 32,
-                    height: 32,
-                    background: "rgba(201,169,110,.08)",
-                    border: "1px solid rgba(201,169,110,.15)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    flexShrink: 0,
-                  }}
-                >
-                  {icon}
-                </div>
+              { icon: <Clock className="w-3.5 h-3.5 text-neutral-600" />, t: "30–45 min tour", s: "Comprehensive walkthrough" },
+              { icon: <Users className="w-3.5 h-3.5 text-neutral-600" />, t: "Personal guide", s: "One-on-one with manager" },
+              { icon: <Home className="w-3.5 h-3.5 text-neutral-600" />, t: "Multiple units", s: "See available options" },
+            ].map(({ icon, t, s }, i, arr) => (
+              <div key={t} className={`flex gap-3 ${i < arr.length - 1 ? "mb-4 pb-4 border-b border-neutral-100" : ""}`}>
+                <div className="w-8 h-8 rounded-full bg-neutral-100 flex items-center justify-center shrink-0">{icon}</div>
                 <div>
-                  <div
-                    style={{
-                      fontFamily: "'DM Sans', sans-serif",
-                      fontSize: 13,
-                      fontWeight: 500,
-                      color: "#f2ede4",
-                    }}
-                  >
-                    {t}
-                  </div>
-                  <div
-                    style={{
-                      fontFamily: "'DM Sans', sans-serif",
-                      fontSize: 11,
-                      color: "rgba(242,237,228,.4)",
-                      marginTop: 2,
-                    }}
-                  >
-                    {s}
-                  </div>
+                  <p className="text-sm font-medium text-neutral-900">{t}</p>
+                  <p className="text-xs text-neutral-500 mt-0.5">{s}</p>
                 </div>
               </div>
             ))}
           </div>
 
-          {/* Available units */}
-          <div
-            style={{
-              background: "#131313",
-              border: "1px solid rgba(242,237,228,.07)",
-              padding: "24px",
-            }}
-          >
-            <div
-              style={{
-                fontFamily: "'DM Sans', sans-serif",
-                fontSize: 10,
-                letterSpacing: ".2em",
-                textTransform: "uppercase",
-                color: "#c9a96e",
-                marginBottom: 16,
-              }}
-            >
-              Available Now
-            </div>
-            {[
-              ["Apartments", "12 units", "from KES 45,000"],
-              ["Villas", "3 units", "from KES 85,000"],
-              ["Townhouses", "5 units", "from KES 65,000"],
-            ].map(([t, u, p]) => (
-              <div
-                key={t}
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  padding: "12px 0",
-                  borderBottom: "1px solid rgba(242,237,228,.05)",
-                }}
-              >
-                <div>
-                  <div
-                    style={{
-                      fontFamily: "'DM Sans', sans-serif",
-                      fontSize: 13,
-                      fontWeight: 500,
-                      color: "#f2ede4",
-                    }}
-                  >
-                    {t}
-                  </div>
-                  <div
-                    style={{
-                      fontFamily: "'DM Sans', sans-serif",
-                      fontSize: 11,
-                      color: "rgba(242,237,228,.4)",
-                    }}
-                  >
-                    {u}
-                  </div>
-                </div>
-                <div
-                  style={{
-                    fontFamily: "'Cormorant Garamond', serif",
-                    fontSize: 14,
-                    color: "#c9a96e",
-                  }}
-                >
-                  {p}
-                </div>
+          {/* Listing summary */}
+          {listing ? (
+            <div className="bg-white border border-neutral-200 rounded-2xl overflow-hidden">
+              <div className="relative h-36">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={listing.image_url} alt={listing.title} className="w-full h-full object-cover" />
               </div>
-            ))}
-          </div>
-
-          {/* Progress indicator */}
-          <div
-            style={{
-              background: "#131313",
-              border: "1px solid rgba(242,237,228,.07)",
-              padding: "20px 24px",
-            }}
-          >
-            <div
-              style={{
-                fontFamily: "'DM Sans', sans-serif",
-                fontSize: 10,
-                letterSpacing: ".18em",
-                textTransform: "uppercase",
-                color: "rgba(242,237,228,.35)",
-                marginBottom: 16,
-              }}
-            >
-              Your Progress
-            </div>
-            {STEPS.map((s, i) => (
-              <div
-                key={s}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 10,
-                  marginBottom: 12,
-                }}
-              >
-                <div
-                  style={{
-                    width: 22,
-                    height: 22,
-                    border: `1px solid ${i <= step ? "#c9a96e" : "rgba(242,237,228,.12)"}`,
-                    background: i < step ? "#c9a96e" : "transparent",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    flexShrink: 0,
-                  }}
-                >
-                  {i < step ? (
-                    <CheckCircle size={12} color="#0a0a0a" />
-                  ) : (
-                    <span
-                      style={{
-                        fontFamily: "'DM Sans', sans-serif",
-                        fontSize: 9,
-                        color: i === step ? "#c9a96e" : "rgba(242,237,228,.3)",
-                      }}
-                    >
-                      {i + 1}
-                    </span>
+              <div className="p-5">
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <p className="font-semibold text-neutral-900 truncate">{listing.title}</p>
+                  {owner?.kyc_verified && (
+                    <span title="Verified owner"><ShieldCheck className="w-3.5 h-3.5 text-green-600 shrink-0" /></span>
                   )}
                 </div>
-                <span
-                  style={{
-                    fontFamily: "'DM Sans', sans-serif",
-                    fontSize: 12,
-                    color: i <= step ? "#f2ede4" : "rgba(242,237,228,.3)",
-                  }}
+                <div className="flex items-center gap-1.5 text-neutral-500 text-xs mb-3">
+                  <MapPin className="w-3 h-3 shrink-0" />
+                  <span className="truncate">{listing.location}</span>
+                </div>
+                <p className="text-lg font-bold text-neutral-900">KES {listing.price.toLocaleString()}</p>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-white border border-neutral-200 rounded-2xl p-6">
+              <p className="text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-3">Browsing Properties</p>
+              <p className="text-sm text-neutral-500 leading-relaxed">
+                Schedule a viewing from a specific listing to see its details here.
+              </p>
+            </div>
+          )}
+
+          {/* Progress */}
+          <div className="bg-white border border-neutral-200 rounded-2xl p-6">
+            <p className="text-xs font-semibold tracking-widest uppercase text-neutral-400 mb-4">Your Progress</p>
+            {STEPS.map((s, i) => (
+              <div key={s} className="flex items-center gap-2.5 mb-3 last:mb-0">
+                <div
+                  className={`w-5.5 h-5.5 rounded-full border flex items-center justify-center shrink-0 ${
+                    i < step ? "bg-neutral-900 border-neutral-900" : i === step ? "border-neutral-900" : "border-neutral-200"
+                  }`}
                 >
-                  {s}
-                </span>
+                  {i < step ? (
+                    <CheckCircle className="w-3 h-3 text-white" />
+                  ) : (
+                    <span className={`text-[10px] ${i === step ? "text-neutral-900" : "text-neutral-300"}`}>{i + 1}</span>
+                  )}
+                </div>
+                <span className={`text-sm ${i <= step ? "text-neutral-900" : "text-neutral-400"}`}>{s}</span>
               </div>
             ))}
           </div>

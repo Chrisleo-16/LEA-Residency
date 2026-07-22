@@ -1,6 +1,9 @@
+import { randomUUID } from 'crypto'
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { sendViewingConfirmationSMS, sendViewingNotificationSMS, validatePhoneNumber, formatPhoneNumber } from '@/lib/sms'
+import { validatePhoneNumber, formatPhoneNumber } from '@/lib/sms'
+import { notifyByWhatsAppOrSMS } from '@/lib/notify'
+import { WHATSAPP_TEMPLATES } from '@/lib/whatsapp'
 
 interface ViewingFormData {
   firstName: string
@@ -15,6 +18,27 @@ interface ViewingFormData {
   budget: string
   urgency: string
   agreeToTerms: boolean
+  listingId?: string
+  tenantId?: string
+}
+
+// The wizard shows human-readable urgency copy, but viewing_requests.urgency
+// has a CHECK constraint restricted to ('immediate', 'soon', 'flexible').
+// These have never matched — every real submission was failing the CHECK
+// constraint at insert time. Map the UI copy to the stored enum here.
+const URGENCY_DB_VALUES = ['immediate', 'soon', 'flexible'] as const
+const URGENCY_MAP: Record<string, (typeof URGENCY_DB_VALUES)[number]> = {
+  'Within 1 week': 'immediate',
+  'Within 1 month': 'soon',
+  'No rush — just looking': 'flexible',
+  'No rush - just looking': 'flexible',
+}
+
+function toDbUrgency(urgency: string): (typeof URGENCY_DB_VALUES)[number] {
+  if ((URGENCY_DB_VALUES as readonly string[]).includes(urgency)) {
+    return urgency as (typeof URGENCY_DB_VALUES)[number]
+  }
+  return URGENCY_MAP[urgency] || 'flexible'
 }
 
 /**
@@ -73,10 +97,41 @@ export async function POST(request: NextRequest) {
 
     const supabase = await createClient()
 
-    // Create viewing request record
-    const { data, error } = await supabase
+    // Resolve the real listing owner (if this request is tied to a listing)
+    // instead of falling back to a single site-wide hardcoded phone number.
+    let ownerPhone: string | null = null
+    let listingTitle = 'the property'
+    if (body.listingId) {
+      const { data: listingRow } = await supabase
+        .from('listings')
+        .select('title, created_by')
+        .eq('id', body.listingId)
+        .maybeSingle()
+
+      if (listingRow?.title) listingTitle = listingRow.title
+
+      if (listingRow?.created_by) {
+        const { data: ownerProfile } = await supabase
+          .from('profiles')
+          .select('phone_number')
+          .eq('id', listingRow.created_by)
+          .maybeSingle()
+        ownerPhone = ownerProfile?.phone_number || null
+      }
+    }
+
+    // Create viewing request record.
+    // Deliberately not using .select() here: an anonymous submitter has no
+    // RLS SELECT policy granting them read-back on viewing_requests (the
+    // SELECT policies are scoped to the listing owner, the tenant_id, and
+    // developers), and Postgres requires a passing SELECT policy to satisfy
+    // RETURNING — even on an otherwise-valid INSERT. Generating the id
+    // ourselves avoids needing it (same pattern as /api/wishlist).
+    const requestId = randomUUID()
+    const { error } = await supabase
       .from('viewing_requests')
       .insert({
+        id: requestId,
         first_name: body.firstName,
         last_name: body.lastName,
         email: body.email,
@@ -87,15 +142,15 @@ export async function POST(request: NextRequest) {
         message: body.message || null,
         group_size: body.groupSize,
         budget: body.budget || null,
-        urgency: body.urgency,
+        urgency: toDbUrgency(body.urgency),
         agreed_to_terms: body.agreeToTerms,
+        listing_id: body.listingId || null,
+        tenant_id: body.tenantId || null,
         ip_address: ipAddress,
         user_agent: userAgent,
         status: 'pending', // pending, confirmed, completed, cancelled
         created_at: new Date().toISOString()
       })
-      .select()
-      .single()
 
     if (error) {
       console.error('[Viewing] Database error:', error)
@@ -105,48 +160,44 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Send SMS notifications
+    // Send notifications — WhatsApp first (once configured), SMS fallback
     try {
-      // Format phone number for SMS
-      const formattedPhone = formatPhoneNumber(body.phone)
       const userName = `${body.firstName} ${body.lastName}`
-      
-      // Send confirmation SMS to user
-      const userSMSResult = await sendViewingConfirmationSMS(
-        formattedPhone, 
-        userName, 
-        body.preferredDate, 
-        body.preferredTime
-      )
-      
-      // Send notification SMS to landlord
-      const landlordSMSResult = await sendViewingNotificationSMS({
-        firstName: body.firstName,
-        lastName: body.lastName,
-        email: body.email,
+
+      const userNotifyResult = await notifyByWhatsAppOrSMS({
         phone: body.phone,
-        propertyType: body.propertyType,
-        preferredDate: body.preferredDate,
-        preferredTime: body.preferredTime,
-        groupSize: body.groupSize,
-        urgency: body.urgency
+        whatsappTemplate: WHATSAPP_TEMPLATES.VIEWING_CONFIRMATION,
+        whatsappParams: [userName, body.preferredDate, body.preferredTime],
+        smsMessage: `Dear ${userName},\n\nThank you for scheduling a property viewing with LEA.\n\nDate: ${body.preferredDate}\nTime: ${body.preferredTime}\n\nWe will confirm your appointment within 24 hours.\n\nFor changes, call: +254 799 956574\n\nLEA`,
       })
-      
-      console.log('[Viewing] SMS notifications sent:', {
-        userSMS: userSMSResult.success,
-        landlordSMS: landlordSMSResult.success
+
+      // Notify the real listing owner if we resolved one; otherwise there's
+      // no site-wide fallback number to notify, so skip silently.
+      let landlordNotifyResult: { success: boolean } = { success: false }
+      if (ownerPhone) {
+        landlordNotifyResult = await notifyByWhatsAppOrSMS({
+          phone: ownerPhone,
+          whatsappTemplate: WHATSAPP_TEMPLATES.VIEWING_NOTIFICATION,
+          whatsappParams: [userName, formatPhoneNumber(body.phone), listingTitle, body.preferredDate, body.preferredTime],
+          smsMessage: `NEW VIEWING REQUEST\n\nName: ${body.firstName} ${body.lastName}\nPhone: ${body.phone}\nEmail: ${body.email}\n\nProperty: ${listingTitle}\nDate: ${body.preferredDate}\nTime: ${body.preferredTime}\nGroup: ${body.groupSize} people\nUrgency: ${body.urgency}\n\nPlease confirm within 24 hours.\n\nLEA`,
+        })
+      }
+
+      console.log('[Viewing] Notifications sent:', {
+        user: userNotifyResult,
+        landlord: landlordNotifyResult,
       })
-    } catch (smsError) {
-      console.error('[Viewing] SMS notification failed:', smsError)
-      // Continue even if SMS fails - the request is saved
+    } catch (notifyError) {
+      console.error('[Viewing] Notification failed:', notifyError)
+      // Continue even if notification fails - the request is saved
     }
 
-    console.log('[Viewing] New viewing request received:', data.id)
+    console.log('[Viewing] New viewing request received:', requestId)
 
     return NextResponse.json({
       success: true,
       message: 'Viewing request submitted successfully',
-      requestId: data.id
+      requestId
     })
 
   } catch (error) {

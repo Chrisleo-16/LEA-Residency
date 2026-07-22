@@ -5,8 +5,11 @@ import { Inter } from 'next/font/google'
 import {
   Search, MapPin, BedDouble, Bath, Maximize2, Plus, Grid, List,
   Home, Building2, Trees, Waves, DollarSign, ShieldCheck, ShieldAlert,
-  ArrowLeftToLine, TrendingUp,
+  ArrowLeftToLine, TrendingUp, CalendarClock, HandHeart,
+  Signpost, Landmark, Phone, Mail, UserRound,
 } from 'lucide-react'
+import Link from 'next/link'
+import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase/client'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import CreateListingDialog from '@/components/listings/CreateListingDialog'
@@ -29,6 +32,10 @@ export interface Listing {
   created_at: string
   updated_at: string
   featured_until: string | null
+  listing_type: 'sale' | 'long_term_rent' | 'short_term_rent' | 'commercial' | 'land'
+  amenities: string[]
+  virtual_tour_url: string | null
+  details: Record<string, unknown>
 }
 
 const isFeatured = (listing: Listing) =>
@@ -44,11 +51,32 @@ const quickFilters = [
   { id: 'premium', label: '60K+',       icon: Waves },
 ]
 
+const typeFilters: { id: 'all' | Listing['listing_type']; label: string }[] = [
+  { id: 'all', label: 'All Types' },
+  { id: 'sale', label: 'For Sale' },
+  { id: 'long_term_rent', label: 'For Rent' },
+  { id: 'short_term_rent', label: 'Short-let' },
+  { id: 'commercial', label: 'Commercial' },
+  { id: 'land', label: 'Land' },
+]
+
+const PRICE_SUFFIX: Record<Listing['listing_type'], string> = {
+  sale: '',
+  long_term_rent: '/month',
+  short_term_rent: '/night',
+  commercial: '/month',
+  land: '',
+}
+
+const isResidentialListing = (type: Listing['listing_type']) =>
+  type === 'sale' || type === 'long_term_rent' || type === 'short_term_rent'
+
 export default function ListingsPage() {
   const supabase = createClient()
   const [listings, setListings] = useState<Listing[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [activeFilter, setActiveFilter] = useState('all')
+  const [typeFilter, setTypeFilter] = useState<'all' | Listing['listing_type']>('all')
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
@@ -58,7 +86,11 @@ export default function ListingsPage() {
   const [selectedListing, setSelectedListing] = useState<Listing | null>(null)
   const [portfolioSearch, setPortfolioSearch] = useState('')
   const [verifiedMap, setVerifiedMap] = useState<Record<string, boolean>>({})
+  const [ownerContactMap, setOwnerContactMap] = useState<Record<string, { full_name: string | null; phone_number: string | null; email: string | null }>>({})
   const [featureListing, setFeatureListing] = useState<Listing | null>(null)
+  const [savedIds, setSavedIds] = useState<Set<string>>(new Set())
+  const [interestedIds, setInterestedIds] = useState<Set<string>>(new Set())
+  const [needsPhone, setNeedsPhone] = useState(false)
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -68,16 +100,82 @@ export default function ListingsPage() {
         setUserId(user.id)
         const { data: profile } = await supabase
           .from('profiles')
-          .select('role')
+          .select('role, phone_number')
           .eq('id', user.id)
           .maybeSingle()
         const role = profile?.role || null
         setUserRole(role)
-        if (role === 'landlord') setSection('portfolio')
+        if (role === 'landlord') {
+          setSection('portfolio')
+          setNeedsPhone(!profile?.phone_number)
+        }
+
+        const { data: saved } = await supabase
+          .from('saved_listings')
+          .select('listing_id')
+          .eq('user_id', user.id)
+        setSavedIds(new Set((saved || []).map((s) => s.listing_id)))
+
+        const { data: interested } = await supabase
+          .from('listing_interests')
+          .select('listing_id')
+          .eq('tenant_id', user.id)
+        setInterestedIds(new Set((interested || []).map((i) => i.listing_id)))
       }
     }
     fetchUser()
   }, [])
+
+  const toggleSave = async (listingId: string) => {
+    if (!userId) {
+      toast.error('Please log in to save listings')
+      return
+    }
+    const wasSaved = savedIds.has(listingId)
+    setSavedIds((prev) => {
+      const next = new Set(prev)
+      if (wasSaved) next.delete(listingId)
+      else next.add(listingId)
+      return next
+    })
+    try {
+      if (wasSaved) {
+        await supabase.from('saved_listings').delete().eq('user_id', userId).eq('listing_id', listingId)
+      } else {
+        await supabase.from('saved_listings').insert({ user_id: userId, listing_id: listingId })
+      }
+    } catch (error) {
+      console.error('Error toggling saved listing:', error)
+    }
+  }
+
+  const expressInterest = async (listingId: string) => {
+    if (!userId) {
+      toast.error('Please log in to express interest')
+      return
+    }
+    setInterestedIds((prev) => new Set(prev).add(listingId))
+    try {
+      const res = await fetch('/api/listings/interest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ listingId }),
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error(body.error || 'Failed to express interest')
+      }
+      toast.success('Owner notified — they have your name and number')
+    } catch (error) {
+      console.error('Error expressing interest:', error)
+      setInterestedIds((prev) => {
+        const next = new Set(prev)
+        next.delete(listingId)
+        return next
+      })
+      toast.error('Could not notify the owner — please try again')
+    }
+  }
 
   useEffect(() => {
     fetchListings()
@@ -99,14 +197,17 @@ export default function ListingsPage() {
       if (ownerIds.length > 0) {
         const { data: owners } = await supabase
           .from('profiles')
-          .select('id, kyc_verified')
+          .select('id, kyc_verified, full_name, phone_number, email')
           .in('id', ownerIds)
 
         const map: Record<string, boolean> = {}
+        const contactMap: Record<string, { full_name: string | null; phone_number: string | null; email: string | null }> = {}
         for (const owner of owners || []) {
           map[owner.id] = !!owner.kyc_verified
+          contactMap[owner.id] = { full_name: owner.full_name, phone_number: owner.phone_number, email: owner.email }
         }
         setVerifiedMap(map)
+        setOwnerContactMap(contactMap)
       }
     } catch (error) {
       console.error('Error fetching listings:', error)
@@ -177,9 +278,11 @@ export default function ListingsPage() {
         (activeFilter === 'mid' && listing.price >= 30000 && listing.price <= 60000) ||
         (activeFilter === 'premium' && listing.price > 60000)
 
-      return matchesSearch && matchesFilter
+      const matchesType = typeFilter === 'all' || listing.listing_type === typeFilter
+
+      return matchesSearch && matchesFilter && matchesType
     }).sort((a, b) => Number(isFeatured(b)) - Number(isFeatured(a)))
-  }, [listings, searchQuery, activeFilter])
+  }, [listings, searchQuery, activeFilter, typeFilter])
 
   const myListings = useMemo(
     () => listings.filter((l) => l.created_by === userId),
@@ -207,7 +310,9 @@ export default function ListingsPage() {
       <div className="sticky top-0 z-40 bg-white border-b border-neutral-100">
         <div className="px-6 py-5 max-w-7xl mx-auto">
           <div className="flex items-center justify-between gap-4 mb-1">
+            <Link href='/'>
             <ArrowLeftToLine/>
+            </Link>
             <h1 className="text-2xl font-bold text-neutral-900">Property Listings</h1>
             <div className="flex items-center gap-3">
               {userRole === 'landlord' && (
@@ -245,6 +350,25 @@ export default function ListingsPage() {
         </div>
       </div>
 
+      {needsPhone && (
+        <div className="px-6 pt-4 max-w-7xl mx-auto">
+          <div className="flex items-center justify-between gap-4 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-3.5">
+            <div className="flex items-center gap-3">
+              <Phone className="w-4 h-4 text-amber-600 shrink-0" />
+              <p className="text-sm text-amber-800">
+                Add a phone number so tenants can actually reach you — without it, &quot;Interested&quot; alerts and viewing requests can&apos;t notify you.
+              </p>
+            </div>
+            <Link
+              href="/dashboard"
+              className="text-sm font-semibold px-4 py-1.5 rounded-full bg-amber-600 text-white hover:bg-amber-700 transition-colors shrink-0"
+            >
+              Add in Settings
+            </Link>
+          </div>
+        </div>
+      )}
+
       {section === 'marketplace' ? (
         <div className="px-6 py-8 max-w-7xl mx-auto">
           {/* Find the best place bar */}
@@ -264,6 +388,21 @@ export default function ListingsPage() {
                   }`}
                 >
                   <Icon className="w-4 h-4" />
+                  {label}
+                </button>
+              ))}
+            </div>
+            <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t border-neutral-100">
+              {typeFilters.map(({ id, label }) => (
+                <button
+                  key={id}
+                  onClick={() => setTypeFilter(id)}
+                  className={`px-3.5 py-2 rounded-full border text-xs font-medium transition-colors ${
+                    typeFilter === id
+                      ? 'border-neutral-900 bg-neutral-900 text-white'
+                      : 'border-neutral-200 text-neutral-600 hover:border-neutral-300'
+                  }`}
+                >
                   {label}
                 </button>
               ))}
@@ -333,8 +472,12 @@ export default function ListingsPage() {
                   isVerified={!!verifiedMap[listing.created_by]}
                   isFeatured={isFeatured(listing)}
                   riskFlags={riskFlags[listing.id] || []}
+                  isSaved={savedIds.has(listing.id)}
+                  isInterested={interestedIds.has(listing.id)}
                   onDelete={fetchListings}
                   onView={setSelectedListing}
+                  onToggleSave={toggleSave}
+                  onExpressInterest={expressInterest}
                 />
               ))}
             </div>
@@ -434,7 +577,7 @@ export default function ListingsPage() {
 
       {/* Detail Dialog */}
       <Dialog open={!!selectedListing} onOpenChange={(open) => !open && setSelectedListing(null)}>
-        <DialogContent className="max-w-lg bg-white">
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto bg-white">
           {selectedListing && (
             <>
               <div className="relative h-56 -mx-6 -mt-6 mb-2 rounded-t-lg overflow-hidden">
@@ -477,14 +620,91 @@ export default function ListingsPage() {
 
               <p className="text-sm text-neutral-600 leading-relaxed">{selectedListing.description}</p>
               <div className="flex items-center gap-6 text-sm text-neutral-600 py-4 border-y border-neutral-100">
-                <span className="flex items-center gap-1.5"><BedDouble className="w-4 h-4" />{selectedListing.bedrooms} Beds</span>
-                <span className="flex items-center gap-1.5"><Bath className="w-4 h-4" />{selectedListing.bathrooms} Baths</span>
+                {isResidentialListing(selectedListing.listing_type) && (
+                  <>
+                    <span className="flex items-center gap-1.5"><BedDouble className="w-4 h-4" />{selectedListing.bedrooms} Beds</span>
+                    <span className="flex items-center gap-1.5"><Bath className="w-4 h-4" />{selectedListing.bathrooms} Baths</span>
+                  </>
+                )}
                 <span className="flex items-center gap-1.5"><Maximize2 className="w-4 h-4" />{selectedListing.area} m²</span>
               </div>
+              {(() => {
+                const d = (selectedListing.details || {}) as Record<string, unknown>
+                const exactLocation = typeof d.exact_location === 'string' ? d.exact_location : null
+                const distanceToRoad = typeof d.distance_to_road === 'string' ? d.distance_to_road : null
+                const nearby = Array.isArray(d.nearby) ? (d.nearby as unknown[]).filter((n): n is string => typeof n === 'string') : []
+                const caretakerName = typeof d.caretaker_name === 'string' ? d.caretaker_name : null
+                const caretakerPhone = typeof d.caretaker_phone === 'string' ? d.caretaker_phone : null
+                const listingContactPhone = typeof d.contact_phone === 'string' ? d.contact_phone : null
+                const owner = ownerContactMap[selectedListing.created_by]
+                const landlordPhone = listingContactPhone || owner?.phone_number || null
+                const amenities = selectedListing.amenities || []
+
+                const hasAnything =
+                  exactLocation || distanceToRoad || nearby.length > 0 || amenities.length > 0 ||
+                  landlordPhone || owner?.email || caretakerName || caretakerPhone
+
+                if (!hasAnything) return null
+
+                return (
+                  <div className="space-y-3 py-4 border-b border-neutral-100">
+                    <p className="text-xs font-semibold text-neutral-900 uppercase tracking-wide">Location &amp; Contact</p>
+
+                    {exactLocation && (
+                      <div className="flex items-start gap-2 text-sm text-neutral-700">
+                        <MapPin className="w-4 h-4 mt-0.5 shrink-0 text-neutral-400" />
+                        <span>{exactLocation}</span>
+                      </div>
+                    )}
+                    {distanceToRoad && (
+                      <div className="flex items-start gap-2 text-sm text-neutral-700">
+                        <Signpost className="w-4 h-4 mt-0.5 shrink-0 text-neutral-400" />
+                        <span>{distanceToRoad}</span>
+                      </div>
+                    )}
+                    {nearby.length > 0 && (
+                      <div className="flex items-start gap-2 text-sm text-neutral-700">
+                        <Landmark className="w-4 h-4 mt-0.5 shrink-0 text-neutral-400" />
+                        <span>{nearby.join(' · ')}</span>
+                      </div>
+                    )}
+                    {amenities.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {amenities.map((a) => (
+                          <span key={a} className="text-xs px-2 py-1 rounded-full bg-neutral-100 text-neutral-600">{a}</span>
+                        ))}
+                      </div>
+                    )}
+
+                    {(landlordPhone || owner?.email || caretakerName || caretakerPhone) && (
+                      <div className="pt-2 mt-2 border-t border-neutral-100 space-y-1.5">
+                        {landlordPhone && (
+                          <div className="flex items-center gap-2 text-sm text-neutral-700">
+                            <Phone className="w-4 h-4 shrink-0 text-neutral-400" />
+                            <span>{owner?.full_name ? `${owner.full_name} — ` : 'Landlord — '}{landlordPhone}</span>
+                          </div>
+                        )}
+                        {owner?.email && (
+                          <div className="flex items-center gap-2 text-sm text-neutral-700">
+                            <Mail className="w-4 h-4 shrink-0 text-neutral-400" />
+                            <span>{owner.email}</span>
+                          </div>
+                        )}
+                        {(caretakerName || caretakerPhone) && (
+                          <div className="flex items-center gap-2 text-sm text-neutral-700">
+                            <UserRound className="w-4 h-4 shrink-0 text-neutral-400" />
+                            <span>Caretaker{caretakerName ? ` — ${caretakerName}` : ''}{caretakerPhone ? ` · ${caretakerPhone}` : ''}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )
+              })()}
               <div className="flex items-center justify-between">
                 <span className="text-2xl font-bold text-neutral-900">
                   KES {selectedListing.price.toLocaleString()}
-                  <span className="text-sm font-normal text-neutral-400"> /month</span>
+                  <span className="text-sm font-normal text-neutral-400"> {PRICE_SUFFIX[selectedListing.listing_type]}</span>
                 </span>
                 {isOwner(selectedListing) && (
                   <div className="flex items-center gap-2">
@@ -509,6 +729,29 @@ export default function ListingsPage() {
                   </div>
                 )}
               </div>
+              {!isOwner(selectedListing) && (
+                <div className="flex items-center gap-2 pt-2">
+                  <Link
+                    href={`/viewing?listingId=${selectedListing.id}`}
+                    className="flex-1 inline-flex items-center justify-center gap-1.5 text-sm font-semibold px-4 py-2.5 rounded-full border border-neutral-900 text-neutral-900 hover:bg-neutral-900 hover:text-white transition-colors"
+                  >
+                    <CalendarClock className="w-4 h-4" />
+                    Schedule Viewing
+                  </Link>
+                  <button
+                    onClick={() => expressInterest(selectedListing.id)}
+                    disabled={interestedIds.has(selectedListing.id)}
+                    className={`flex-1 inline-flex items-center justify-center gap-1.5 text-sm font-semibold px-4 py-2.5 rounded-full transition-colors ${
+                      interestedIds.has(selectedListing.id)
+                        ? 'bg-green-50 text-green-700 cursor-default'
+                        : 'bg-neutral-900 text-white hover:bg-neutral-800'
+                    }`}
+                  >
+                    <HandHeart className="w-4 h-4" />
+                    {interestedIds.has(selectedListing.id) ? 'Interest sent' : "I'm Interested"}
+                  </button>
+                </div>
+              )}
             </>
           )}
         </DialogContent>
