@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { Heart, MapPin, BedDouble, Bath, Trash2, ShieldCheck, ShieldAlert, Star, CalendarClock, HandHeart } from 'lucide-react'
+import { Heart, MapPin, BedDouble, Bath, Trash2, ShieldCheck, ShieldAlert, Star, CalendarClock, HandHeart, View } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Listing } from '@/app/listings/page'
 
@@ -149,6 +149,11 @@ export default function ListingCard({
                 {isNew(listing.created_at) && (
                   <span className="text-[11px] font-medium px-2 py-0.5 rounded-full bg-blue-50 text-blue-700">New</span>
                 )}
+                {(listing.virtual_tour_url || listing.virtual_tour_image_url) && (
+                  <span className="inline-flex items-center gap-1 text-[11px] font-medium px-2 py-0.5 rounded-full bg-neutral-900 text-white">
+                    <View className="w-3 h-3" /> 360°
+                  </span>
+                )}
                 <button
                   onClick={handleToggleSave}
                   className="p-1.5 rounded-full hover:bg-neutral-100 transition-colors"
@@ -219,6 +224,11 @@ export default function ListingCard({
           )}
           {isNew(listing.created_at) && (
             <span className="text-xs font-medium px-2.5 py-1 rounded-full bg-blue-500 text-white">New</span>
+          )}
+          {(listing.virtual_tour_url || listing.virtual_tour_image_url) && (
+            <span className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full bg-neutral-900 text-white">
+              <View className="w-3 h-3" /> 360° Tour
+            </span>
           )}
         </div>
 

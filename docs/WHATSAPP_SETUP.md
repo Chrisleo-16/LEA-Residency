@@ -118,8 +118,12 @@ Hi {{1}}, your viewing request for {{2}} at {{3}} is received. We'll confirm wit
 
 **Template 3 — `lea_viewing_notification`**
 ```
-New viewing request from {{1}} ({{2}}) for "{{3}}" — requested {{4}} at {{5}}.
+Hi! You have a new viewing request from {{1}} for your listing "{{2}}". They'd like to view it on {{3}}. Reply CONFIRM to accept or CANCEL to decline this request.
 ```
+(Originally had 5 variables — Meta rejects that as too many for the message
+length. This version combines name+phone into {{1}} and date+time into {{3}},
+down to 3 variables, and doubles as the prompt for the CONFIRM/CANCEL
+reply flow.)
 
 Approval is usually a few minutes to a few hours. You'll see each template's
 status change to **Approved** in the Message Templates list.

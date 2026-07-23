@@ -17,7 +17,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { toast } from 'sonner'
-import { Upload, Loader2 } from 'lucide-react'
+import { Upload, Loader2, View } from 'lucide-react'
 
 const LISTING_TYPES = [
   { value: 'sale', label: 'For Sale', priceLabel: 'Price (KES)' },
@@ -69,6 +69,11 @@ export default function CreateListingDialog({
   const [contactPhone, setContactPhone] = useState('')
   const [caretakerName, setCaretakerName] = useState('')
   const [caretakerPhone, setCaretakerPhone] = useState('')
+  const [tourMode, setTourMode] = useState<'none' | 'link' | 'upload'>('none')
+  const [virtualTourUrl, setVirtualTourUrl] = useState('')
+  const [virtualTourUrlError, setVirtualTourUrlError] = useState('')
+  const [tourImageFile, setTourImageFile] = useState<File | null>(null)
+  const [tourImagePreview, setTourImagePreview] = useState<string | null>(null)
 
   const form = useForm<ListingFormValues>({
     resolver: zodResolver(listingFormSchema),
@@ -100,9 +105,36 @@ export default function CreateListingDialog({
     }
   }
 
+  const handleTourImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      setTourImageFile(file)
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        setTourImagePreview(reader.result as string)
+      }
+      reader.readAsDataURL(file)
+    }
+  }
+
   const onSubmit = async (values: ListingFormValues) => {
     if (!imageFile) {
       toast.error('Please select an image for the listing')
+      return
+    }
+
+    const trimmedTourUrl = virtualTourUrl.trim()
+    if (tourMode === 'link') {
+      try {
+        new URL(trimmedTourUrl)
+        setVirtualTourUrlError('')
+      } catch {
+        setVirtualTourUrlError('Enter a valid link, e.g. https://kuula.co/share/...')
+        return
+      }
+    }
+    if (tourMode === 'upload' && !tourImageFile) {
+      toast.error('Select a 360° photo to upload, or switch to "No tour" below')
       return
     }
 
@@ -126,6 +158,23 @@ export default function CreateListingDialog({
       const { data: urlData } = supabase.storage
         .from('listings')
         .getPublicUrl(`${session.data.session.user.id}/${fileName}`)
+
+      // Upload 360 tour photo, if provided directly (landlord owns a real 360 camera)
+      let tourImagePublicUrl: string | null = null
+      if (tourMode === 'upload' && tourImageFile) {
+        const tourExt = tourImageFile.name.split('.').pop()
+        const tourFileName = `${Date.now()}-360.${tourExt}`
+        const { error: tourUploadError } = await supabase.storage
+          .from('listings')
+          .upload(`${session.data.session.user.id}/${tourFileName}`, tourImageFile)
+
+        if (tourUploadError) throw tourUploadError
+
+        const { data: tourUrlData } = supabase.storage
+          .from('listings')
+          .getPublicUrl(`${session.data.session.user.id}/${tourFileName}`)
+        tourImagePublicUrl = tourUrlData.publicUrl
+      }
 
       const details: Record<string, unknown> = {}
       if (values.listingType === 'land' && landSizeAcres) details.land_size_acres = Number(landSizeAcres)
@@ -158,6 +207,8 @@ export default function CreateListingDialog({
             amenities,
             details,
             image_url: urlData.publicUrl,
+            virtual_tour_url: tourMode === 'link' ? trimmedTourUrl : null,
+            virtual_tour_image_url: tourImagePublicUrl,
             created_by: session.data.session.user.id,
           },
         ])
@@ -178,6 +229,11 @@ export default function CreateListingDialog({
       setContactPhone('')
       setCaretakerName('')
       setCaretakerPhone('')
+      setTourMode('none')
+      setVirtualTourUrl('')
+      setVirtualTourUrlError('')
+      setTourImageFile(null)
+      setTourImagePreview(null)
       onOpenChange(false)
       onListingCreated()
     } catch (error) {
@@ -410,6 +466,86 @@ export default function CreateListingDialog({
               onChange={(e) => setAmenitiesInput(e.target.value)}
               className="bg-white border-neutral-200 text-neutral-900 rounded-xl"
             />
+          </div>
+
+          {/* 360 Virtual Tour */}
+          <div>
+            <Label className="text-neutral-900 mb-2 flex items-center gap-1.5">
+              <View className="w-4 h-4 text-neutral-500" />
+              360° Virtual Tour (optional)
+            </Label>
+            <div className="grid grid-cols-3 gap-2 mb-3">
+              {[
+                { value: 'none' as const, label: 'No tour' },
+                { value: 'link' as const, label: 'I have a tour link' },
+                { value: 'upload' as const, label: 'Upload 360 photo' },
+              ].map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => setTourMode(opt.value)}
+                  className={`text-sm font-medium px-3 py-2 rounded-xl border transition-colors ${
+                    tourMode === opt.value
+                      ? 'border-neutral-900 bg-neutral-900 text-white'
+                      : 'border-neutral-200 text-neutral-600 hover:border-neutral-400'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+
+            {tourMode === 'link' && (
+              <div>
+                <Input
+                  placeholder="https://kuula.co/share/..."
+                  value={virtualTourUrl}
+                  onChange={(e) => { setVirtualTourUrl(e.target.value); setVirtualTourUrlError('') }}
+                  className="bg-white border-neutral-200 text-neutral-900 rounded-xl"
+                />
+                {virtualTourUrlError ? (
+                  <p className="text-red-500 text-sm mt-1">{virtualTourUrlError}</p>
+                ) : (
+                  <p className="text-xs text-neutral-500 mt-1">
+                    No 360 camera? Shoot the tour with the free Kuula app, then Share → copy the link and paste it here.
+                  </p>
+                )}
+              </div>
+            )}
+
+            {tourMode === 'upload' && (
+              <div>
+                <div className="relative">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleTourImageChange}
+                    className="hidden"
+                    id="tour-image-upload"
+                  />
+                  <label
+                    htmlFor="tour-image-upload"
+                    className="flex items-center justify-center w-full h-32 border-2 border-dashed border-neutral-200 rounded-xl cursor-pointer hover:border-neutral-400 transition-colors bg-neutral-50"
+                  >
+                    {tourImagePreview ? (
+                      <img
+                        src={tourImagePreview}
+                        alt="360 tour preview"
+                        className="w-full h-full object-cover rounded-lg"
+                      />
+                    ) : (
+                      <div className="flex flex-col items-center justify-center">
+                        <View className="w-8 h-8 text-neutral-400 mb-2" />
+                        <span className="text-neutral-500 text-sm">Click to upload 360° photo</span>
+                      </div>
+                    )}
+                  </label>
+                </div>
+                <p className="text-xs text-neutral-500 mt-1">
+                  This is for landlords with a real 360 camera (e.g. Ricoh Theta, Insta360) that outputs a single panoramic photo — not a regular phone photo. We host and display it directly, no third-party app needed.
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Location & Contact Details — everything a house-hunter needs to not have to ask anyone else */}

@@ -4,12 +4,21 @@ import { useEffect, useState } from 'react'
 import {
   Shield, Package, Globe, TrendingUp, Lock, RefreshCw, Bug, Terminal, Eye,
   Zap, Wifi, Activity, BarChart3, Volume2, ArrowRightLeft, CheckCircle2, XCircle,
-  LayoutGrid, type LucideIcon,
+  LayoutGrid, MessageCircle, type LucideIcon,
 } from 'lucide-react'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Progress } from '@/components/ui/progress'
 import { StatBar } from './StatCard'
 import type { MonitoringStatus } from './types'
+
+interface WhatsAppQuota {
+  limit: number
+  used: number
+  remaining: number
+  windowHours: number
+  configured: boolean
+}
 
 interface InfraItem {
   label: string
@@ -24,6 +33,8 @@ interface InfraTabProps {
 
 export function InfraTab({ logsCount }: InfraTabProps) {
   const [monitoring, setMonitoring] = useState<MonitoringStatus | null>(null)
+  const [whatsappQuota, setWhatsappQuota] = useState<WhatsAppQuota | null>(null)
+  const [whatsappQuotaError, setWhatsappQuotaError] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -31,6 +42,15 @@ export function InfraTab({ logsCount }: InfraTabProps) {
       .then((r) => r.json())
       .then((data) => { if (!cancelled) setMonitoring(data) })
       .catch(() => {})
+    return () => { cancelled = true }
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/whatsapp/quota')
+      .then((r) => { if (!r.ok) throw new Error(); return r.json() })
+      .then((data) => { if (!cancelled) setWhatsappQuota(data) })
+      .catch(() => { if (!cancelled) setWhatsappQuotaError(true) })
     return () => { cancelled = true }
   }, [])
 
@@ -70,6 +90,16 @@ export function InfraTab({ logsCount }: InfraTabProps) {
     },
     { label: 'M-Pesa Callback', status: true, detail: 'Paybill 400200 active', icon: Zap },
     { label: "Africa's Talking", status: false, detail: 'Sandbox / not live', icon: Wifi },
+    {
+      label: 'WhatsApp Messaging',
+      status: !!whatsappQuota?.configured,
+      detail: whatsappQuota
+        ? whatsappQuota.configured
+          ? `${whatsappQuota.used}/${whatsappQuota.limit} conversations (24h)`
+          : 'Not configured — falling back to SMS'
+        : 'Checking…',
+      icon: MessageCircle,
+    },
     { label: 'Realtime (Supabase)', status: true, detail: 'REPLICA IDENTITY FULL', icon: Activity },
     {
       label: 'PostHog Analytics',
@@ -136,6 +166,46 @@ export function InfraTab({ logsCount }: InfraTabProps) {
               </div>
             )
           })}
+        </div>
+      </Card>
+
+      <Card className="gap-0 overflow-hidden py-0">
+        <div className="border-b border-border px-4 py-3 text-sm font-semibold">WhatsApp Conversation Quota</div>
+        <div className="p-4">
+          {whatsappQuotaError ? (
+            <p className="text-sm text-muted-foreground">Couldn&apos;t load quota status.</p>
+          ) : !whatsappQuota ? (
+            <p className="text-sm text-muted-foreground">Checking…</p>
+          ) : !whatsappQuota.configured ? (
+            <p className="text-sm text-muted-foreground">
+              WhatsApp isn&apos;t configured yet — notifications are going out via SMS only.
+            </p>
+          ) : (
+            <>
+              <div className="mb-2 flex items-end justify-between">
+                <div>
+                  <div className="text-2xl font-semibold leading-tight">
+                    {whatsappQuota.used} <span className="text-base font-normal text-muted-foreground">/ {whatsappQuota.limit}</span>
+                  </div>
+                  <div className="text-xs text-muted-foreground">unique new conversations, last {whatsappQuota.windowHours}h</div>
+                </div>
+                <Badge
+                  variant="outline"
+                  className={
+                    whatsappQuota.remaining > 0
+                      ? 'bg-green-500/10 text-green-600 border-green-500/20 dark:bg-green-500/15 dark:text-green-400'
+                      : 'bg-red-500/10 text-red-600 border-red-500/20 dark:bg-red-500/15 dark:text-red-400'
+                  }
+                >
+                  {whatsappQuota.remaining} left
+                </Badge>
+              </div>
+              <Progress value={(whatsappQuota.used / whatsappQuota.limit) * 100} />
+              <p className="mt-2 text-[11px] text-muted-foreground">
+                Rolling 24-hour window, not a midnight reset. Sends beyond the cap fall back to SMS automatically.
+              </p>
+            </>
+          )}
         </div>
       </Card>
     </div>

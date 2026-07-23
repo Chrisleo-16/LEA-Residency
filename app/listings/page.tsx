@@ -6,7 +6,7 @@ import {
   Search, MapPin, BedDouble, Bath, Maximize2, Plus, Grid, List,
   Home, Building2, Trees, Waves, DollarSign, ShieldCheck, ShieldAlert,
   ArrowLeftToLine, TrendingUp, CalendarClock, HandHeart,
-  Signpost, Landmark, Phone, Mail, UserRound,
+  Signpost, Landmark, Phone, Mail, UserRound, View, Pencil,
 } from 'lucide-react'
 import Link from 'next/link'
 import { toast } from 'sonner'
@@ -15,6 +15,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import CreateListingDialog from '@/components/listings/CreateListingDialog'
 import ListingCard from '@/components/listings/ListingCard'
 import FeatureListingDialog from '@/components/listings/FeatureListingDialog'
+import EditListingDialog from '@/components/listings/EditListingDialog'
+import TourViewer from '@/components/listings/TourViewer'
 
 const inter = Inter({ subsets: ['latin'], weight: ['400', '500', '600', '700'] })
 
@@ -35,6 +37,7 @@ export interface Listing {
   listing_type: 'sale' | 'long_term_rent' | 'short_term_rent' | 'commercial' | 'land'
   amenities: string[]
   virtual_tour_url: string | null
+  virtual_tour_image_url: string | null
   details: Record<string, unknown>
 }
 
@@ -88,6 +91,7 @@ export default function ListingsPage() {
   const [verifiedMap, setVerifiedMap] = useState<Record<string, boolean>>({})
   const [ownerContactMap, setOwnerContactMap] = useState<Record<string, { full_name: string | null; phone_number: string | null; email: string | null }>>({})
   const [featureListing, setFeatureListing] = useState<Listing | null>(null)
+  const [editingListing, setEditingListing] = useState<Listing | null>(null)
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set())
   const [interestedIds, setInterestedIds] = useState<Set<string>>(new Set())
   const [needsPhone, setNeedsPhone] = useState(false)
@@ -628,6 +632,29 @@ export default function ListingsPage() {
                 )}
                 <span className="flex items-center gap-1.5"><Maximize2 className="w-4 h-4" />{selectedListing.area} m²</span>
               </div>
+
+              {(selectedListing.virtual_tour_image_url || selectedListing.virtual_tour_url) && (
+                <div className="py-4 border-b border-neutral-100">
+                  <p className="flex items-center gap-1.5 text-xs font-semibold text-neutral-900 uppercase tracking-wide mb-2">
+                    <View className="w-3.5 h-3.5" />
+                    360° Virtual Tour
+                  </p>
+                  <div className="rounded-xl overflow-hidden border border-neutral-200 aspect-video">
+                    {selectedListing.virtual_tour_image_url ? (
+                      <TourViewer imageUrl={selectedListing.virtual_tour_image_url} className="w-full h-full" />
+                    ) : (
+                      <iframe
+                        src={selectedListing.virtual_tour_url!}
+                        title={`360 virtual tour of ${selectedListing.title}`}
+                        className="w-full h-full"
+                        allow="xr-spatial-tracking; gyroscope; accelerometer"
+                        allowFullScreen
+                      />
+                    )}
+                  </div>
+                </div>
+              )}
+
               {(() => {
                 const d = (selectedListing.details || {}) as Record<string, unknown>
                 const exactLocation = typeof d.exact_location === 'string' ? d.exact_location : null
@@ -709,6 +736,13 @@ export default function ListingsPage() {
                 {isOwner(selectedListing) && (
                   <div className="flex items-center gap-2">
                     <button
+                      onClick={() => setEditingListing(selectedListing)}
+                      className="inline-flex items-center gap-1.5 text-sm font-medium px-4 py-2 rounded-full border border-neutral-900 text-neutral-900 hover:bg-neutral-900 hover:text-white transition-colors"
+                    >
+                      <Pencil className="w-4 h-4" />
+                      Edit
+                    </button>
+                    <button
                       onClick={() => setFeatureListing(selectedListing)}
                       className="inline-flex items-center gap-1.5 text-sm font-medium px-4 py-2 rounded-full border border-neutral-900 text-neutral-900 hover:bg-neutral-900 hover:text-white transition-colors"
                     >
@@ -767,6 +801,16 @@ export default function ListingsPage() {
           }}
         />
       )}
+
+      <EditListingDialog
+        listing={editingListing}
+        onOpenChange={(open) => !open && setEditingListing(null)}
+        onListingUpdated={() => {
+          setEditingListing(null)
+          setSelectedListing(null)
+          fetchListings()
+        }}
+      />
     </div>
   )
 }

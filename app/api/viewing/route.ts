@@ -175,10 +175,18 @@ export async function POST(request: NextRequest) {
       // no site-wide fallback number to notify, so skip silently.
       let landlordNotifyResult: { success: boolean } = { success: false }
       if (ownerPhone) {
+        // lea_viewing_notification only takes 3 placeholders — Meta rejected
+        // the original 5-variable version as too many variables for the
+        // message length, so name+phone and date+time are each combined
+        // into a single param here to match the approved template body.
         landlordNotifyResult = await notifyByWhatsAppOrSMS({
           phone: ownerPhone,
           whatsappTemplate: WHATSAPP_TEMPLATES.VIEWING_NOTIFICATION,
-          whatsappParams: [userName, formatPhoneNumber(body.phone), listingTitle, body.preferredDate, body.preferredTime],
+          whatsappParams: [
+            `${userName} (${formatPhoneNumber(body.phone)})`,
+            listingTitle,
+            `${body.preferredDate} (${body.preferredTime})`,
+          ],
           smsMessage: `NEW VIEWING REQUEST\n\nName: ${body.firstName} ${body.lastName}\nPhone: ${body.phone}\nEmail: ${body.email}\n\nProperty: ${listingTitle}\nDate: ${body.preferredDate}\nTime: ${body.preferredTime}\nGroup: ${body.groupSize} people\nUrgency: ${body.urgency}\n\nPlease confirm within 24 hours.\n\nLEA`,
         })
       }

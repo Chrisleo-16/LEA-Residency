@@ -31,7 +31,12 @@ export async function notifyByWhatsAppOrSMS({
     if (waResult.success) {
       return { success: true, channel: 'whatsapp' }
     }
-    console.warn('[Notify] WhatsApp failed, falling back to SMS:', waResult.error)
+    console.warn(
+      waResult.quotaExceeded
+        ? '[Notify] WhatsApp rolling-24h quota reached, falling back to SMS'
+        : '[Notify] WhatsApp failed, falling back to SMS:',
+      waResult.error
+    )
   }
 
   const smsResult = await sendSMS({ to: formatPhoneNumber(phone), message: smsMessage })
