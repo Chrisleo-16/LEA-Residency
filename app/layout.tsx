@@ -7,6 +7,7 @@ import SupabaseListener from '@/components/SupabaseListener'
 import RouteLoaderProvider from '@/components/RouteLoaderProvider'
 import { ThemeProvider } from '@/components/theme-provider'
 import {Toaster} from "@/components/ui/toaster"
+import { Toaster as SonnerToaster } from "@/components/ui/sonner"
 
 const nunito = Nunito({
   subsets: ['latin'],
@@ -61,6 +62,7 @@ export default function RootLayout({
             {children}
           </RouteLoaderProvider>
           <Toaster />
+          <SonnerToaster />
         </ThemeProvider>
         <Analytics />
         {/* Only register SW in production — fixes 404 in dev */}

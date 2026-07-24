@@ -16,6 +16,7 @@ import CreateListingDialog from '@/components/listings/CreateListingDialog'
 import ListingCard from '@/components/listings/ListingCard'
 import FeatureListingDialog from '@/components/listings/FeatureListingDialog'
 import EditListingDialog from '@/components/listings/EditListingDialog'
+import InterestOtpDialog from '@/components/listings/InterestOtpDialog'
 import TourViewer from '@/components/listings/TourViewer'
 
 const inter = Inter({ subsets: ['latin'], weight: ['400', '500', '600', '700'] })
@@ -92,6 +93,7 @@ export default function ListingsPage() {
   const [ownerContactMap, setOwnerContactMap] = useState<Record<string, { full_name: string | null; phone_number: string | null; email: string | null }>>({})
   const [featureListing, setFeatureListing] = useState<Listing | null>(null)
   const [editingListing, setEditingListing] = useState<Listing | null>(null)
+  const [guestInterestListingId, setGuestInterestListingId] = useState<string | null>(null)
   const [savedIds, setSavedIds] = useState<Set<string>>(new Set())
   const [interestedIds, setInterestedIds] = useState<Set<string>>(new Set())
   const [needsPhone, setNeedsPhone] = useState(false)
@@ -155,7 +157,7 @@ export default function ListingsPage() {
 
   const expressInterest = async (listingId: string) => {
     if (!userId) {
-      toast.error('Please log in to express interest')
+      setGuestInterestListingId(listingId)
       return
     }
     setInterestedIds((prev) => new Set(prev).add(listingId))
@@ -810,6 +812,12 @@ export default function ListingsPage() {
           setSelectedListing(null)
           fetchListings()
         }}
+      />
+
+      <InterestOtpDialog
+        listingId={guestInterestListingId}
+        onOpenChange={(open) => !open && setGuestInterestListingId(null)}
+        onVerified={(listingId) => setInterestedIds((prev) => new Set(prev).add(listingId))}
       />
     </div>
   )

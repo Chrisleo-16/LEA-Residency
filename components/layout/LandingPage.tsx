@@ -289,11 +289,12 @@ export default function Home() {
         </div>
 
         <div className="relative max-w-7xl mx-auto px-6 lg:px-10 pt-24 pb-20 md:pt-32 md:pb-28">
-          <div className="inline-flex items-center gap-2 rounded-full border border-white/20 px-4 py-1.5 text-xs uppercase tracking-widest text-white/80 mb-8">
-            #1 Kenyan Real Estate Platform
+          <div className="inline-flex items-center gap-2 rounded-full border border-white/20 px-3 sm:px-4 py-1 sm:py-1.5 text-[10px] sm:text-xs uppercase tracking-widest text-white/80 mb-8 whitespace-nowrap">
+            <span className="sm:hidden">#1 in Kenya</span>
+            <span className="hidden sm:inline">#1 Kenyan Real Estate Platform</span>
           </div>
 
-          <h1 className="font-extrabold uppercase leading-[0.92] tracking-tight text-[15vw] sm:text-7xl md:text-8xl mb-8 max-w-4xl">
+          <h1 className="font-extrabold uppercase leading-[0.92] tracking-tight text-[clamp(2.25rem,12vw,3.5rem)] sm:text-7xl md:text-8xl mb-8 max-w-4xl break-words">
             Smart
             <br />
             Property
