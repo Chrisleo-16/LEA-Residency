@@ -10,7 +10,7 @@ export async function middleware(request: NextRequest) {
                            path.startsWith('/landlord')
 
   const isAuthPage = path === '/login'
-  const isCompleteSetupPage = path === '/complete-setup'
+  const isOnboardingPage = path === '/onboarding'
 
   // 1. Initialize the base response
   const initialResponse = NextResponse.next({ request })
@@ -37,15 +37,13 @@ export async function middleware(request: NextRequest) {
   if (isAuthPage && user) {
     const { data: profile } = await supabase
       .from('profiles')
-      .select('landlord_code, landlord_block_id, property_setup_complete, role')
+      .select('onboarding_completed, role')
       .eq('id', user.id)
       .single()
 
-    const needsSetup =
-      profile?.role === 'landlord' &&
-      (!profile?.landlord_code || !profile?.landlord_block_id || !profile?.property_setup_complete)
-
-    const targetUrl = needsSetup ? '/complete-setup' : '/dashboard'
+    const targetUrl = (profile?.role === 'landlord' && !profile?.onboarding_completed) 
+      ? '/onboarding' 
+      : '/dashboard'
 
     const redirectRes = NextResponse.redirect(new URL(targetUrl, request.url))
     // Pull cookies AFTER the database query finishes to ensure we don't lose the session
@@ -55,20 +53,16 @@ export async function middleware(request: NextRequest) {
     return redirectRes
   }
 
-  // Protecting uncompleted landlord setup
-  if (isProtectedRoute && user && !isCompleteSetupPage) {
+  // Protecting uncompleted onboarding flows
+  if (isProtectedRoute && user && !isOnboardingPage) {
     const { data: profile } = await supabase
       .from('profiles')
-      .select('landlord_code, landlord_block_id, property_setup_complete, role')
+      .select('onboarding_completed, role')
       .eq('id', user.id)
       .single()
 
-    const needsSetup =
-      profile?.role === 'landlord' &&
-      (!profile?.landlord_code || !profile?.landlord_block_id || !profile?.property_setup_complete)
-
-    if (needsSetup) {
-      const redirectRes = NextResponse.redirect(new URL('/complete-setup', request.url))
+    if (profile?.role === 'landlord' && !profile?.onboarding_completed) {
+      const redirectRes = NextResponse.redirect(new URL('/onboarding', request.url))
       supabaseResponse.cookies.getAll().forEach(({ name, value, ...options }) => {
         redirectRes.cookies.set(name, value, options)
       })
@@ -86,6 +80,6 @@ export const config = {
     '/developer-dashboard/:path*',
     '/landlord/:path*',
     '/login',
-    '/complete-setup',
+    '/onboarding',
   ],
 }

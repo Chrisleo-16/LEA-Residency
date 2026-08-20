@@ -215,7 +215,7 @@ function LoginPageContent() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${window.location.origin}/auth/callback?mode=${isLogin ? "login" : "signup"}`,
+          redirectTo: `${window.location.origin}/auth/callback`,
         },
       });
       if (error) {
@@ -267,7 +267,7 @@ function LoginPageContent() {
                 <>
                   Your home,
                   <br />
-                  <span className="text-light">managed</span>
+                  <span className="text-secondary">managed</span>
                   <br />
                   professionally.
                 </>

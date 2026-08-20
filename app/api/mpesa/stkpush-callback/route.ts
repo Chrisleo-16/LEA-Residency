@@ -64,7 +64,7 @@ async function processPayment(body: any) {
     console.log(`[PayHero] Payment ${status} for ${reference} — marking failed`)
 
     if (reference) {
-      const rentMatch = reference.match(/^(RENT|REPAIRS)-(.+)-(\d{4}-\d{2})$/)
+      const rentMatch = reference.match(/^(RENT|REPAIRS|WIFI)-(.+)-(\d{4}-\d{2})$/)
       if (rentMatch) {
         const tenantId = rentMatch[2]
         const paymentMonth = rentMatch[3]
@@ -201,14 +201,14 @@ return
   let paymentType = 'rent'
 
   if (reference) {
-    const match = reference.match(/^(RENT|REPAIRS)-(.+)-(\d{4}-\d{2})$/)
-    if (match) {
-      paymentType = match[1].toLowerCase()
-      tenantId = match[2]
-      paymentMonth = match[3]
-      console.log(`[PayHero] Parsed ref → tenant: ${tenantId} | month: ${paymentMonth} | type: ${paymentType}`)
-    }
+  const match = reference.match(/^(RENT|REPAIRS|WIFI)-(.+)-(\d{4}-\d{2})$/)
+  if (match) {
+    paymentType = match[1].toLowerCase()
+    tenantId = match[2]
+    paymentMonth = match[3]
+    console.log(`[PayHero] Parsed ref → tenant: ${tenantId} | month: ${paymentMonth} | type: ${paymentType}`)
   }
+}
 
   // Fallback: find tenant by phone number
   if (!tenantId && phone_number) {
@@ -236,7 +236,7 @@ return
     paymentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
   }
 
-  const paidAmount = Number(amount)
+    const paidAmount = Number(amount)
 
   // Calculate complete/partial status
   let isComplete = false
@@ -245,24 +245,32 @@ return
   if (tenantId) {
     const { data: rentSetting } = await supabase
       .from('rent_settings')
-      .select('monthly_amount')
+      .select('monthly_amount, wifi_amount')
       .eq('tenant_id', tenantId)
       .maybeSingle()
 
     if (rentSetting) {
+      const expected = paymentType === 'wifi'
+        ? Number(rentSetting.wifi_amount || 0)
+        : Number(rentSetting.monthly_amount)
+
       const { data: existingPayments } = await supabase
         .from('payments')
-        .select('amount')
+        .select('amount, notes')
         .eq('tenant_id', tenantId)
         .eq('payment_month', paymentMonth)
         .in('status', ['complete', 'partial', 'confirmed'])
 
-      const alreadyPaid = (existingPayments || [])
-        .reduce((sum, p) => sum + Number(p.amount), 0)
+      const relevant = (existingPayments || []).filter((p) =>
+        paymentType === 'wifi'
+          ? (p.notes || '').toUpperCase().includes('WIFI')
+          : !(p.notes || '').toUpperCase().includes('WIFI')
+      )
 
+      const alreadyPaid = relevant.reduce((sum, p) => sum + Number(p.amount), 0)
       const totalAfterThis = alreadyPaid + paidAmount
-      isComplete = totalAfterThis >= rentSetting.monthly_amount
-      pendingAmount = Math.max(0, rentSetting.monthly_amount - totalAfterThis)
+      isComplete = expected > 0 && totalAfterThis >= expected
+      pendingAmount = Math.max(0, expected - totalAfterThis)
     }
   }
 
@@ -297,18 +305,28 @@ return
     }
   }
 
-  const finalNotes = pendingAmount > 0
-    ? `KES ${pendingAmount.toLocaleString()} still pending`
-    : 'Fully paid via M-Pesa STK ✅'
+  const finalNotes = paymentType === 'wifi'
+    ? (pendingAmount > 0
+        ? `WIFI | KES ${pendingAmount.toLocaleString()} still pending`
+        : 'WIFI | Fully paid via M-Pesa STK ✅')
+    : (pendingAmount > 0
+        ? `KES ${pendingAmount.toLocaleString()} still pending`
+        : 'Fully paid via M-Pesa STK ✅')
 
-  // Find the pending record by tenant + month + status
-  const { data: pendingPayment } = await supabase
+  // Find the matching pending record — scoped by type so a rent pending
+  // row and a wifi pending row for the same tenant/month never collide
+  const { data: pendingCandidates } = await supabase
     .from('payments')
-    .select('id')
+    .select('id, notes')
     .eq('tenant_id', tenantId)
     .eq('payment_month', paymentMonth)
     .eq('status', 'pending')
-    .maybeSingle()
+
+  const pendingPayment = (pendingCandidates || []).find((p) =>
+    paymentType === 'wifi'
+      ? (p.notes || '').toUpperCase().includes('WIFI')
+      : !(p.notes || '').toUpperCase().includes('WIFI')
+  ) || null
 
   if (pendingPayment) {
     const { error: updateError } = await supabase

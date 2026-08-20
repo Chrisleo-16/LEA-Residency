@@ -24,8 +24,10 @@ import {
   RefreshCw,
   Droplets,
   Wrench,
+  Wifi,
 } from "lucide-react";
 import PayButton from "../payments/PaymentsButton";
+import WifiPayModal from "../payments/WifiPayModal";
 
 const TZ = "Africa/Nairobi";
 const toUTC = (s: string) => new Date(s.endsWith("Z") ? s : s + "Z");
@@ -53,6 +55,8 @@ interface RentSetting {
   monthly_amount: number;
   due_day: number;
   unit_number: string | null;
+  wifi_enabled?: boolean;
+  wifi_amount?: number | null;
   profiles?: { full_name: string; email: string; avatar_url: string | null };
 }
 
@@ -67,7 +71,7 @@ const MONTHS = Array.from({ length: 12 }, (_, i) => {
     month: "long",
     year: "numeric",
     timeZone: TZ,
-  })}|${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`
+  })}|${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 });
 
 export default function PaymentsPage({ user }: PaymentsPageProps) {
@@ -80,6 +84,11 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+
+  const [settingsWifiEnabled, setSettingsWifiEnabled] = useState(false);
+  const [settingsWifiAmount, setSettingsWifiAmount] = useState("");
+  const [landlordWifiChannel, setLandlordWifiChannel] = useState<any>(null);
+  const [showWifiPayModal, setShowWifiPayModal] = useState(false);
 
   // Manual log form states — landlord
   const [showLogForm, setShowLogForm] = useState(false);
@@ -104,7 +113,6 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
   const [payPhone, setPayPhone] = useState("");
   const [isPaying, setIsPaying] = useState(false);
 
-  
   // ── Payment status calculator ─────────────────────────
   const getTenantPaymentStatus = (tenantId: string, month: string) => {
     const rs = rentSettings.find((r) => r.tenant_id === tenantId);
@@ -150,59 +158,59 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
       const { data: slotRows } = await supabase
         .from("tenant_slots")
         .select("tenant_id")
-        .eq("landlord_block_id", profile.landlord_block_id )
-        .not("tenant_id", "is", null)
+        .eq("landlord_block_id", profile.landlord_block_id)
+        .not("tenant_id", "is", null);
 
       const tenantIds = (slotRows || [])
         .map((slot: any) => slot.tenant_id)
-        .filter(Boolean)
+        .filter(Boolean);
 
       if (tenantIds.length) {
         const { data: pays } = await supabase
           .from("payments")
           .select("*, profiles!payments_tenant_id_fkey(full_name, email)")
           .in("tenant_id", tenantIds)
-          .order("payment_date", { ascending: false })
-        setPayments(pays || [])
+          .order("payment_date", { ascending: false });
+        setPayments(pays || []);
 
         const { data: tList } = await supabase
           .from("profiles")
           .select("id, full_name, email, avatar_url, phone_number")
-          .in("id", tenantIds)
-        setTenants(tList || [])
+          .in("id", tenantIds);
+        setTenants(tList || []);
 
         const { data: rs } = await supabase
           .from("rent_settings")
           .select("*, profiles(full_name, email, avatar_url)")
-          .in("tenant_id", tenantIds)
-        setRentSettings(rs || [])
+          .in("tenant_id", tenantIds);
+        setRentSettings(rs || []);
       } else {
         const { data: pays } = await supabase
           .from("payments")
           .select("*, profiles!payments_tenant_id_fkey(full_name, email)")
           .eq("landlord_id", user!.id)
-          .order("payment_date", { ascending: false })
-        setPayments(pays || [])
+          .order("payment_date", { ascending: false });
+        setPayments(pays || []);
 
         const uniqueTenantIds = Array.from(
           new Set((pays || []).map((p: any) => p.tenant_id).filter(Boolean)),
-        )
+        );
 
         const { data: tList } = uniqueTenantIds.length
           ? await supabase
               .from("profiles")
               .select("id, full_name, email, avatar_url, phone_number")
               .in("id", uniqueTenantIds)
-          : { data: [] }
-        setTenants(tList || [])
+          : { data: [] };
+        setTenants(tList || []);
 
         const { data: rs } = uniqueTenantIds.length
           ? await supabase
               .from("rent_settings")
               .select("*, profiles(full_name, email, avatar_url)")
               .in("tenant_id", uniqueTenantIds)
-          : { data: [] }
-        setRentSettings(rs || [])
+          : { data: [] };
+        setRentSettings(rs || []);
       }
     } else {
       // Tenant — own payments only
@@ -219,6 +227,13 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
         .eq("tenant_id", user!.id)
         .maybeSingle();
       if (rs) setRentSettings([rs]);
+
+      const { data: wifiChan } = await supabase
+        .from("landlord_payment_settings")
+        .select("payhero_channel_id")
+        .eq("is_wifi", true)
+        .maybeSingle();
+      setLandlordWifiChannel(wifiChan || null);
     }
 
     setIsLoading(false);
@@ -253,7 +268,7 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
     setIsLogging(true);
     try {
       if (!tenants.some((t) => t.id === logTenantId)) {
-        throw new Error("Selected tenant is not assigned to you.")
+        throw new Error("Selected tenant is not assigned to you.");
       }
 
       if (logMpesaCode) {
@@ -301,7 +316,7 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
     setIsSavingSettings(true);
     try {
       if (!tenants.some((t) => t.id === settingsTenantId)) {
-        throw new Error("Selected tenant is not assigned to you.")
+        throw new Error("Selected tenant is not assigned to you.");
       }
 
       const { error } = await supabase.from("rent_settings").upsert(
@@ -309,6 +324,10 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
           tenant_id: settingsTenantId,
           monthly_amount: parseFloat(settingsAmount),
           unit_number: settingsUnit || null,
+          wifi_enabled: settingsWifiEnabled,
+          wifi_amount: settingsWifiEnabled
+            ? parseFloat(settingsWifiAmount || "0")
+            : null,
           updated_at: new Date().toISOString(),
         },
         { onConflict: "tenant_id" },
@@ -358,7 +377,6 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
       );
       setShowPayModal(false);
       setPayPhone("");
-
     } catch (err: any) {
       showFeedback(err.message, true);
     } finally {
@@ -367,147 +385,170 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
   };
 
   const handleDeletePayment = async (id: string) => {
-    const paymentToDelete = payments.find((p) => p.id === id)
+    const paymentToDelete = payments.find((p) => p.id === id);
     if (!paymentToDelete) {
-      showFeedback("Payment not found.", true)
-      return
+      showFeedback("Payment not found.", true);
+      return;
     }
 
-    if (role === "landlord" && !tenants.some((t) => t.id === paymentToDelete.tenant_id)) {
-      showFeedback("Unauthorized to delete this payment.", true)
-      return
+    if (
+      role === "landlord" &&
+      !tenants.some((t) => t.id === paymentToDelete.tenant_id)
+    ) {
+      showFeedback("Unauthorized to delete this payment.", true);
+      return;
     }
 
-    const deleteQuery = supabase.from("payments").delete().eq("id", id)
+    const deleteQuery = supabase.from("payments").delete().eq("id", id);
     if (role === "landlord") {
-      deleteQuery.eq("landlord_id", user!.id)
+      deleteQuery.eq("landlord_id", user!.id);
     } else {
-      deleteQuery.eq("tenant_id", user!.id)
+      deleteQuery.eq("tenant_id", user!.id);
     }
 
-    const { error } = await deleteQuery
+    const { error } = await deleteQuery;
     if (error) {
-      showFeedback("Failed to delete payment.", true)
-      return
+      showFeedback("Failed to delete payment.", true);
+      return;
     }
 
-    showFeedback("Payment record deleted.")
-    fetchData()
-  }
+    showFeedback("Payment record deleted.");
+    fetchData();
+  };
 
   const formatDate = (s: string) =>
-    toUTC(s).toLocaleDateString(undefined, {
-      day: "numeric",
-      month: "short",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-      timeZone: TZ,
-    }).replace(',', ' ');
+    toUTC(s)
+      .toLocaleDateString(undefined, {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+        timeZone: TZ,
+      })
+      .replace(",", " ");
 
   // CSV Export Function
   const exportToCSV = () => {
-    const monthPayments = payments.filter(p => p.payment_month === activeMonth);
-    
+    const monthPayments = payments.filter(
+      (p) => p.payment_month === activeMonth,
+    );
+
     if (monthPayments.length === 0) {
-      const monthName = MONTHS.find(m => m.split('|')[1] === activeMonth)?.split('|')[0] || 'Unknown';
-      showFeedback(`No payments found for ${monthName}. Log some payments first!`, true);
+      const monthName =
+        MONTHS.find((m) => m.split("|")[1] === activeMonth)?.split("|")[0] ||
+        "Unknown";
+      showFeedback(
+        `No payments found for ${monthName}. Log some payments first!`,
+        true,
+      );
       return;
     }
-    
-    // Create CSV headers
+
     const headers = [
-      'Tenant Name',
-      'Email',
-      'Payment Type',
-      'Amount (KES)',
-      'M-Pesa Code',
-      'Payment Date',
-      'Payment Method',
-      'Status',
-      'Notes'
+      "Tenant Name",
+      "Email",
+      "Payment Type",
+      "Amount (KES)",
+      "M-Pesa Code",
+      "Payment Date",
+      "Payment Method",
+      "Status",
+      "Notes",
     ];
 
-    // Create CSV rows
-    const rows = monthPayments.map(payment => {
-      const tenant = tenants.find(t => t.id === payment.tenant_id);
+    const rows = monthPayments.map((payment) => {
+      const tenant = tenants.find((t) => t.id === payment.tenant_id);
       const paymentType = getPaymentTypeFromNotes(payment.notes);
-      
+
       return [
-        tenant?.full_name || payment.tenant_name || 'Unknown',
-        tenant?.email || payment.tenant_email || 'Unknown',
+        tenant?.full_name || payment.tenant_name || "Unknown",
+        tenant?.email || payment.tenant_email || "Unknown",
         paymentType,
         payment.amount.toString(),
-        payment.mpesa_code || 'N/A',
+        payment.mpesa_code || "N/A",
         formatDate(payment.payment_date),
-        payment.payment_method || 'M-Pesa',
-        payment.status || 'confirmed',
-        payment.notes || ''
+        payment.payment_method || "M-Pesa",
+        payment.status || "confirmed",
+        payment.notes || "",
       ];
     });
 
-    // Convert to CSV string
     const csvContent = [
-      headers.join(','),
-      ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
-    ].join('\n');
+      headers.join(","),
+      ...rows.map((row) => row.map((cell) => `"${cell}"`).join(",")),
+    ].join("\n");
 
-    // Create and download file
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
-    
-    const monthName = MONTHS.find(m => m.split('|')[1] === activeMonth)?.split('|')[0] || 'Unknown';
-    link.setAttribute('href', url);
-    link.setAttribute('download', `payment_ledger_${monthName.replace(' ', '_')}.csv`);
-    link.style.visibility = 'hidden';
-    
+
+    const monthName =
+      MONTHS.find((m) => m.split("|")[1] === activeMonth)?.split("|")[0] ||
+      "Unknown";
+    link.setAttribute("href", url);
+    link.setAttribute(
+      "download",
+      `payment_ledger_${monthName.replace(" ", "_")}.csv`,
+    );
+    link.style.visibility = "hidden";
+
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    
+
     showFeedback(`Payment ledger for ${monthName} exported successfully!`);
   };
 
   // Smart Sync PayHero Transactions Function
   const smartSyncPayHero = async () => {
     try {
-      showFeedback('Smart syncing PayHero transactions...', false);
-      
-      const response = await fetch('/api/sync/smart-sync', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      showFeedback("Smart syncing PayHero transactions...", false);
+
+      const response = await fetch("/api/sync/smart-sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
       });
-      
+
       const result = await response.json();
-      
+
       if (result.success) {
         const stats = result.stats || { updated: 0, created: 0, skipped: 0 };
-        showFeedback(`Smart sync completed: ${stats.updated} updated, ${stats.created} created, ${stats.skipped} skipped`, false);
-        // Refresh data to show updated payments
+        showFeedback(
+          `Smart sync completed: ${stats.updated} updated, ${stats.created} created, ${stats.skipped} skipped`,
+          false,
+        );
         fetchData();
       } else {
-        showFeedback(`Smart sync failed: ${result.error || 'Unknown error'}`, true);
+        showFeedback(
+          `Smart sync failed: ${result.error || "Unknown error"}`,
+          true,
+        );
       }
     } catch (error: any) {
-      console.error('Smart sync error:', error);
-      showFeedback('Smart sync failed. Please try again.', true);
+      console.error("Smart sync error:", error);
+      showFeedback("Smart sync failed. Please try again.", true);
     }
   };
 
   // Helper function to determine payment type from notes
   const getPaymentTypeFromNotes = (notes: string | null) => {
-    if (!notes) return 'Rent';
-    if (notes.toLowerCase().includes('water')) return 'Rent + Water';
-    if (notes.toLowerCase().includes('repair') || notes.toLowerCase().includes('service')) return 'Repairs';
-    if (notes.toLowerCase().includes('plumbing')) return 'Plumbing';
-    if (notes.toLowerCase().includes('electrical')) return 'Electrical';
-    if (notes.toLowerCase().includes('painting')) return 'Painting';
-    if (notes.toLowerCase().includes('carpentry')) return 'Carpentry';
-    if (notes.toLowerCase().includes('security')) return 'Security';
-    if (notes.toLowerCase().includes('delivery')) return 'Delivery';
-    return 'Rent';
+    if (!notes) return "Rent";
+    if (notes.toUpperCase().includes("WIFI")) return "Wi-Fi";
+    if (notes.toLowerCase().includes("water")) return "Rent + Water";
+    if (
+      notes.toLowerCase().includes("repair") ||
+      notes.toLowerCase().includes("service")
+    )
+      return "Repairs";
+    if (notes.toLowerCase().includes("plumbing")) return "Plumbing";
+    if (notes.toLowerCase().includes("electrical")) return "Electrical";
+    if (notes.toLowerCase().includes("painting")) return "Painting";
+    if (notes.toLowerCase().includes("carpentry")) return "Carpentry";
+    if (notes.toLowerCase().includes("security")) return "Security";
+    if (notes.toLowerCase().includes("delivery")) return "Delivery";
+    return "Rent";
   };
 
   const formatMoney = (n: number) =>
@@ -534,6 +575,14 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
   );
   const myCurrentPayment = payments.find(
     (p) => p.tenant_id === user?.id && p.payment_month === activeMonth,
+  );
+  const myWifiEnabled = !!myRentSetting?.wifi_enabled;
+  const myWifiAmount = Number(myRentSetting?.wifi_amount || 0);
+  const myWifiPaidThisMonth = payments.some(
+    (p) =>
+      p.tenant_id === user?.id &&
+      p.payment_month === activeMonth &&
+      (p.notes || "").toUpperCase().includes("WIFI"),
   );
 
   const filteredPayments = currentMonthPayments.filter((p) => {
@@ -786,8 +835,10 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
                     amount={myRentSetting.monthly_amount}
                     month={activeMonth}
                     onSuccess={() => {
-                      showFeedback("Enhanced payment initiated! Check your phone 📱")
-                      fetchData() // Refresh payment data
+                      showFeedback(
+                        "Enhanced payment initiated! Check your phone 📱",
+                      );
+                      fetchData();
                     }}
                     onError={(msg: string) => showFeedback(msg, true)}
                   />
@@ -797,7 +848,35 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
           </div>
         )}
 
-        {/* Modal for phone number (STK Push) */}
+        {/* ── TENANT: Wi-Fi callout — shown only after rent is paid, only if landlord enabled Wi-Fi for this tenant, only if not yet paid this month ── */}
+        {role === "tenant" &&
+          myCurrentMonthPaid &&
+          myWifiEnabled &&
+          !myWifiPaidThisMonth && (
+            <div className="rounded-2xl border border-sky-200 bg-sky-50 dark:bg-sky-950/20 dark:border-sky-800 p-5 flex items-center justify-between gap-3 flex-wrap">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-sky-100 dark:bg-sky-900/40 flex items-center justify-center shrink-0">
+                  <Wifi className="w-5 h-5 text-sky-600" />
+                </div>
+                <div>
+                  <p className="font-bold text-sky-700 dark:text-sky-400">
+                    Wi-Fi Subscription Unpaid
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {formatMoney(myWifiAmount)} due this month
+                  </p>
+                </div>
+              </div>
+              <Button
+                onClick={() => setShowWifiPayModal(true)}
+                className="bg-sky-600 hover:bg-sky-700 text-white rounded-xl h-10 shrink-0"
+              >
+                Pay for Wi-Fi
+              </Button>
+            </div>
+          )}
+
+        {/* Modal for phone number (STK Push) — rent */}
         {showPayModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div className="bg-card rounded-2xl p-6 max-w-md w-full max-h-[90vh] overflow-y-auto">
@@ -828,6 +907,21 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
             </div>
           </div>
         )}
+
+        {/* Modal for Wi-Fi STK Push */}
+        <WifiPayModal
+          open={showWifiPayModal}
+          onClose={() => setShowWifiPayModal(false)}
+          amount={myWifiAmount}
+          tenantId={user?.id || ""}
+          month={activeMonth}
+          channelId={landlordWifiChannel?.payhero_channel_id || null}
+          onSuccess={() => {
+            showFeedback("Wi-Fi payment request sent — check your phone.");
+            fetchData();
+          }}
+          onError={(msg) => showFeedback(msg, true)}
+        />
 
         {/* ── Month selector ───────────────────────────── */}
         <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none -mx-1 px-1">
@@ -878,9 +972,17 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
                     if (existing) {
                       setSettingsAmount(String(existing.monthly_amount));
                       setSettingsUnit(existing.unit_number || "");
+                      setSettingsWifiEnabled(!!existing.wifi_enabled);
+                      setSettingsWifiAmount(
+                        existing.wifi_amount
+                          ? String(existing.wifi_amount)
+                          : "",
+                      );
                     } else {
                       setSettingsAmount("");
                       setSettingsUnit("");
+                      setSettingsWifiEnabled(false);
+                      setSettingsWifiAmount("");
                     }
                   }}
                   required
@@ -920,6 +1022,46 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
                   />
                 </div>
               </div>
+
+              <div className="flex items-center justify-between p-3.5 bg-secondary rounded-xl">
+                <div className="flex items-center gap-2.5">
+                  <Wifi className="w-4 h-4 text-sky-500" />
+                  <div>
+                    <p className="text-sm font-medium text-foreground">
+                      Add Wi-Fi
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Offer Wi-Fi billing to this tenant
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSettingsWifiEnabled(!settingsWifiEnabled)}
+                  className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${settingsWifiEnabled ? "bg-sky-500" : "bg-border"}`}
+                >
+                  <span
+                    className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform ${settingsWifiEnabled ? "translate-x-5" : "translate-x-0"}`}
+                  />
+                </button>
+              </div>
+
+              {settingsWifiEnabled && (
+                <div>
+                  <label className="text-sm font-medium text-foreground block mb-1.5">
+                    Wi-Fi Monthly Price (KES)
+                  </label>
+                  <Input
+                    type="number"
+                    placeholder="e.g. 1500"
+                    value={settingsWifiAmount}
+                    onChange={(e) => setSettingsWifiAmount(e.target.value)}
+                    required={settingsWifiEnabled}
+                    className="bg-secondary border-border text-foreground rounded-xl h-11"
+                  />
+                </div>
+              )}
+
               <div className="flex gap-2 pt-1">
                 <Button
                   type="button"
@@ -1236,6 +1378,11 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
                           {rs
                             ? `Unit ${rs.unit_number || "—"} · ${formatMoney(rs.monthly_amount)}/mo`
                             : "Rent not set"}
+                          {rs?.wifi_enabled && (
+                            <span className="inline-flex items-center gap-0.5 ml-1.5 text-sky-600">
+                              <Wifi className="w-3 h-3" /> Wi-Fi
+                            </span>
+                          )}
                         </p>
                         {status.payments[0]?.mpesa_code && (
                           <p className="text-[10px] font-mono text-accent mt-0.5">
@@ -1307,7 +1454,9 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
             <div className="p-4 border-b border-border">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-3">
-                  <h3 className="font-semibold text-foreground">Payment Records</h3>
+                  <h3 className="font-semibold text-foreground">
+                    Payment Records
+                  </h3>
                   <Button
                     onClick={exportToCSV}
                     variant="outline"
@@ -1329,44 +1478,98 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
                   />
                 </div>
               </div>
-              
+
               {/* Summary Stats */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-center">
                 <div className="bg-emerald-50 dark:bg-emerald-950/20 rounded-xl p-2">
-                  <p className="text-xs text-emerald-600 font-medium whitespace-nowrap">Rent</p>
+                  <p className="text-xs text-emerald-600 font-medium whitespace-nowrap">
+                    Rent
+                  </p>
                   <p className="text-sm font-bold text-emerald-700">
                     {formatMoney(
                       filteredPayments
-                        .filter(p => !getPaymentTypeFromNotes(p.notes).includes('Water') && !getPaymentTypeFromNotes(p.notes).includes('Repair'))
-                        .reduce((sum, p) => sum + p.amount, 0)
+                        .filter((p) => {
+                          const t = getPaymentTypeFromNotes(p.notes);
+                          return (
+                            t !== "Wi-Fi" &&
+                            !t.includes("Water") &&
+                            !t.includes("Repair")
+                          );
+                        })
+                        .reduce((sum, p) => sum + p.amount, 0),
                     )}
                   </p>
                 </div>
                 <div className="bg-blue-50 dark:bg-blue-950/20 rounded-xl p-2">
-                  <p className="text-xs text-blue-600 font-medium whitespace-nowrap">Water</p>
+                  <p className="text-xs text-blue-600 font-medium whitespace-nowrap">
+                    Water
+                  </p>
                   <p className="text-sm font-bold text-blue-700">
                     {formatMoney(
                       filteredPayments
-                        .filter(p => getPaymentTypeFromNotes(p.notes).includes('Water'))
-                        .reduce((sum, p) => sum + p.amount, 0)
+                        .filter((p) =>
+                          getPaymentTypeFromNotes(p.notes).includes("Water"),
+                        )
+                        .reduce((sum, p) => sum + p.amount, 0),
+                    )}
+                  </p>
+                </div>
+                <div className="bg-sky-50 dark:bg-sky-950/20 rounded-xl p-2">
+                  <p className="text-xs text-sky-600 font-medium whitespace-nowrap">
+                    Wi-Fi
+                  </p>
+                  <p className="text-sm font-bold text-sky-700">
+                    {formatMoney(
+                      filteredPayments
+                        .filter(
+                          (p) => getPaymentTypeFromNotes(p.notes) === "Wi-Fi",
+                        )
+                        .reduce((sum, p) => sum + p.amount, 0),
                     )}
                   </p>
                 </div>
                 <div className="bg-amber-50 dark:bg-amber-950/20 rounded-xl p-2">
-                  <p className="text-xs text-amber-600 font-medium whitespace-nowrap">Repairs</p>
+                  <p className="text-xs text-amber-600 font-medium whitespace-nowrap">
+                    Repairs
+                  </p>
                   <p className="text-sm font-bold text-amber-700">
                     {formatMoney(
                       filteredPayments
-                        .filter(p => getPaymentTypeFromNotes(p.notes).includes('Repair') || getPaymentTypeFromNotes(p.notes).includes('Plumbing') || getPaymentTypeFromNotes(p.notes).includes('Electrical') || getPaymentTypeFromNotes(p.notes).includes('Painting') || getPaymentTypeFromNotes(p.notes).includes('Carpentry') || getPaymentTypeFromNotes(p.notes).includes('Security') || getPaymentTypeFromNotes(p.notes).includes('Delivery'))
-                        .reduce((sum, p) => sum + p.amount, 0)
+                        .filter(
+                          (p) =>
+                            getPaymentTypeFromNotes(p.notes).includes(
+                              "Repair",
+                            ) ||
+                            getPaymentTypeFromNotes(p.notes).includes(
+                              "Plumbing",
+                            ) ||
+                            getPaymentTypeFromNotes(p.notes).includes(
+                              "Electrical",
+                            ) ||
+                            getPaymentTypeFromNotes(p.notes).includes(
+                              "Painting",
+                            ) ||
+                            getPaymentTypeFromNotes(p.notes).includes(
+                              "Carpentry",
+                            ) ||
+                            getPaymentTypeFromNotes(p.notes).includes(
+                              "Security",
+                            ) ||
+                            getPaymentTypeFromNotes(p.notes).includes(
+                              "Delivery",
+                            ),
+                        )
+                        .reduce((sum, p) => sum + p.amount, 0),
                     )}
                   </p>
                 </div>
                 <div className="bg-accent/5 rounded-xl p-2">
-                  <p className="text-xs text-accent font-medium whitespace-nowrap">Total</p>
+                  <p className="text-xs text-accent font-medium whitespace-nowrap">
+                    Total
+                  </p>
                   <p className="text-sm font-bold text-accent">
                     {formatMoney(
-                      filteredPayments.reduce((sum, p) => sum + p.amount, 0)
+                      filteredPayments.reduce((sum, p) => sum + p.amount, 0),
                     )}
                   </p>
                 </div>
@@ -1390,45 +1593,93 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
                 <table className="w-full min-w-[800px]">
                   <thead className="bg-secondary/50 border-b border-border sticky top-0">
                     <tr>
-                      <th className="text-left p-3 text-xs font-medium text-muted-foreground whitespace-nowrap">Tenant</th>
-                      <th className="text-left p-3 text-xs font-medium text-muted-foreground whitespace-nowrap">Type</th>
-                      <th className="text-right p-3 text-xs font-medium text-muted-foreground whitespace-nowrap">Amount</th>
-                      <th className="text-center p-3 text-xs font-medium text-muted-foreground whitespace-nowrap">M-Pesa Code</th>
-                      <th className="text-left p-3 text-xs font-medium text-muted-foreground whitespace-nowrap">Date</th>
-                      <th className="text-center p-3 text-xs font-medium text-muted-foreground whitespace-nowrap">Method</th>
-                      <th className="text-left p-3 text-xs font-medium text-muted-foreground whitespace-nowrap">Notes</th>
-                      <th className="text-center p-3 text-xs font-medium text-muted-foreground whitespace-nowrap">Actions</th>
+                      <th className="text-left p-3 text-xs font-medium text-muted-foreground whitespace-nowrap">
+                        Tenant
+                      </th>
+                      <th className="text-left p-3 text-xs font-medium text-muted-foreground whitespace-nowrap">
+                        Type
+                      </th>
+                      <th className="text-right p-3 text-xs font-medium text-muted-foreground whitespace-nowrap">
+                        Amount
+                      </th>
+                      <th className="text-center p-3 text-xs font-medium text-muted-foreground whitespace-nowrap">
+                        M-Pesa Code
+                      </th>
+                      <th className="text-left p-3 text-xs font-medium text-muted-foreground whitespace-nowrap">
+                        Date
+                      </th>
+                      <th className="text-center p-3 text-xs font-medium text-muted-foreground whitespace-nowrap">
+                        Method
+                      </th>
+                      <th className="text-left p-3 text-xs font-medium text-muted-foreground whitespace-nowrap">
+                        Notes
+                      </th>
+                      <th className="text-center p-3 text-xs font-medium text-muted-foreground whitespace-nowrap">
+                        Actions
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
                     {filteredPayments.map((payment) => {
-                      const tenant = tenants.find(t => t.id === payment.tenant_id);
-                      const paymentType = getPaymentTypeFromNotes(payment.notes);
-                      const typeIcon = paymentType.includes('Water') ? <Droplets className="w-3 h-3 text-blue-500" /> : 
-                                     paymentType.includes('Repair') || paymentType.includes('Plumbing') || paymentType.includes('Electrical') || paymentType.includes('Painting') || paymentType.includes('Carpentry') || paymentType.includes('Security') || paymentType.includes('Delivery') ? <Wrench className="w-3 h-3 text-amber-500" /> : 
-                                     <Building2 className="w-3 h-3 text-emerald-500" />;
-                      
+                      const tenant = tenants.find(
+                        (t) => t.id === payment.tenant_id,
+                      );
+                      const paymentType = getPaymentTypeFromNotes(
+                        payment.notes,
+                      );
+                      const typeIcon =
+                        paymentType === "Wi-Fi" ? (
+                          <Wifi className="w-3 h-3 text-sky-500" />
+                        ) : paymentType.includes("Water") ? (
+                          <Droplets className="w-3 h-3 text-blue-500" />
+                        ) : paymentType.includes("Repair") ||
+                          paymentType.includes("Plumbing") ||
+                          paymentType.includes("Electrical") ||
+                          paymentType.includes("Painting") ||
+                          paymentType.includes("Carpentry") ||
+                          paymentType.includes("Security") ||
+                          paymentType.includes("Delivery") ? (
+                          <Wrench className="w-3 h-3 text-amber-500" />
+                        ) : (
+                          <Building2 className="w-3 h-3 text-emerald-500" />
+                        );
+
                       return (
-                        <tr key={payment.id} className="hover:bg-secondary/20 transition-colors">
+                        <tr
+                          key={payment.id}
+                          className="hover:bg-secondary/20 transition-colors"
+                        >
                           <td className="p-3 whitespace-nowrap">
                             <div className="flex items-center gap-2 min-w-0">
                               <div className="w-6 h-6 rounded-full bg-accent/10 flex items-center justify-center text-xs font-bold text-accent flex-shrink-0">
-                                {(tenant?.full_name || payment.tenant_name)?.charAt(0).toUpperCase() || '?'}
+                                {(tenant?.full_name || payment.tenant_name)
+                                  ?.charAt(0)
+                                  .toUpperCase() || "?"}
                               </div>
                               <div className="min-w-0">
-                                <p className="text-sm font-medium text-foreground truncate">{tenant?.full_name || payment.tenant_name || 'Unknown'}</p>
-                                <p className="text-xs text-muted-foreground truncate">{tenant?.email || payment.tenant_email || ''}</p>
+                                <p className="text-sm font-medium text-foreground truncate">
+                                  {tenant?.full_name ||
+                                    payment.tenant_name ||
+                                    "Unknown"}
+                                </p>
+                                <p className="text-xs text-muted-foreground truncate">
+                                  {tenant?.email || payment.tenant_email || ""}
+                                </p>
                               </div>
                             </div>
                           </td>
                           <td className="p-3 whitespace-nowrap">
                             <div className="flex items-center gap-1">
                               {typeIcon}
-                              <span className="text-xs font-medium text-foreground">{paymentType}</span>
+                              <span className="text-xs font-medium text-foreground">
+                                {paymentType}
+                              </span>
                             </div>
                           </td>
                           <td className="p-3 text-right whitespace-nowrap">
-                            <span className="text-sm font-bold text-foreground">{formatMoney(payment.amount)}</span>
+                            <span className="text-sm font-bold text-foreground">
+                              {formatMoney(payment.amount)}
+                            </span>
                           </td>
                           <td className="p-3 text-center whitespace-nowrap">
                             {payment.mpesa_code ? (
@@ -1436,20 +1687,27 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
                                 {payment.mpesa_code}
                               </span>
                             ) : (
-                              <span className="text-xs text-muted-foreground">N/A</span>
+                              <span className="text-xs text-muted-foreground">
+                                N/A
+                              </span>
                             )}
                           </td>
                           <td className="p-3 whitespace-nowrap">
-                            <span className="text-xs text-muted-foreground">{formatDate(payment.payment_date)}</span>
+                            <span className="text-xs text-muted-foreground">
+                              {formatDate(payment.payment_date)}
+                            </span>
                           </td>
                           <td className="p-3 text-center whitespace-nowrap">
                             <span className="text-xs px-2 py-1 rounded-full bg-green-50 dark:bg-green-950/20 text-green-600 border border-green-200 dark:border-green-800">
-                              {payment.payment_method || 'M-Pesa'}
+                              {payment.payment_method || "M-Pesa"}
                             </span>
                           </td>
                           <td className="p-3 whitespace-nowrap">
-                            <span className="text-xs text-muted-foreground max-w-40 truncate block" title={payment.notes || ''}>
-                              {payment.notes || '-'}
+                            <span
+                              className="text-xs text-muted-foreground max-w-40 truncate block"
+                              title={payment.notes || ""}
+                            >
+                              {payment.notes || "-"}
                             </span>
                           </td>
                           <td className="p-3 text-center whitespace-nowrap">
@@ -1478,7 +1736,7 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
             <div className="p-4 border-b border-border">
               <h3 className="font-semibold text-foreground">Payment History</h3>
             </div>
-            
+
             {filteredPayments.length === 0 ? (
               <div className="text-center py-16">
                 <div className="w-14 h-14 rounded-2xl bg-secondary flex items-center justify-center mx-auto mb-3">
@@ -1493,73 +1751,87 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
               </div>
             ) : (
               <div className="divide-y divide-border m-2 max-h-[calc(100vh-200px)] overflow-y-auto">
-                {filteredPayments.map((payment) => (
-                  <div
-                    key={payment.id}
-                    className="bg-card border border-border rounded-2xl p-4 hover:shadow-sm transition-shadow m-2"
-                  >
-                    <div className="flex items-start gap-3">
-                      <div
-                        className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 text-lg ${
-                          payment.payment_method === "mpesa"
-                            ? "bg-green-50 dark:bg-green-950/20"
-                            : "bg-blue-50 dark:bg-blue-950/20"
-                        }`}
-                      >
-                        {payment.payment_method === "mpesa"
-                          ? "📱"
-                          : payment.payment_method === "bank"
-                            ? "🏦"
-                          : "💵"}
-                    </div>
+                {filteredPayments.map((payment) => {
+                  const pType = getPaymentTypeFromNotes(payment.notes);
+                  return (
+                    <div
+                      key={payment.id}
+                      className="bg-card border border-border rounded-2xl p-4 hover:shadow-sm transition-shadow m-2"
+                    >
+                      <div className="flex items-start gap-3">
+                        <div
+                          className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 text-lg ${
+                            pType === "Wi-Fi"
+                              ? "bg-sky-50 dark:bg-sky-950/20"
+                              : payment.payment_method === "mpesa"
+                                ? "bg-green-50 dark:bg-green-950/20"
+                                : "bg-blue-50 dark:bg-blue-950/20"
+                          }`}
+                        >
+                          {pType === "Wi-Fi" ? (
+                            <Wifi className="w-4.5 h-4.5 text-sky-600" />
+                          ) : payment.payment_method === "mpesa" ? (
+                            "📱"
+                          ) : payment.payment_method === "bank" ? (
+                            "🏦"
+                          ) : (
+                            "💵"
+                          )}
+                        </div>
 
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p className="text-base font-bold text-foreground">
-                          {formatMoney(Number(payment.amount))}
-                        </p>
-                        {payment.mpesa_code && (
-                          <span className="text-xs font-mono bg-secondary px-2 py-0.5 rounded-lg text-accent border border-accent/20">
-                            {payment.mpesa_code}
-                          </span>
-                        )}
-                        {payment.logged_by === "landlord" && (
-                          <span className="text-[10px] bg-secondary text-muted-foreground px-1.5 py-0.5 rounded-full border border-border">
-                            manual
-                          </span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-3 mt-1 flex-wrap">
-                        {payment.phone_number && (
-                          <span className="text-xs text-muted-foreground flex items-center gap-1">
-                            <Phone className="w-3 h-3" />
-                            {payment.phone_number}
-                          </span>
-                        )}
-                        <span className="text-xs text-muted-foreground flex items-center gap-1">
-                          <Calendar className="w-3 h-3" />
-                          {formatDate(payment.payment_date)}
-                        </span>
-                      </div>
-                      {payment.notes && (
-                        <p className="text-xs text-muted-foreground mt-1 italic">
-                          {payment.notes}
-                        </p>
-                      )}
-                    </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="text-base font-bold text-foreground">
+                              {formatMoney(Number(payment.amount))}
+                            </p>
+                            {pType === "Wi-Fi" && (
+                              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-sky-100 text-sky-700 border border-sky-200">
+                                Wi-Fi
+                              </span>
+                            )}
+                            {payment.mpesa_code && (
+                              <span className="text-xs font-mono bg-secondary px-2 py-0.5 rounded-lg text-accent border border-accent/20">
+                                {payment.mpesa_code}
+                              </span>
+                            )}
+                            {payment.logged_by === "landlord" && (
+                              <span className="text-[10px] bg-secondary text-muted-foreground px-1.5 py-0.5 rounded-full border border-border">
+                                manual
+                              </span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-3 mt-1 flex-wrap">
+                            {payment.phone_number && (
+                              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                                <Phone className="w-3 h-3" />
+                                {payment.phone_number}
+                              </span>
+                            )}
+                            <span className="text-xs text-muted-foreground flex items-center gap-1">
+                              <Calendar className="w-3 h-3" />
+                              {formatDate(payment.payment_date)}
+                            </span>
+                          </div>
+                          {payment.notes && (
+                            <p className="text-xs text-muted-foreground mt-1 italic">
+                              {payment.notes}
+                            </p>
+                          )}
+                        </div>
 
-                    <div className="flex flex-col items-end gap-2 shrink-0">
-                      <span className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border bg-emerald-100 text-emerald-700 border-emerald-200">
-                        <CheckCircle2 className="w-3 h-3" />
-                        CONFIRMED
-                      </span>
+                        <div className="flex flex-col items-end gap-2 shrink-0">
+                          <span className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border bg-emerald-100 text-emerald-700 border-emerald-200">
+                            <CheckCircle2 className="w-3 h-3" />
+                            CONFIRMED
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         )}
 
         {/* ── TENANT: Paybill info banner ──────────────── */}
@@ -1571,25 +1843,6 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
               </div>
               <h3 className="font-semibold text-foreground">Payment Details</h3>
             </div>
-            {/* <div className="grid grid-cols-3 gap-3 mb-4">
-              {[
-                { label: "Paybill", value: "400200" },
-                { label: "Account", value: "1060544" },
-                { label: "Name", value: "LEA Properties Ltd" },
-              ].map((item) => (
-                <div
-                  key={item.label}
-                  className="bg-secondary rounded-xl p-3 text-center"
-                >
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-1">
-                    {item.label}
-                  </p>
-                  <p className="text-sm font-bold text-foreground font-mono">
-                    {item.value}
-                  </p>
-                </div>
-              ))}
-            </div> */}
             <div className="space-y-1.5">
               {[
                 "✅ Pay between 1st and 5th of every month",

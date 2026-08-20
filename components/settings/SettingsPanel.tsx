@@ -149,7 +149,7 @@ export default function SettingsPanel({ user }: SettingsPanelProps) {
     };
   }, [user]);
 
-  const fetchProfile = async () => {
+   const fetchProfile = async () => {
     setIsLoading(true);
     const { data: profile } = await supabase
       .from("profiles")
@@ -171,7 +171,6 @@ export default function SettingsPanel({ user }: SettingsPanelProps) {
 
       if (profile.role === "landlord") {
         if (!blockId) {
-          // Landlord has no block — can't generate a valid invite link
           setHasNoBlock(true);
           setInviteLink("");
         } else {
@@ -179,14 +178,13 @@ export default function SettingsPanel({ user }: SettingsPanelProps) {
           if (profile.invite_link) {
             setInviteLink(profile.invite_link);
           } else {
-            // Generate and persist the link using the real block ID
             await generateAndSaveInviteLink(blockId);
           }
         }
 
         const { data: channels } = await supabase
           .from("landlord_payment_settings")
-          .select("payment_type, paybill_number, account_name, bank_account_number, payhero_channel_id")
+          .select("payment_type, paybill_number, account_name, bank_account_number, payhero_channel_id, is_wifi")
           .eq("landlord_id", user!.id);
 
         setPaymentChannels(
@@ -196,6 +194,7 @@ export default function SettingsPanel({ user }: SettingsPanelProps) {
             account: c.account_name,
             bankAccount: c.bank_account_number || undefined,
             id: c.payhero_channel_id,
+            isWifi: !!c.is_wifi,
           }))
         );
       }

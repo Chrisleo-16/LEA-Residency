@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json()
-    const { paymentType, shortCode, accountName, accountNumber, bankName } = body
+    const { paymentType, shortCode, accountName, accountNumber, bankName, isWifi } = body
 
     if (!paymentType || !shortCode) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
@@ -99,6 +99,14 @@ export async function POST(req: NextRequest) {
       }, { status: 503 })
     }
 
+    if (isWifi) {
+      // Clear is_wifi for other channels of this landlord
+      await supabase
+        .from('landlord_payment_settings')
+        .update({ is_wifi: false })
+        .eq('landlord_id', user.id)
+    }
+
     // Success - Save to Supabase
     const { error: dbError } = await supabase
       .from('landlord_payment_settings')
@@ -112,6 +120,7 @@ export async function POST(req: NextRequest) {
         bank_name: bankName || null,
         payhero_channel_id: data.id,
         verified: true,
+        is_wifi: !!isWifi,
         updated_at: new Date().toISOString(),
       }, { onConflict: 'landlord_id, payment_type, paybill_number' })
 

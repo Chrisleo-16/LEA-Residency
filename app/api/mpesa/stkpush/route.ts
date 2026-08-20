@@ -11,8 +11,46 @@ const getPayHeroAuth = () =>
     `${process.env.PAYHERO_USERNAME}:${process.env.PAYHERO_PASSWORD}`
   ).toString('base64')
 
-const CHANNEL_ID = parseInt(process.env.PAYHERO_CHANNEL_ID || '6731')
+const DEFAULT_RENT_CHANNEL_ID = parseInt(process.env.PAYHERO_CHANNEL_ID || '6731')
 const PAYHERO_API = 'https://backend.payhero.co.ke/api/v2'
+
+async function resolveLandlordId(tenantId: string): Promise<string | null> {
+  const { data: existingPayment } = await supabase
+    .from('payments')
+    .select('landlord_id')
+    .eq('tenant_id', tenantId)
+    .neq('landlord_id', null)
+    .limit(1)
+    .maybeSingle()
+  if (existingPayment?.landlord_id) return existingPayment.landlord_id
+
+  const { data: slot } = await supabase
+    .from('tenant_slots')
+    .select('landlord_block_id')
+    .eq('tenant_id', tenantId)
+    .maybeSingle()
+
+  if (slot?.landlord_block_id) {
+    const { data: landlordProfile } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('landlord_block_id', slot.landlord_block_id)
+      .eq('role', 'landlord')
+      .maybeSingle()
+    return landlordProfile?.id || null
+  }
+  return null
+}
+
+async function resolveWifiChannelId(landlordId: string): Promise<number | null> {
+  const { data } = await supabase
+    .from('landlord_payment_settings')
+    .select('payhero_channel_id')
+    .eq('landlord_id', landlordId)
+    .eq('is_wifi', true)
+    .maybeSingle()
+  return data?.payhero_channel_id ? Number(data.payhero_channel_id) : null
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -37,20 +75,34 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Normalize phone to 07XXXXXXXXX
     let formattedPhone = phone.toString().trim()
     formattedPhone = formattedPhone.replace(/^254/, '0').replace(/^\+254/, '0')
-    if (!formattedPhone.startsWith('0')) {
-      formattedPhone = '0' + formattedPhone
-    }
+    if (!formattedPhone.startsWith('0')) formattedPhone = '0' + formattedPhone
 
     const callbackUrl = `${process.env.NEXT_PUBLIC_SITE_URL}/api/mpesa/callback`
-    const targetChannelId = body.channelId || CHANNEL_ID
 
-    // Build a stable external reference for matching later
+    // Resolve landlord first — needed to pick the right channel for wifi
+    const landlordId = await resolveLandlordId(tenantId)
+
+    let targetChannelId = body.channelId ? Number(body.channelId) : null
+
+    if (paymentType === 'wifi') {
+      if (!targetChannelId && landlordId) {
+        targetChannelId = await resolveWifiChannelId(landlordId)
+      }
+      if (!targetChannelId) {
+        return NextResponse.json(
+          { error: 'No Wi-Fi payment channel configured for this landlord yet.' },
+          { status: 400 }
+        )
+      }
+    } else {
+      targetChannelId = targetChannelId || DEFAULT_RENT_CHANNEL_ID
+    }
+
     const externalReference = `${paymentType.toUpperCase()}-${tenantId}-${month}`
 
-    console.log(`[PayHero STK] Sending KES ${amount} to ${formattedPhone} | Ref: ${externalReference}`)
+    console.log(`[PayHero STK] Sending KES ${amount} to ${formattedPhone} | Ref: ${externalReference} | Channel: ${targetChannelId}`)
 
     const response = await fetch(`${PAYHERO_API}/payments`, {
       method: 'POST',
@@ -79,50 +131,18 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    // Find landlord for this tenant
-    let landlordId: string | null = null
-    const { data: existingPayment } = await supabase
-      .from('payments')
-      .select('landlord_id')
-      .eq('tenant_id', tenantId)
-      .neq('landlord_id', null)
-      .limit(1)
-      .maybeSingle()
-    landlordId = existingPayment?.landlord_id || null
-
-    // If still no landlord, look it up via tenant_slots
-    if (!landlordId) {
-      const { data: slot } = await supabase
-        .from('tenant_slots')
-        .select('landlord_block_id')
-        .eq('tenant_id', tenantId)
-        .maybeSingle()
-
-      if (slot?.landlord_block_id) {
-        const { data: landlordProfile } = await supabase
-          .from('profiles')
-          .select('id')
-          .eq('landlord_block_id', slot.landlord_block_id)
-          .eq('role', 'landlord')
-          .maybeSingle()
-        landlordId = landlordProfile?.id || null
-      }
-    }
-
-    // Build notes - only use valid columns, encode payment details in notes
     let notes = `STK sent | ref:${externalReference}`
     if (paymentType === 'rent') {
       notes += ` | rent:${rentAmount || amount}`
-      if (waterBill && Number(waterBill) > 0) {
-        notes += ` | water:${waterBill}`
-      }
+      if (waterBill && Number(waterBill) > 0) notes += ` | water:${waterBill}`
     } else if (paymentType === 'repairs') {
       notes += ` | service:${serviceId || 'general'}`
       if (serviceDescription) notes += ` | ${serviceDescription}`
       if (customAmount && Number(customAmount) > 0) notes += ` | custom:${customAmount}`
+    } else if (paymentType === 'wifi') {
+      notes += ` | WIFI | wifi:${amount}`
     }
 
-    // Insert pending record using ONLY columns that exist in your schema
     const { error: insertError } = await supabase.from('payments').insert({
       tenant_id: tenantId,
       landlord_id: landlordId,
@@ -138,7 +158,6 @@ export async function POST(req: NextRequest) {
 
     if (insertError) {
       console.error('[PayHero STK] Failed to insert pending record:', insertError)
-      // Don't block the response — STK was already sent
     }
 
     return NextResponse.json({

@@ -94,3 +94,4 @@ export type TabId =
   | 'subscriptions'
   | 'activity'
   | 'database'
+  | 'wifiBills'

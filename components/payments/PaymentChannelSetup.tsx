@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
-  Smartphone, Building2, RefreshCcw, Check, AlertCircle, ExternalLink, Trash2,
+  Smartphone, Building2, RefreshCcw, Check, AlertCircle, ExternalLink, Trash2, Wifi,
 } from 'lucide-react'
 
 export interface PaymentChannel {
@@ -13,6 +13,7 @@ export interface PaymentChannel {
   account: string
   bankAccount?: string
   id?: string
+  isWifi?: boolean
 }
 
 interface VerificationError {
@@ -37,13 +38,14 @@ export default function PaymentChannelSetup({ channels, onAdd, onRemove }: Payme
   const [bankAccountNumber, setBankAccountNumber] = useState('')
   const [bankName, setBankName] = useState('')
   const [bankShortcode, setBankShortcode] = useState('')
+  const [isWifi, setIsWifi] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [status, setStatus] = useState<'idle' | 'loading' | 'error'>('idle')
   const [verificationError, setVerificationError] = useState<VerificationError | null>(null)
 
   const resetFields = () => {
     setPaybillNumber(''); setAccountName(''); setPaybillAccountNumber('')
-    setBankAccountNumber(''); setBankName(''); setBankShortcode('')
+    setBankAccountNumber(''); setBankName(''); setBankShortcode(''); setIsWifi(false)
   }
 
   const handleVerify = async () => {
@@ -72,6 +74,7 @@ export default function PaymentChannelSetup({ channels, onAdd, onRemove }: Payme
           accountName,
           accountNumber: paymentType === 'paybill' ? paybillAccountNumber : bankAccountNumber,
           bankName,
+          isWifi,
         }),
       })
       const data = await res.json()
@@ -95,6 +98,7 @@ export default function PaymentChannelSetup({ channels, onAdd, onRemove }: Payme
         account: accountName || bankName,
         bankAccount: bankAccountNumber,
         id: data.channel?.id,
+        isWifi,
       })
       resetFields()
       setErrors({})
@@ -202,6 +206,17 @@ export default function PaymentChannelSetup({ channels, onAdd, onRemove }: Payme
           </>
         )}
 
+        <label className="flex items-center gap-2 text-xs font-medium text-foreground px-1 py-1">
+          <input
+            type="checkbox"
+            checked={isWifi}
+            onChange={(e) => setIsWifi(e.target.checked)}
+            className="rounded border-border accent-sky-500 w-4 h-4"
+          />
+          <Wifi className="w-3.5 h-3.5 text-sky-500" />
+          Use this channel for Wi-Fi payments
+        </label>
+
         <Button
           type="button"
           onClick={handleVerify}
@@ -257,7 +272,14 @@ export default function PaymentChannelSetup({ channels, onAdd, onRemove }: Payme
                   {channel.type === 'bank' ? <Building2 className="w-3.5 h-3.5 text-emerald-600" /> : <Smartphone className="w-3.5 h-3.5 text-emerald-600" />}
                 </div>
                 <div className="min-w-0">
-                  <p className="text-sm font-medium text-foreground truncate">{channel.account}</p>
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-sm font-medium text-foreground truncate">{channel.account}</p>
+                    {channel.isWifi && (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-sky-100 text-sky-700 border border-sky-200 shrink-0">
+                        <Wifi className="w-2.5 h-2.5" /> Wi-Fi
+                      </span>
+                    )}
+                  </div>
                   <p className="text-xs text-muted-foreground uppercase truncate">{channel.type} · {channel.number}</p>
                 </div>
               </div>
