@@ -595,6 +595,11 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
     );
   });
 
+  // Landlord's Payment Records / Rent Ledger no longer shows Wi-Fi transactions
+  const rentLedgerPayments = filteredPayments.filter(
+    (p) => getPaymentTypeFromNotes(p.notes) !== "Wi-Fi",
+  );
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -1448,7 +1453,7 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
           </div>
         )}
 
-        {/* ── Enhanced Payment Table ──────────────────────── */}
+        {/* ── Enhanced Payment Table (Wi-Fi excluded) ─────────────── */}
         {role === "landlord" && (
           <div className="bg-card border border-border rounded-2xl overflow-hidden">
             <div className="p-4 border-b border-border">
@@ -1462,7 +1467,7 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
                     variant="outline"
                     size="sm"
                     className="border-border rounded-xl h-8 gap-2 text-xs text-accent dark:hover:text-accent"
-                    disabled={filteredPayments.length === 0}
+                    disabled={rentLedgerPayments.length === 0}
                   >
                     <Download className="w-3 h-3" />
                     Export CSV
@@ -1479,22 +1484,18 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
                 </div>
               </div>
 
-              {/* Summary Stats */}
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-center">
+              {/* Summary Stats (Wi-Fi card removed) */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
                 <div className="bg-emerald-50 dark:bg-emerald-950/20 rounded-xl p-2">
                   <p className="text-xs text-emerald-600 font-medium whitespace-nowrap">
                     Rent
                   </p>
                   <p className="text-sm font-bold text-emerald-700">
                     {formatMoney(
-                      filteredPayments
+                      rentLedgerPayments
                         .filter((p) => {
                           const t = getPaymentTypeFromNotes(p.notes);
-                          return (
-                            t !== "Wi-Fi" &&
-                            !t.includes("Water") &&
-                            !t.includes("Repair")
-                          );
+                          return !t.includes("Water") && !t.includes("Repair");
                         })
                         .reduce((sum, p) => sum + p.amount, 0),
                     )}
@@ -1506,23 +1507,9 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
                   </p>
                   <p className="text-sm font-bold text-blue-700">
                     {formatMoney(
-                      filteredPayments
+                      rentLedgerPayments
                         .filter((p) =>
                           getPaymentTypeFromNotes(p.notes).includes("Water"),
-                        )
-                        .reduce((sum, p) => sum + p.amount, 0),
-                    )}
-                  </p>
-                </div>
-                <div className="bg-sky-50 dark:bg-sky-950/20 rounded-xl p-2">
-                  <p className="text-xs text-sky-600 font-medium whitespace-nowrap">
-                    Wi-Fi
-                  </p>
-                  <p className="text-sm font-bold text-sky-700">
-                    {formatMoney(
-                      filteredPayments
-                        .filter(
-                          (p) => getPaymentTypeFromNotes(p.notes) === "Wi-Fi",
                         )
                         .reduce((sum, p) => sum + p.amount, 0),
                     )}
@@ -1534,7 +1521,7 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
                   </p>
                   <p className="text-sm font-bold text-amber-700">
                     {formatMoney(
-                      filteredPayments
+                      rentLedgerPayments
                         .filter(
                           (p) =>
                             getPaymentTypeFromNotes(p.notes).includes(
@@ -1569,14 +1556,17 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
                   </p>
                   <p className="text-sm font-bold text-accent">
                     {formatMoney(
-                      filteredPayments.reduce((sum, p) => sum + p.amount, 0),
+                      rentLedgerPayments.reduce(
+                        (sum, p) => sum + p.amount,
+                        0,
+                      ),
                     )}
                   </p>
                 </div>
               </div>
             </div>
 
-            {filteredPayments.length === 0 ? (
+            {rentLedgerPayments.length === 0 ? (
               <div className="text-center py-16">
                 <div className="w-14 h-14 rounded-2xl bg-secondary flex items-center justify-center mx-auto mb-3">
                   <Receipt className="w-7 h-7 text-muted-foreground/30" />
@@ -1620,29 +1610,26 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
-                    {filteredPayments.map((payment) => {
+                    {rentLedgerPayments.map((payment) => {
                       const tenant = tenants.find(
                         (t) => t.id === payment.tenant_id,
                       );
                       const paymentType = getPaymentTypeFromNotes(
                         payment.notes,
                       );
-                      const typeIcon =
-                        paymentType === "Wi-Fi" ? (
-                          <Wifi className="w-3 h-3 text-sky-500" />
-                        ) : paymentType.includes("Water") ? (
-                          <Droplets className="w-3 h-3 text-blue-500" />
-                        ) : paymentType.includes("Repair") ||
-                          paymentType.includes("Plumbing") ||
-                          paymentType.includes("Electrical") ||
-                          paymentType.includes("Painting") ||
-                          paymentType.includes("Carpentry") ||
-                          paymentType.includes("Security") ||
-                          paymentType.includes("Delivery") ? (
-                          <Wrench className="w-3 h-3 text-amber-500" />
-                        ) : (
-                          <Building2 className="w-3 h-3 text-emerald-500" />
-                        );
+                      const typeIcon = paymentType.includes("Water") ? (
+                        <Droplets className="w-3 h-3 text-blue-500" />
+                      ) : paymentType.includes("Repair") ||
+                        paymentType.includes("Plumbing") ||
+                        paymentType.includes("Electrical") ||
+                        paymentType.includes("Painting") ||
+                        paymentType.includes("Carpentry") ||
+                        paymentType.includes("Security") ||
+                        paymentType.includes("Delivery") ? (
+                        <Wrench className="w-3 h-3 text-amber-500" />
+                      ) : (
+                        <Building2 className="w-3 h-3 text-emerald-500" />
+                      );
 
                       return (
                         <tr

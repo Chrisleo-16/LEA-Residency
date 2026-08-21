@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
       }, { status: 500 })
     }
 
-    console.log('[Smart Sync] Starting intelligent transaction sync...')
+    console.log('[Wi-Fi Smart Sync] Starting intelligent transaction sync...')
 
     const auth = Buffer.from(
       `${process.env.PAYHERO_USERNAME}:${process.env.PAYHERO_PASSWORD}`
@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
     })
 
     if (!response.ok) {
-      console.log('[Smart Sync] Trying alternative endpoint...')
+      console.log('[Wi-Fi Smart Sync] Trying alternative endpoint...')
       response = await fetch('https://backend.payhero.co.ke/api/v2/payments', {
         headers: { Authorization: `Basic ${auth}` },
       })
@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
 
     if (!response.ok) {
       const errorText = await response.text()
-      console.error('[Smart Sync] API Response:', errorText)
+      console.error('[Wi-Fi Smart Sync] API Response:', errorText)
       return NextResponse.json({
         error: `PayHero API error: ${response.status} - ${errorText}`,
         success: false,
@@ -53,14 +53,14 @@ export async function POST(req: NextRequest) {
     } else if (result && Array.isArray(result.transactions)) {
       transactions = result.transactions
     } else {
-      console.error('[Smart Sync] Unexpected API response structure:', result)
+      console.error('[Wi-Fi Smart Sync] Unexpected API response structure:', result)
       return NextResponse.json({
         success: false,
         error: 'Invalid API response structure',
       }, { status: 500 })
     }
 
-    console.log(`[Smart Sync] Retrieved ${transactions.length} transactions`)
+    console.log(`[Wi-Fi Smart Sync] Retrieved ${transactions.length} transactions`)
 
     let updatedCount = 0
     let createdCount = 0
@@ -79,11 +79,19 @@ export async function POST(req: NextRequest) {
           continue
         }
 
+        const externalRef: string = tx.external_reference || ''
+
+        // Only touch WIFI-tagged transactions — everything else is left
+        // for the regular smart-sync job to handle.
+        if (!/^WIFI-/i.test(externalRef)) {
+          skippedCount++
+          continue
+        }
+
         const mpesaCode = tx.provider_reference
-        const externalRef = tx.external_reference || ''
         const amount = Number(tx.amount)
 
-        console.log(`[Smart Sync] Processing: ${mpesaCode} | Ref: ${externalRef} | Amount: ${amount}`)
+        console.log(`[Wi-Fi Smart Sync] Processing: ${mpesaCode} | Ref: ${externalRef} | Amount: ${amount}`)
 
         // Skip if already recorded
         const { data: alreadyInDb } = await supabase
@@ -97,16 +105,14 @@ export async function POST(req: NextRequest) {
           continue
         }
 
-        // Parse external reference: "RENT-{tenantId}-{YYYY-MM}" or "REPAIRS-{tenantId}-{YYYY-MM}"
+        // Parse external reference: "WIFI-{tenantId}-{YYYY-MM}"
         let tenantId: string | null = null
         let paymentMonth: string | null = null
 
-        if (externalRef) {
-          const match = externalRef.match(/^(RENT|REPAIRS)-(.+)-(\d{4}-\d{2})$/i)
-          if (match) {
-            tenantId = match[2]
-            paymentMonth = match[3]
-          }
+        const match = externalRef.match(/^WIFI-(.+)-(\d{4}-\d{2})$/i)
+        if (match) {
+          tenantId = match[1]
+          paymentMonth = match[2]
         }
 
         // Fallback: derive month from transaction date
@@ -115,32 +121,48 @@ export async function POST(req: NextRequest) {
           paymentMonth = `${txDate.getFullYear()}-${String(txDate.getMonth() + 1).padStart(2, '0')}`
         }
 
-        // Try to find and update a pending record for this tenant + month
+        // Figure out expected wifi amount for completeness check
+        let isComplete = true
+        if (tenantId) {
+          const { data: rentSetting } = await supabase
+            .from('rent_settings')
+            .select('wifi_amount')
+            .eq('tenant_id', tenantId)
+            .maybeSingle()
+          const expected = Number(rentSetting?.wifi_amount || 0)
+          isComplete = expected > 0 ? amount >= expected : true
+        }
+
+        // Try to find and update a pending WIFI record for this tenant + month
         if (tenantId && paymentMonth) {
-          const { data: pendingRecord } = await supabase
+          const { data: pendingCandidates } = await supabase
             .from('payments')
-            .select('id')
+            .select('id, notes')
             .eq('tenant_id', tenantId)
             .eq('payment_month', paymentMonth)
             .eq('status', 'pending')
-            .maybeSingle()
+
+          const pendingRecord = (pendingCandidates || []).find((p) =>
+            (p.notes || '').toUpperCase().includes('WIFI')
+          )
 
           if (pendingRecord) {
             const { error: updateError } = await supabase
               .from('payments')
               .update({
                 mpesa_code: mpesaCode,
-                status: 'complete',
+                amount,
+                status: isComplete ? 'complete' : 'partial',
                 payment_date: tx.transaction_date || new Date().toISOString(),
-                notes: 'Updated via Smart Sync ✅',
+                notes: 'WIFI | Updated via Smart Sync ✅',
               })
               .eq('id', pendingRecord.id)
 
             if (updateError) {
-              console.error(`[Smart Sync] Update error for ${mpesaCode}:`, updateError)
+              console.error(`[Wi-Fi Smart Sync] Update error for ${mpesaCode}:`, updateError)
               errorCount++
             } else {
-              console.log(`[Smart Sync] Updated pending → complete: ${mpesaCode}`)
+              console.log(`[Wi-Fi Smart Sync] Updated pending → ${isComplete ? 'complete' : 'partial'}: ${mpesaCode}`)
               updatedCount++
             }
             continue
@@ -149,7 +171,7 @@ export async function POST(req: NextRequest) {
 
         // No pending record found — create a new one if we have enough data
         if (!tenantId || !paymentMonth) {
-          console.warn(`[Smart Sync] Cannot create record for ${mpesaCode} — missing tenantId or month`)
+          console.warn(`[Wi-Fi Smart Sync] Cannot create record for ${mpesaCode} — missing tenantId or month`)
           errorCount++
           continue
         }
@@ -192,27 +214,27 @@ export async function POST(req: NextRequest) {
           payment_month: paymentMonth,
           payment_method: 'mpesa',
           logged_by: 'system',
-          status: 'complete',
+          status: isComplete ? 'complete' : 'partial',
           payment_date: tx.transaction_date || new Date().toISOString(),
-          notes: `Created via Smart Sync | Ref: ${externalRef}`,
+          notes: `WIFI | Created via Smart Sync | Ref: ${externalRef}`,
         })
 
         if (insertError) {
-          console.error(`[Smart Sync] Insert error for ${mpesaCode}:`, insertError)
+          console.error(`[Wi-Fi Smart Sync] Insert error for ${mpesaCode}:`, insertError)
           errorCount++
         } else {
-          console.log(`[Smart Sync] Created: ${mpesaCode}`)
+          console.log(`[Wi-Fi Smart Sync] Created: ${mpesaCode}`)
           createdCount++
         }
       } catch (err: any) {
-        console.error(`[Smart Sync] Error processing ${tx.provider_reference}:`, err.message)
+        console.error(`[Wi-Fi Smart Sync] Error processing ${tx.provider_reference}:`, err.message)
         errorCount++
       }
     }
 
     return NextResponse.json({
       success: true,
-      message: `Smart sync completed: ${updatedCount} updated, ${createdCount} created, ${skippedCount} skipped, ${errorCount} errors`,
+      message: `Wi-Fi smart sync completed: ${updatedCount} updated, ${createdCount} created, ${skippedCount} skipped, ${errorCount} errors`,
       stats: {
         updated: updatedCount,
         created: createdCount,
@@ -222,7 +244,7 @@ export async function POST(req: NextRequest) {
       },
     }, { status: 200 })
   } catch (err: any) {
-    console.error('[Smart Sync] Error:', err.message)
+    console.error('[Wi-Fi Smart Sync] Error:', err.message)
     return NextResponse.json({
       error: err.message,
       success: false,

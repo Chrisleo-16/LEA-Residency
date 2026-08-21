@@ -24,6 +24,7 @@ import { PaymentsTab } from './PaymentsTab'
 import { SubscriptionsTab } from './SubscriptionsTab'
 import { ActivityTab } from './ActivityTab'
 import { DatabaseTab } from './DatabaseTab'
+import {WifiBillsTab} from './WifiBillsTab'
 
 const supabase = createClient()
 
@@ -37,6 +38,7 @@ const TAB_META: Record<TabId, { label: string; description: string; icon: typeof
   subscriptions: { label: 'Subscriptions', description: 'Who has paid their platform subscription', icon: Wallet },
   activity: { label: 'Activity', description: 'Recent signups, payments, and platform counts', icon: Activity },
   database: { label: 'Database', description: 'Table health, row counts, and schema', icon: Database },
+  wifiBills: { label: 'Wi-Fi Bills', description: 'Tenant Wi-Fi payments and pending bills', icon: CreditCard },
 }
 
 const TABS: { id: TabId; label: string; icon: typeof Terminal }[] = (Object.keys(TAB_META) as TabId[]).map((id) => ({
@@ -46,7 +48,7 @@ const TABS: { id: TabId; label: string; icon: typeof Terminal }[] = (Object.keys
 const NAV_SECTIONS: { label: string; ids: TabId[] }[] = [
   { label: 'Overview', ids: ['overview'] },
   { label: 'Monitoring', ids: ['errors', 'logs', 'infra'] },
-  { label: 'Data', ids: ['users', 'payments', 'subscriptions', 'activity', 'database'] },
+  { label: 'Data', ids: ['users', 'payments', 'subscriptions', 'activity', 'database', 'wifiBills'] },
 ]
 
 const VALID_TABS = new Set(TABS.map((t) => t.id))
@@ -285,6 +287,9 @@ export function DeveloperDashboardShell() {
             </TabsContent>
               <TabsContent value="database">
                 <DatabaseTab refreshKey={refreshKey} />
+              </TabsContent>
+              <TabsContent value="wifiBills">
+                <WifiBillsTab/>
               </TabsContent>
             </div>
           </main>
