@@ -27,6 +27,8 @@ function JoinForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [landlordInfo, setLandlordInfo] = useState<{
     landlord_name: string;
+    propertyName?: string;
+    propertyAddress?: string;
     property_capacity: number;
     property_used: number;
   } | null>(null);
@@ -41,6 +43,7 @@ function JoinForm() {
     // This runs only on the client, after hydration — safe to set state freely.
     setMounted(true);
     if (ref) {
+      localStorage.setItem('landlord_block_id_to_link', ref);
       setIsValidatingRef(true);
       fetchLandlordInfo(ref);
     } else {
@@ -74,7 +77,18 @@ function JoinForm() {
         return;
       }
 
-      setLandlordInfo(data);
+      // Fetch property name from properties table
+      const { data: propData } = await supabase
+        .from("properties")
+        .select("property_name, property_address")
+        .eq("landlord_block_id", blockId)
+        .maybeSingle();
+
+      setLandlordInfo({
+        ...data,
+        propertyName: propData?.property_name || data.landlord_name,
+        propertyAddress: propData?.property_address || "",
+      });
       setBlockError("");
     } catch (err) {
       // console.error("Failed to fetch landlord info:", err);
@@ -201,8 +215,8 @@ function JoinForm() {
       </div>
 
       {/* Right panel */}
-      <div className="flex-1 flex items-center justify-center bg-background px-6 py-12 lg:px-16">
-        <div className="w-full max-w-105">
+      <div className="flex-1 flex items-center justify-center bg-background px-4 sm:px-6 py-8 sm:py-12 lg:px-16">
+        <div className="w-full max-w-md">
           {/* Mobile logo */}
           <div className="flex items-center gap-3 mb-10 lg:hidden">
             <div className="w-8 h-8 rounded-lg bg-accent flex items-center justify-center">
@@ -267,6 +281,20 @@ function JoinForm() {
               {/* Form — only when block is valid */}
               {!isValidatingRef && !blockError && landlordInfo && (
                 <>
+                  <div className="mb-5 p-3.5 bg-accent/10 border border-accent/20 rounded-xl flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-accent/20 text-accent shrink-0">
+                      <Home className="w-5 h-5" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-bold text-foreground truncate">
+                        Joining: {landlordInfo.propertyName}
+                      </p>
+                      {landlordInfo.propertyAddress && (
+                        <p className="text-[11px] text-muted-foreground truncate">{landlordInfo.propertyAddress}</p>
+                      )}
+                    </div>
+                  </div>
+
                   <form onSubmit={handleSubmit} className="space-y-4">
                     <div className="space-y-1.5">
                       <label className="text-sm font-medium text-foreground">

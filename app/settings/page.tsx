@@ -52,10 +52,12 @@ export default function SettingsPage() {
   const [lateFeeGracePeriod, setLateFeeGracePeriod] = useState('')
   const [penaltyRules, setPenaltyRules] = useState('')
 
-  // Invite link
+  // Invite link & properties
   const [inviteLink, setInviteLink] = useState('')
   const [copied, setCopied] = useState(false)
   const [landlordBlockId, setLandlordBlockId] = useState<string | null>(null)
+  const [propertiesList, setPropertiesList] = useState<{ id: string; name: string; blockId: string }[]>([])
+  const [selectedPropertyBlockId, setSelectedPropertyBlockId] = useState<string>('')
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -118,12 +120,59 @@ export default function SettingsPage() {
       setPhotoPreview(profile.avatar_url || null)
       setLandlordBlockId(profile.landlord_block_id || null)
 
-      if (profile.invite_link) {
-        setInviteLink(profile.invite_link)
-      } else {
-        await generateAndSaveInviteLink(profile.landlord_block_id)
+      // Fetch all properties owned by this landlord
+      try {
+        const { data: blocks } = await supabase
+          .from('landlord_blocks')
+          .select('id, landlord_name')
+          .eq('landlord_id', user.id)
+
+        const blockIds = (blocks || []).map((b) => b.id)
+        if (profile.landlord_block_id && !blockIds.includes(profile.landlord_block_id)) {
+          blockIds.push(profile.landlord_block_id)
+        }
+
+        let props: { id: string; name: string; blockId: string }[] = []
+        if (blockIds.length > 0) {
+          const { data: dbProps } = await supabase
+            .from('properties')
+            .select('id, landlord_block_id, property_name')
+            .in('landlord_block_id', blockIds)
+
+          props = (dbProps || []).map((p) => ({
+            id: p.id,
+            name: p.property_name,
+            blockId: p.landlord_block_id,
+          }))
+        }
+
+        setPropertiesList(props)
+        const primaryBlock = props[0]?.blockId || profile.landlord_block_id
+        setSelectedPropertyBlockId(primaryBlock || '')
+
+        if (primaryBlock) {
+          const baseUrl = window.location.origin
+          setInviteLink(`${baseUrl}/join?ref=${primaryBlock}`)
+        } else if (profile.invite_link) {
+          setInviteLink(profile.invite_link)
+        } else {
+          await generateAndSaveInviteLink(profile.landlord_block_id)
+        }
+      } catch {
+        if (profile.invite_link) {
+          setInviteLink(profile.invite_link)
+        } else {
+          await generateAndSaveInviteLink(profile.landlord_block_id)
+        }
       }
     }
+  }
+
+  const handlePropertyInviteChange = (blockId: string) => {
+    setSelectedPropertyBlockId(blockId)
+    const baseUrl = window.location.origin
+    const link = `${baseUrl}/join?ref=${blockId || user?.id}`
+    setInviteLink(link)
   }
 
   const generateAndSaveInviteLink = async (blockId: string | null) => {
@@ -338,14 +387,14 @@ export default function SettingsPage() {
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="flex flex-wrap gap-2 mb-6">
-            <TabsTrigger value="profile">Profile</TabsTrigger>
-            <TabsTrigger value="property">Property</TabsTrigger>
-            <TabsTrigger value="payment">Payment</TabsTrigger>
-            <TabsTrigger value="business">Business</TabsTrigger>
-            <TabsTrigger value="notifications">Notifications</TabsTrigger>
-            <TabsTrigger value="penalty">Penalty</TabsTrigger>
-            <TabsTrigger value="invite">Invite Tenants</TabsTrigger>
+          <TabsList className="flex flex-wrap h-auto gap-1.5 p-1 mb-6 bg-muted/60">
+            <TabsTrigger value="profile" className="text-xs sm:text-sm">Profile</TabsTrigger>
+            <TabsTrigger value="property" className="text-xs sm:text-sm">Property</TabsTrigger>
+            <TabsTrigger value="payment" className="text-xs sm:text-sm">Payment</TabsTrigger>
+            <TabsTrigger value="business" className="text-xs sm:text-sm">Business</TabsTrigger>
+            <TabsTrigger value="notifications" className="text-xs sm:text-sm">Notifications</TabsTrigger>
+            <TabsTrigger value="penalty" className="text-xs sm:text-sm">Penalty</TabsTrigger>
+            <TabsTrigger value="invite" className="text-xs sm:text-sm">Invite Tenants</TabsTrigger>
           </TabsList>
 
           {/* ── Profile Tab ── */}
@@ -675,17 +724,42 @@ export default function SettingsPage() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Upload className="w-5 h-5" />
-                  Invite Tenants
+                  Invite Tenants & 1-Click Onboarding
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
                 {inviteLink ? (
                   <>
+                    {/* Property Selector for Multi-Property Landlords */}
+                    {propertiesList.length > 1 && (
+                      <div>
+                        <label className="block text-sm font-semibold text-foreground mb-1.5">
+                          Target Property For Invitation
+                        </label>
+                        <select
+                          value={selectedPropertyBlockId}
+                          onChange={(e) => handlePropertyInviteChange(e.target.value)}
+                          className="w-full h-10 appearance-none rounded-xl border border-border bg-card px-3 pr-8 text-sm font-semibold text-foreground outline-none focus-visible:ring-2 focus-visible:ring-accent cursor-pointer"
+                        >
+                          {propertiesList.map((p) => (
+                            <option key={p.id} value={p.blockId}>
+                              {p.name}
+                            </option>
+                          ))}
+                        </select>
+                        <p className="text-xs text-muted-foreground mt-1.5">
+                          Tenants who open this link are automatically linked to this property.
+                        </p>
+                      </div>
+                    )}
+
                     {/* Link display */}
                     <div>
-                      <label className="block text-sm font-medium text-foreground mb-2">Your Invite Link</label>
+                      <label className="block text-sm font-medium text-foreground mb-2">
+                        {propertiesList.find((p) => p.blockId === selectedPropertyBlockId)?.name || 'Property'} Invite Link
+                      </label>
                       <div className="flex gap-2">
-                        <Input value={inviteLink} readOnly className="bg-muted text-sm" />
+                        <Input value={inviteLink} readOnly className="bg-muted text-sm font-mono" />
                         <Button
                           onClick={() => {
                             navigator.clipboard.writeText(inviteLink)
@@ -698,17 +772,18 @@ export default function SettingsPage() {
                         </Button>
                       </div>
                       <p className="text-xs text-muted-foreground mt-2">
-                        Share this link with your tenants. They will be automatically linked to your property on signup.
+                        Share this link with your tenants. They will be automatically linked to this property on signup.
                       </p>
                     </div>
 
                     {/* WhatsApp share */}
                     <Button
                       onClick={() => {
-                        const message = `Hi! Join ${businessName || 'our property'} on LEA — the easiest way to manage your tenancy, pay rent, and stay connected. Sign up here: ${inviteLink}`
+                        const targetName = propertiesList.find((p) => p.blockId === selectedPropertyBlockId)?.name || businessName || 'our property'
+                        const message = `Hi! Welcome to ${targetName} on LEA. Access zero-deposit rent guarantee, M-Pesa automated receipts, and tenant portal directly here: ${inviteLink}`
                         window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank')
                       }}
-                      className="w-full bg-green-600 hover:bg-green-700 text-white"
+                      className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold"
                     >
                       Share via WhatsApp
                     </Button>
@@ -732,14 +807,14 @@ export default function SettingsPage() {
                       <ul className="text-sm text-muted-foreground space-y-1.5">
                         <li>• Copy the link or scan the QR code and share it with your tenants via SMS, WhatsApp, or email</li>
                         <li>• When a tenant clicks the link they are taken directly to the LEA signup page</li>
-                        <li>• After signing up they are automatically assigned to your property — no manual linking needed</li>
+                        <li>• After signing up they are automatically assigned to this exact property — no manual linking needed</li>
                         <li>• You can track all your tenants from the dashboard once they join</li>
                       </ul>
                     </div>
 
                     {/* Regenerate */}
                     <button
-                      onClick={() => generateAndSaveInviteLink(landlordBlockId)}
+                      onClick={() => generateAndSaveInviteLink(selectedPropertyBlockId || landlordBlockId)}
                       className="text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground transition-colors"
                     >
                       Regenerate invite link

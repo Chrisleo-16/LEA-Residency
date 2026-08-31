@@ -122,7 +122,18 @@ async function removeTenants(tenantIds: string[]) {
     serviceClient.from('push_subscriptions').delete().in('user_id', tenantIds),
   ])
 
-  await serviceClient.from('tenant_slots').delete().in('tenant_id', tenantIds)
+  // Vacate slots so slots are reusable, rather than deleting the slot definitions
+  await serviceClient
+    .from('tenant_slots')
+    .update({
+      tenant_id: null,
+      is_occupied: false,
+      monthly_rent: null,
+      lease_start_date: null,
+      lease_end_date: null,
+    })
+    .in('tenant_id', tenantIds)
+
   await serviceClient.from('profiles').delete().in('id', tenantIds)
 
   await Promise.all(tenantIds.map((tid) => serviceClient.auth.admin.deleteUser(tid).catch(() => null)))

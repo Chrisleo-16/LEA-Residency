@@ -263,6 +263,18 @@ export async function PUT(request: NextRequest) {
         }
       }
 
+      // Vacate tenant slot so the unit becomes available for new tenants
+      await supabase
+        .from('tenant_slots')
+        .update({
+          tenant_id: null,
+          is_occupied: false,
+          monthly_rent: null,
+          lease_start_date: null,
+          lease_end_date: null,
+        })
+        .eq('tenant_id', targetId)
+
       const deletions = [
         supabase.from('message_reads').delete().eq('user_id', targetId),
         supabase.from('message_reactions').delete().eq('user_id', targetId),
@@ -270,6 +282,8 @@ export async function PUT(request: NextRequest) {
         supabase.from('conversation_participants').delete().eq('user_id', targetId),
         supabase.from('complaints').delete().eq('tenant_id', targetId),
         supabase.from('requests').delete().eq('tenant_id', targetId),
+        supabase.from('rent_settings').delete().eq('tenant_id', targetId),
+        supabase.from('push_subscriptions').delete().eq('user_id', targetId),
         supabase.from('account_deletion_requests').delete().eq('user_id', targetId),
         supabase.from('profiles').delete().eq('id', targetId),
       ]

@@ -28,6 +28,8 @@ interface TenantConversation {
   tenantId: string;
   tenantName: string;
   tenantAvatar: string | null;
+  propertyName?: string;
+  unitNumber?: string;
   lastMessage: string;
   lastMessageTime: string;
   unreadCount: number;
@@ -130,15 +132,47 @@ export default function ChatArea({ user }: ChatAreaProps) {
       return;
     }
 
-    const { data: slotRows } = await supabase
-      .from("tenant_slots")
-      .select("tenant_id")
-      .eq("landlord_block_id", profile.landlord_block_id)
-      .not("tenant_id", "is", null);
+    // 1. Fetch all blocks owned by this landlord
+    const { data: blocks } = await supabase
+      .from("landlord_blocks")
+      .select("id, landlord_name, landlord_code")
+      .eq("landlord_id", user.id);
 
-    const tenantIds = (slotRows || [])
-      .map((slot: any) => slot.tenant_id)
-      .filter(Boolean);
+    const blockIds = (blocks || []).map((b) => b.id);
+    if (profile.landlord_block_id && !blockIds.includes(profile.landlord_block_id)) {
+      blockIds.push(profile.landlord_block_id);
+    }
+
+    if (!blockIds.length) {
+      setTenantConversations([]);
+      return;
+    }
+
+    // 2. Fetch properties & tenant slots for all blocks
+    const [{ data: propsData }, { data: slotRows }, { data: rentRows }] = await Promise.all([
+      supabase.from("properties").select("id, landlord_block_id, property_name, property_address").in("landlord_block_id", blockIds),
+      supabase.from("tenant_slots").select("id, landlord_block_id, slot_number, tenant_id, tenant_name").in("landlord_block_id", blockIds).not("tenant_id", "is", null),
+      supabase.from("rent_settings").select("tenant_id, unit_number").eq("landlord_id", user.id),
+    ]);
+
+    const tenantSlotMap: Record<string, { blockId: string; slotNumber: number }> = {};
+    const tenantIds: string[] = [];
+    (slotRows || []).forEach((s) => {
+      if (s.tenant_id) {
+        tenantIds.push(s.tenant_id);
+        tenantSlotMap[s.tenant_id] = { blockId: s.landlord_block_id, slotNumber: s.slot_number };
+      }
+    });
+
+    const rentUnitMap: Record<string, string> = {};
+    (rentRows || []).forEach((r) => {
+      if (r.tenant_id && r.unit_number) rentUnitMap[r.tenant_id] = r.unit_number;
+    });
+
+    const blockPropMap: Record<string, string> = {};
+    (propsData || []).forEach((p) => {
+      blockPropMap[p.landlord_block_id] = p.property_name;
+    });
 
     if (!tenantIds.length) {
       setTenantConversations([]);
@@ -223,11 +257,17 @@ export default function ChatArea({ user }: ChatAreaProps) {
           unreadCount = count || 0;
         }
 
+        const slotInfo = tenantSlotMap[tenant.id];
+        const propertyName = slotInfo ? blockPropMap[slotInfo.blockId] || "LEA Property" : "Property";
+        const unitNumber = rentUnitMap[tenant.id] || (slotInfo ? `Unit ${slotInfo.slotNumber}` : "");
+
         return {
           conversationId: convId,
           tenantId: tenant.id,
           tenantName: tenant.full_name || "Unknown Tenant",
           tenantAvatar: tenant.avatar_url || null,
+          propertyName,
+          unitNumber,
           lastMessage,
           lastMessageTime,
           unreadCount,
@@ -695,6 +735,13 @@ export default function ChatArea({ user }: ChatAreaProps) {
                               </span>
                             )}
                           </div>
+                          <div className="flex items-center gap-1.5 mt-0.5">
+                            {tenant.propertyName && (
+                              <span className="inline-block text-[10px] bg-accent/10 text-accent font-medium px-1.5 py-0.2 rounded border border-accent/20 truncate max-w-[130px]">
+                                {tenant.propertyName}{tenant.unitNumber ? ` · ${tenant.unitNumber}` : ''}
+                              </span>
+                            )}
+                          </div>
                           <p className="text-xs text-muted-foreground truncate mt-0.5">
                             {tenant.lastMessage}
                           </p>
@@ -798,9 +845,24 @@ export default function ChatArea({ user }: ChatAreaProps) {
                   )}
                 </div>
                 <div>
-                  <p className="font-semibold text-foreground text-sm leading-tight">
-                    {otherPersonName}
-                  </p>
+                  <div className="flex items-center gap-2">
+                    <p className="font-semibold text-foreground text-sm leading-tight">
+                      {otherPersonName}
+                    </p>
+                    {(() => {
+                      const activeTenant = tenantConversations.find(
+                        (t) => t.conversationId === conversationId || t.tenantId === otherPersonId
+                      )
+                      if (activeTenant?.propertyName) {
+                        return (
+                          <span className="text-[10px] bg-accent/10 text-accent font-medium px-1.5 py-0.5 rounded border border-accent/20">
+                            {activeTenant.propertyName}{activeTenant.unitNumber ? ` · ${activeTenant.unitNumber}` : ''}
+                          </span>
+                        )
+                      }
+                      return null
+                    })()}
+                  </div>
                   {typingUsers.length > 0 ? (
                     <p className="text-xs text-accent animate-pulse mt-0.5">
                       {typingUsers[0]} is typing...
@@ -812,7 +874,7 @@ export default function ChatArea({ user }: ChatAreaProps) {
                           ● Online
                         </span>
                       ) : (
-                        `${otherPersonRole} · LEA Executive`
+                        `${otherPersonRole} · LEA Residency`
                       )}
                     </p>
                   )}

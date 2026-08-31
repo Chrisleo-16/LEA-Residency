@@ -37,6 +37,7 @@ export default function CommunityPage({ user }: CommunityPageProps) {
   const [activeTab, setActiveTab] = useState<"chat" | "announcements">("chat");
   const [communityConvId, setCommunityConvId] = useState<string | null>(null);
   const [blockId, setBlockId] = useState<string | null>(null);
+  const [senderBadges, setSenderBadges] = useState<Record<string, { propertyName?: string; unitNumber?: string }>>({});
   const [initLoading, setInitLoading] = useState(true);
   const [newMessage, setNewMessage] = useState("");
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
@@ -286,6 +287,38 @@ export default function CommunityPage({ user }: CommunityPageProps) {
 
     setCommunityConvId(convId);
 
+    // 6. Fetch tenant slot & property names to build badges for participants
+    try {
+      const [{ data: propsData }, { data: slotRows }, { data: rentRows }] = await Promise.all([
+        supabase.from('properties').select('id, landlord_block_id, property_name'),
+        supabase.from('tenant_slots').select('id, landlord_block_id, slot_number, tenant_id').not('tenant_id', 'is', null),
+        supabase.from('rent_settings').select('tenant_id, unit_number'),
+      ]);
+
+      const blockPropMap: Record<string, string> = {};
+      (propsData || []).forEach((p) => {
+        blockPropMap[p.landlord_block_id] = p.property_name;
+      });
+
+      const rentUnitMap: Record<string, string> = {};
+      (rentRows || []).forEach((r) => {
+        if (r.tenant_id && r.unit_number) rentUnitMap[r.tenant_id] = r.unit_number;
+      });
+
+      const badges: Record<string, { propertyName?: string; unitNumber?: string }> = {};
+      (slotRows || []).forEach((s) => {
+        if (s.tenant_id) {
+          badges[s.tenant_id] = {
+            propertyName: blockPropMap[s.landlord_block_id] || 'LEA Property',
+            unitNumber: rentUnitMap[s.tenant_id] || `Unit ${s.slot_number}`,
+          };
+        }
+      });
+      setSenderBadges(badges);
+    } catch {
+      // Non-blocking
+    }
+
   } catch (err) {
     console.error('[Community] Unexpected error:', err);
   } finally {
@@ -513,6 +546,7 @@ export default function CommunityPage({ user }: CommunityPageProps) {
                   onReply={setReplyingTo}
                   onEdit={editMessage}
                   onDelete={handleDeleteMessage}
+                  senderBadge={senderBadges[msg.sender_id]}
                 />
               ))
             )}

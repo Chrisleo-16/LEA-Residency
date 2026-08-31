@@ -26,14 +26,20 @@ const deltaClass: Record<NonNullable<StatItem['deltaTone']>, string> = {
  */
 export function StatBar({ items, loading }: { items: StatItem[]; loading?: boolean }) {
   return (
-    <Card className="mb-5 grid grid-cols-2 gap-0 divide-y divide-border overflow-hidden p-0 sm:grid-cols-3 sm:divide-x sm:divide-y-0 lg:grid-cols-6">
+    <Card className="mb-5 grid grid-cols-2 gap-0 divide-y divide-border overflow-hidden p-0 sm:grid-cols-3 sm:divide-x sm:divide-y-0 lg:grid-cols-6 shadow-sm">
       {items.map((item, i) => {
         const Icon = item.icon
         const tone = statTone(item.tone ?? 'slate')
         return (
-          <div key={i} className="flex items-start gap-3 p-4">
-            <div className={cn('flex size-9 shrink-0 items-center justify-center rounded-lg', tone.bg)}>
-              <Icon className={cn('size-4', tone.text)} />
+          <div
+            key={i}
+            className={cn(
+              'flex items-start gap-2.5 sm:gap-3 p-3 sm:p-4',
+              i % 2 === 1 && 'border-l border-border sm:border-l-0'
+            )}
+          >
+            <div className={cn('flex size-8 sm:size-9 shrink-0 items-center justify-center rounded-lg', tone.bg)}>
+              <Icon className={cn('size-3.5 sm:size-4', tone.text)} />
             </div>
             <div className="min-w-0 flex-1">
               {loading ? (
@@ -43,10 +49,14 @@ export function StatBar({ items, loading }: { items: StatItem[]; loading?: boole
                 </>
               ) : (
                 <>
-                  <div className="text-lg font-semibold leading-tight break-words sm:text-xl">{item.value}</div>
-                  <div className="mt-0.5 truncate text-xs font-medium text-muted-foreground">{item.label}</div>
+                  <div className="text-base sm:text-lg font-bold leading-tight break-words text-foreground">
+                    {item.value}
+                  </div>
+                  <div className="mt-0.5 truncate text-[11px] sm:text-xs font-medium text-muted-foreground">
+                    {item.label}
+                  </div>
                   {item.delta && (
-                    <div className={cn('mt-0.5 text-[11px] font-medium', deltaClass[item.deltaTone ?? 'neutral'])}>
+                    <div className={cn('mt-0.5 text-[10px] sm:text-[11px] font-medium', deltaClass[item.deltaTone ?? 'neutral'])}>
                       {item.delta}
                     </div>
                   )}

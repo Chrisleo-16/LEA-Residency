@@ -42,9 +42,9 @@ export const FOCUS_AREAS: FocusArea[] = [
   },
 ]
 
-// Always visible regardless of what the landlord picked — core comms and
-// their own LEA subscription, not a "focus area" choice.
-export const ALWAYS_ON_MENU_IDS = ['chat', 'community', 'billing']
+// Always visible regardless of what the landlord picked — core property focus,
+// comms and their own LEA subscription, not a "focus area" choice.
+export const ALWAYS_ON_MENU_IDS = ['overview', 'chat', 'community', 'billing']
 
 /**
  * Returns the set of sidebar menu ids a landlord should see, or null to mean

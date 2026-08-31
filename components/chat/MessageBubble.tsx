@@ -16,6 +16,7 @@ interface MessageBubbleProps {
   onEdit: (messageId: string, newContent: string) => void
   onDelete: (messageId: string) => void
   showAvatar?: boolean
+  senderBadge?: { propertyName?: string; unitNumber?: string; role?: string }
 }
 
 function MessageAttachments({
@@ -64,7 +65,7 @@ function MessageAttachments({
 }
 
 export default function MessageBubble({
-  message, isMe, currentUserId, onReact, onReply, onEdit, onDelete, showAvatar = true,
+  message, isMe, currentUserId, onReact, onReply, onEdit, onDelete, showAvatar = true, senderBadge,
 }: MessageBubbleProps) {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
   const [hoveredReaction, setHoveredReaction] = useState<string | null>(null)
@@ -139,9 +140,16 @@ export default function MessageBubble({
       <div className={`flex flex-col max-w-[78%] sm:max-w-[68%] ${isMe ? 'items-end' : 'items-start'}`}>
 
         {!isMe && showAvatar && (
-          <p className="text-xs text-muted-foreground dark:text-gray-400 mb-1 px-1 font-semibold">
-            {message.profiles?.full_name || 'Unknown'}
-          </p>
+          <div className="flex items-center gap-1.5 mb-1 px-1 flex-wrap">
+            <span className="text-xs text-muted-foreground dark:text-gray-400 font-semibold">
+              {message.profiles?.full_name || 'Unknown'}
+            </span>
+            {senderBadge?.propertyName && (
+              <span className="text-[10px] bg-accent/10 text-accent font-medium px-1.5 py-0.2 rounded border border-accent/20">
+                {senderBadge.propertyName}{senderBadge.unitNumber ? ` · ${senderBadge.unitNumber}` : ''}
+              </span>
+            )}
+          </div>
         )}
 
         {message.reply_to && (

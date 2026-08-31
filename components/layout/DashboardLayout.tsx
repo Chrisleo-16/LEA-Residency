@@ -17,6 +17,7 @@ import CommunityPage from '@/components/pages/CommunityPage'
 import LeadsPage from '@/components/pages/LeadsPage'
 import PaymentsPage from '@/components/pages/PaymentsPage'
 import BillingPage from '@/components/pages/BillingPage'
+import LandlordPropertyOverview from '@/components/pages/LandlordPropertyOverview'
 import SubscriptionModal from '@/components/billing/SubscriptionModal'
 import { createClient } from '@/lib/supabase/client'
 
@@ -50,8 +51,13 @@ export default function DashboardLayout({ user }: DashboardLayoutProps) {
           console.error('Error fetching role:', error)
           setUserRole(null)
         } else {
-          setUserRole(data?.role || null)
+          const role = data?.role || null
+          setUserRole(role)
           setTourCompleted(data?.tour_completed ?? true)
+          // Default landlords to the clean single-property overview hub
+          if (role === 'landlord') {
+            setActiveTab('overview')
+          }
         }
       } catch (err: any) {
         console.error('Unexpected error fetching role:', err)
@@ -126,6 +132,7 @@ export default function DashboardLayout({ user }: DashboardLayoutProps) {
 
   const getPageTitle = () => {
     const titles: Record<string, string> = {
+      overview: 'Portfolio Overview & Units',
       chat: 'Messages',
       leads: 'Tenant Leads',
       community: 'Community',
@@ -142,6 +149,7 @@ export default function DashboardLayout({ user }: DashboardLayoutProps) {
 
   const getPageSubtitle = () => {
     const subtitles: Record<string, string> = {
+      overview: 'Multi-property tracking, unit capacity, rent guarantees & live payment tracker',
       chat: 'Your private conversations',
       leads: 'Tenants whose wishlist matches your listings',
       community: 'Group chat & announcements',
@@ -159,6 +167,7 @@ export default function DashboardLayout({ user }: DashboardLayoutProps) {
 
   const renderContent = () => {
     switch (activeTab) {
+      case 'overview':   return <LandlordPropertyOverview user={user} onNavigateTab={handleTabChange} />
       case 'chat':       return <ChatArea user={user} />
       case 'leads':      return <LeadsPage user={user} />
       case 'community':  return <CommunityPage user={user} />
@@ -169,7 +178,7 @@ export default function DashboardLayout({ user }: DashboardLayoutProps) {
       case 'payments':   return <PaymentsPage user={user} />
       case 'settings':   return <SettingsPanel user={user} />
       case 'billing':    return <BillingPage user={user} />
-      default:           return <ChatArea user={user} />
+      default:           return userRole === 'landlord' ? <LandlordPropertyOverview user={user} onNavigateTab={handleTabChange} /> : <ChatArea user={user} />
     }
   }
 
@@ -210,7 +219,7 @@ export default function DashboardLayout({ user }: DashboardLayoutProps) {
               <p className="text-xs text-muted-foreground mt-0.5">{getPageSubtitle()}</p>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-accent animate-pulse" />
+              {/* <div className="w-2 h-2 rounded-full bg-accent animate-pulse" /> */}
               <span className="text-xs text-muted-foreground">LEA Executive Residency</span>
             </div>
           </div>

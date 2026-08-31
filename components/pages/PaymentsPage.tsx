@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
@@ -25,12 +25,27 @@ import {
   Droplets,
   Wrench,
   Wifi,
+  ChevronDown,
+  Layers,
+  MapPin,
 } from "lucide-react";
 import PayButton from "../payments/PaymentsButton";
 import WifiPayModal from "../payments/WifiPayModal";
 
 const TZ = "Africa/Nairobi";
 const toUTC = (s: string) => new Date(s.endsWith("Z") ? s : s + "Z");
+
+interface PropertyItem {
+  id: string;
+  landlord_block_id: string;
+  property_name: string;
+  property_address: string;
+  capacity?: number;
+  used?: number;
+  landlord_code?: string;
+  totalUnits?: number;
+  occupiedUnits?: number;
+}
 
 interface Payment {
   id: string;
@@ -57,7 +72,8 @@ interface RentSetting {
   unit_number: string | null;
   wifi_enabled?: boolean;
   wifi_amount?: number | null;
-  profiles?: { full_name: string; email: string; avatar_url: string | null };
+  created_at?: string;
+  profiles?: { full_name: string; email: string; avatar_url: string | null; created_at?: string };
 }
 
 interface PaymentsPageProps {
@@ -76,9 +92,13 @@ const MONTHS = Array.from({ length: 12 }, (_, i) => {
 
 export default function PaymentsPage({ user }: PaymentsPageProps) {
   const [role, setRole] = useState<string | null>(null);
+  const [properties, setProperties] = useState<PropertyItem[]>([]);
+  const [selectedPropertyFilter, setSelectedPropertyFilter] = useState<string>("all");
   const [payments, setPayments] = useState<Payment[]>([]);
   const [rentSettings, setRentSettings] = useState<RentSetting[]>([]);
   const [tenants, setTenants] = useState<any[]>([]);
+  const [tenantSlots, setTenantSlots] = useState<any[]>([]);
+  const [tenantJoinDates, setTenantJoinDates] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [activeMonth, setActiveMonth] = useState(MONTHS[0].split("|")[1]);
   const [searchQuery, setSearchQuery] = useState("");
@@ -121,7 +141,12 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
     );
     const totalPaid = monthPayments.reduce((s, p) => s + Number(p.amount), 0);
     const expected = rs?.monthly_amount || 0;
-    const pending = Math.max(0, expected - totalPaid);
+
+    // Check if tenant joined AFTER this month (prevent showing pending for months they never existed)
+    const joinMonthStr = tenantJoinDates[tenantId];
+    const isBeforeTenantJoined = joinMonthStr ? month < joinMonthStr : false;
+
+    const pending = isBeforeTenantJoined ? 0 : Math.max(0, expected - totalPaid);
     const isComplete = expected > 0 && totalPaid >= expected;
     const isPartial = totalPaid > 0 && totalPaid < expected;
 
@@ -131,6 +156,7 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
       pending,
       isComplete,
       isPartial,
+      isBeforeTenantJoined,
       hasNoSetting: expected === 0,
       payments: monthPayments,
     };
@@ -155,62 +181,137 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
     setRole(profile?.role || null);
 
     if (profile?.role === "landlord") {
-      const { data: slotRows } = await supabase
-        .from("tenant_slots")
-        .select("tenant_id")
-        .eq("landlord_block_id", profile.landlord_block_id)
-        .not("tenant_id", "is", null);
+      try {
+        const propRes = await fetch("/api/landlord/properties");
+        const propJson = await propRes.json();
 
-      const tenantIds = (slotRows || [])
-        .map((slot: any) => slot.tenant_id)
-        .filter(Boolean);
+        if (propRes.ok && propJson.success) {
+          const propsList: PropertyItem[] = propJson.properties || [];
+          setProperties(propsList);
 
-      if (tenantIds.length) {
-        const { data: pays } = await supabase
-          .from("payments")
-          .select("*, profiles!payments_tenant_id_fkey(full_name, email)")
-          .in("tenant_id", tenantIds)
-          .order("payment_date", { ascending: false });
-        setPayments(pays || []);
+          const slotsList = propJson.allSlots || [];
+          setTenantSlots(slotsList);
 
-        const { data: tList } = await supabase
-          .from("profiles")
-          .select("id, full_name, email, avatar_url, phone_number")
-          .in("id", tenantIds);
-        setTenants(tList || []);
+          const tenantMap: Record<string, any> = {};
+          const rentSettingsMap: Record<string, RentSetting> = {};
+          const joinDates: Record<string, string> = {};
 
-        const { data: rs } = await supabase
-          .from("rent_settings")
-          .select("*, profiles(full_name, email, avatar_url)")
-          .in("tenant_id", tenantIds);
-        setRentSettings(rs || []);
-      } else {
-        const { data: pays } = await supabase
-          .from("payments")
-          .select("*, profiles!payments_tenant_id_fkey(full_name, email)")
-          .eq("landlord_id", user!.id)
-          .order("payment_date", { ascending: false });
-        setPayments(pays || []);
+          slotsList.forEach((slot: any) => {
+            if (slot.tenant && slot.tenant_id) {
+              tenantMap[slot.tenant_id] = slot.tenant;
+            }
+            if (slot.rent_setting && slot.tenant_id) {
+              rentSettingsMap[slot.tenant_id] = {
+                ...slot.rent_setting,
+                profiles: slot.tenant,
+              };
+            }
+            if (slot.tenant_id) {
+              // Prioritize lease_start_date, then created_at from slot / tenant / rent_setting
+              const earliestDateStr =
+                slot.lease_start_date ||
+                slot.created_at ||
+                slot.tenant?.created_at ||
+                slot.rent_setting?.created_at;
+              if (earliestDateStr) {
+                const d = new Date(earliestDateStr);
+                if (!isNaN(d.getTime())) {
+                  joinDates[slot.tenant_id] = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+                }
+              }
+            }
+          });
 
-        const uniqueTenantIds = Array.from(
-          new Set((pays || []).map((p: any) => p.tenant_id).filter(Boolean)),
-        );
+          // Payments from API
+          const paysList: Payment[] = propJson.payments || [];
+          setPayments(paysList);
 
-        const { data: tList } = uniqueTenantIds.length
-          ? await supabase
-              .from("profiles")
-              .select("id, full_name, email, avatar_url, phone_number")
-              .in("id", uniqueTenantIds)
-          : { data: [] };
-        setTenants(tList || []);
-
-        const { data: rs } = uniqueTenantIds.length
-          ? await supabase
+          // Fetch additional rent_settings and profiles if any were set directly
+          const slotTenantIds = Object.keys(tenantMap);
+          if (slotTenantIds.length > 0) {
+            const { data: dbRentSettings } = await supabase
               .from("rent_settings")
-              .select("*, profiles(full_name, email, avatar_url)")
-              .in("tenant_id", uniqueTenantIds)
-          : { data: [] };
-        setRentSettings(rs || []);
+              .select("*, profiles(full_name, email, avatar_url, created_at)")
+              .in("tenant_id", slotTenantIds);
+
+            if (dbRentSettings) {
+              dbRentSettings.forEach((rs) => {
+                rentSettingsMap[rs.tenant_id] = rs;
+                if (!joinDates[rs.tenant_id] && (rs.created_at || rs.profiles?.created_at)) {
+                  const d = new Date(rs.created_at || rs.profiles?.created_at);
+                  if (!isNaN(d.getTime())) {
+                    joinDates[rs.tenant_id] = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+                  }
+                }
+              });
+            }
+          }
+
+          // Active tenants assigned to landlord units (excluding deleted/unassigned historical users)
+          setTenants(Object.values(tenantMap));
+          setRentSettings(Object.values(rentSettingsMap));
+          setTenantJoinDates(joinDates);
+        } else {
+          throw new Error("Could not load from properties route");
+        }
+      } catch (err) {
+        console.warn("Falling back to direct supabase query in PaymentsPage", err);
+        const { data: slotRows } = await supabase
+          .from("tenant_slots")
+          .select("id, tenant_id, lease_start_date, created_at, landlord_block_id")
+          .eq("landlord_block_id", profile.landlord_block_id)
+          .not("tenant_id", "is", null);
+
+        setTenantSlots(slotRows || []);
+
+        const tenantIds = (slotRows || [])
+          .map((slot: any) => slot.tenant_id)
+          .filter(Boolean);
+
+        if (tenantIds.length) {
+          const { data: pays } = await supabase
+            .from("payments")
+            .select("*, profiles!payments_tenant_id_fkey(full_name, email)")
+            .in("tenant_id", tenantIds)
+            .order("payment_date", { ascending: false });
+          setPayments(pays || []);
+
+          const { data: tList } = await supabase
+            .from("profiles")
+            .select("id, full_name, email, avatar_url, phone_number, created_at")
+            .in("id", tenantIds);
+          setTenants(tList || []);
+
+          const { data: rs } = await supabase
+            .from("rent_settings")
+            .select("*, profiles(full_name, email, avatar_url, created_at)")
+            .in("tenant_id", tenantIds);
+          setRentSettings(rs || []);
+
+          const joinDates: Record<string, string> = {};
+          for (const t of tList || []) {
+            const slot = (slotRows || []).find((s: any) => s.tenant_id === t.id);
+            const rentSet = (rs || []).find((r: any) => r.tenant_id === t.id);
+            const earliestDateStr = slot?.lease_start_date || slot?.created_at || t.created_at || rentSet?.created_at;
+            if (earliestDateStr) {
+              const d = new Date(earliestDateStr);
+              if (!isNaN(d.getTime())) {
+                joinDates[t.id] = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+              }
+            }
+          }
+          setTenantJoinDates(joinDates);
+        } else {
+          const { data: pays } = await supabase
+            .from("payments")
+            .select("*, profiles!payments_tenant_id_fkey(full_name, email)")
+            .eq("landlord_id", user!.id)
+            .order("payment_date", { ascending: false });
+          setPayments(pays || []);
+          setTenants([]);
+          setRentSettings([]);
+          setTenantJoinDates({});
+        }
       }
     } else {
       // Tenant — own payments only
@@ -223,10 +324,32 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
 
       const { data: rs } = await supabase
         .from("rent_settings")
-        .select("*")
+        .select("*, profiles(created_at)")
         .eq("tenant_id", user!.id)
         .maybeSingle();
       if (rs) setRentSettings([rs]);
+
+      const { data: mySlot } = await supabase
+        .from("tenant_slots")
+        .select("lease_start_date, created_at")
+        .eq("tenant_id", user!.id)
+        .maybeSingle();
+
+      const { data: myProfile } = await supabase
+        .from("profiles")
+        .select("created_at")
+        .eq("id", user!.id)
+        .maybeSingle();
+
+      const earliestDateStr = mySlot?.lease_start_date || myProfile?.created_at || rs?.created_at;
+      if (earliestDateStr) {
+        const d = new Date(earliestDateStr);
+        if (!isNaN(d.getTime())) {
+          setTenantJoinDates({
+            [user!.id]: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`,
+          });
+        }
+      }
 
       const { data: wifiChan } = await supabase
         .from("landlord_payment_settings")
@@ -431,9 +554,7 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
 
   // CSV Export Function
   const exportToCSV = () => {
-    const monthPayments = payments.filter(
-      (p) => p.payment_month === activeMonth,
-    );
+    const monthPayments = currentMonthPayments;
 
     if (monthPayments.length === 0) {
       const monthName =
@@ -447,6 +568,8 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
     }
 
     const headers = [
+      "Property",
+      "Unit",
       "Tenant Name",
       "Email",
       "Payment Type",
@@ -460,9 +583,12 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
 
     const rows = monthPayments.map((payment) => {
       const tenant = tenants.find((t) => t.id === payment.tenant_id);
+      const propInfo = payment.tenant_id ? tenantPropertyMap[payment.tenant_id] : null;
       const paymentType = getPaymentTypeFromNotes(payment.notes);
 
       return [
+        propInfo?.propertyName || "N/A",
+        propInfo?.unitNumber || "N/A",
         tenant?.full_name || payment.tenant_name || "Unknown",
         tenant?.email || payment.tenant_email || "Unknown",
         paymentType,
@@ -554,9 +680,55 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
   const formatMoney = (n: number) =>
     `KES ${n.toLocaleString("en-KE", { minimumFractionDigits: 0 })}`;
 
-  const currentMonthPayments = payments.filter(
-    (p) => p.payment_month === activeMonth,
-  );
+  // Mapping tenant_id -> Property details
+  const tenantPropertyMap = useMemo(() => {
+    const map: Record<
+      string,
+      { propertyId: string; propertyName: string; propertyAddress: string; unitNumber?: string }
+    > = {};
+
+    tenantSlots.forEach((slot: any) => {
+      if (slot.tenant_id) {
+        const matchedProp = properties.find(
+          (p) => p.landlord_block_id === slot.landlord_block_id,
+        );
+        map[slot.tenant_id] = {
+          propertyId: matchedProp?.id || slot.landlord_block_id || "default",
+          propertyName: matchedProp?.property_name || "LEA Residency",
+          propertyAddress: matchedProp?.property_address || "Nairobi, Kenya",
+          unitNumber: slot.rent_setting?.unit_number || `Unit ${slot.slot_number}`,
+        };
+      }
+    });
+
+    return map;
+  }, [tenantSlots, properties]);
+
+  // Filter tenants list by selected property
+  const filteredTenantsByProperty = useMemo(() => {
+    if (selectedPropertyFilter === "all") return tenants;
+    return tenants.filter((t) => {
+      const propInfo = tenantPropertyMap[t.id];
+      if (propInfo) {
+        return propInfo.propertyId === selectedPropertyFilter;
+      }
+      const prop = properties.find((p) => p.id === selectedPropertyFilter);
+      const slot = tenantSlots.find((s) => s.tenant_id === t.id);
+      return slot && prop && slot.landlord_block_id === prop.landlord_block_id;
+    });
+  }, [tenants, selectedPropertyFilter, tenantPropertyMap, properties, tenantSlots]);
+
+  const filteredTenantIdSet = useMemo(() => {
+    return new Set(filteredTenantsByProperty.map((t) => t.id));
+  }, [filteredTenantsByProperty]);
+
+  const currentMonthPayments = useMemo(() => {
+    return payments.filter((p) => {
+      if (p.payment_month !== activeMonth) return false;
+      if (selectedPropertyFilter === "all") return true;
+      return p.tenant_id ? filteredTenantIdSet.has(p.tenant_id) : true;
+    });
+  }, [payments, activeMonth, selectedPropertyFilter, filteredTenantIdSet]);
 
   // ── Stats ────────────────────────────────────────────
   const totalCollected = currentMonthPayments.reduce(
@@ -564,12 +736,21 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
     0,
   );
   const paidTenantIds = new Set(currentMonthPayments.map((p) => p.tenant_id));
-  const totalTenants = tenants.length;
+
+  // Count active tenants in this month (filtered by property and whose join month <= activeMonth)
+  const activeTenantsThisMonth = filteredTenantsByProperty.filter((t) => {
+    const joinMonth = tenantJoinDates[t.id];
+    return !joinMonth || activeMonth >= joinMonth;
+  });
+  const totalTenants = activeTenantsThisMonth.length;
   const paidCount = paidTenantIds.size;
-  const unpaidCount = totalTenants - paidCount;
+  const unpaidCount = Math.max(0, totalTenants - paidCount);
 
   // ── Tenant's own data ────────────────────────────────
   const myRentSetting = rentSettings.find((r) => r.tenant_id === user?.id);
+  const myJoinMonth = user ? tenantJoinDates[user.id] : null;
+  const isSelectedMonthBeforeMyJoin = myJoinMonth ? activeMonth < myJoinMonth : false;
+
   const myCurrentMonthPaid = payments.some(
     (p) => p.tenant_id === user?.id && p.payment_month === activeMonth,
   );
@@ -587,11 +768,14 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
 
   const filteredPayments = currentMonthPayments.filter((p) => {
     if (!searchQuery) return true;
-    const name = p.profiles?.full_name?.toLowerCase() || "";
-    const code = p.mpesa_code?.toLowerCase() || "";
+    const name = (p.profiles?.full_name || p.tenant_name || "").toLowerCase();
+    const code = (p.mpesa_code || "").toLowerCase();
+    const notes = (p.notes || "").toLowerCase();
+    const q = searchQuery.toLowerCase();
     return (
-      name.includes(searchQuery.toLowerCase()) ||
-      code.includes(searchQuery.toLowerCase())
+      name.includes(q) ||
+      code.includes(q) ||
+      notes.includes(q)
     );
   });
 
@@ -620,6 +804,10 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
             <p className="text-sm text-muted-foreground mt-1">
               {role === "landlord" ? (
                 `${paidCount}/${totalTenants} tenants paid this month`
+              ) : isSelectedMonthBeforeMyJoin ? (
+                <span className="text-muted-foreground font-medium">
+                  — Was not in occupancy during this period
+                </span>
               ) : myCurrentMonthPaid ? (
                 <span className="text-emerald-600 font-medium">
                   ✓ Paid this month
@@ -632,11 +820,11 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
             </p>
           </div>
           {role === "landlord" && (
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               <Button
                 onClick={exportToCSV}
                 variant="outline"
-                className="border-border rounded-xl h-10 gap-2 text-sm hover:bg-accent dark:hover:text-accent text-accent "
+                className="border-border rounded-xl h-9 sm:h-10 gap-1.5 sm:gap-2 text-xs sm:text-sm hover:bg-accent dark:hover:text-accent text-accent"
               >
                 <Download className="w-4 h-4" />
                 <span className="hidden sm:inline">Export CSV</span>
@@ -644,7 +832,7 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
               <Button
                 onClick={smartSyncPayHero}
                 variant="outline"
-                className="border-border rounded-xl h-10 gap-2 text-sm hover:bg-accent dark:hover:text-accent text-accent"
+                className="border-border rounded-xl h-9 sm:h-10 gap-1.5 sm:gap-2 text-xs sm:text-sm hover:bg-accent dark:hover:text-accent text-accent"
               >
                 <RefreshCw className="w-4 h-4" />
                 <span className="hidden sm:inline">Smart Sync</span>
@@ -652,14 +840,14 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
               <Button
                 onClick={() => setShowSettingsForm(!showSettingsForm)}
                 variant="outline"
-                className="border-border rounded-xl h-10 gap-2 text-sm hover:bg-accent dark:hover:text-accent text-accent"
+                className="border-border rounded-xl h-9 sm:h-10 gap-1.5 sm:gap-2 text-xs sm:text-sm hover:bg-accent dark:hover:text-accent text-accent"
               >
                 <CreditCard className="w-4 h-4" />
                 <span className="hidden sm:inline">Set Rent</span>
               </Button>
               <Button
                 onClick={() => setShowLogForm(!showLogForm)}
-                className="bg-accent hover:bg-accent/90 text-accent-foreground rounded-xl shadow-md shadow-accent/20 h-10 gap-2 text-sm"
+                className="bg-accent hover:bg-accent/90 text-accent-foreground rounded-xl shadow-md shadow-accent/20 h-9 sm:h-10 gap-1.5 sm:gap-2 text-xs sm:text-sm"
               >
                 <Plus className="w-4 h-4" />
                 <span className="hidden sm:inline">Log Payment</span>
@@ -681,6 +869,58 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
             <p className="text-sm text-emerald-700 dark:text-emerald-400">
               {success}
             </p>
+          </div>
+        )}
+
+        {/* ── LANDLORD: Property Filter Scope Selector ───────────── */}
+        {role === "landlord" && (
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-card border border-border rounded-2xl p-3.5 shadow-sm">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-accent/10 flex items-center justify-center text-accent shrink-0">
+                <Building2 className="w-4 h-4" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-foreground">Property Scope:</span>
+                  {selectedPropertyFilter === "all" ? (
+                    <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+                      All Properties ({properties.length || 1})
+                    </span>
+                  ) : (
+                    <span className="text-xs font-semibold text-accent">
+                      {properties.find((p) => p.id === selectedPropertyFilter)?.property_name}
+                    </span>
+                  )}
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  {selectedPropertyFilter === "all"
+                    ? `Showing aggregated rent ledger across all properties (${filteredTenantsByProperty.length} tenants)`
+                    : `${properties.find((p) => p.id === selectedPropertyFilter)?.property_address || "Kenya"} • ${filteredTenantsByProperty.length} assigned tenants`}
+                </p>
+              </div>
+            </div>
+
+            {properties.length > 0 && (
+              <div className="relative min-w-[200px] sm:w-64">
+                <select
+                  value={selectedPropertyFilter}
+                  onChange={(e) => setSelectedPropertyFilter(e.target.value)}
+                  className="w-full h-9 rounded-xl border border-border bg-secondary/60 px-3 pr-8 text-xs font-semibold text-foreground outline-none focus:ring-2 focus:ring-accent appearance-none cursor-pointer"
+                >
+                  <option value="all"> All Properties ({properties.length})</option>
+                  {properties.map((prop) => {
+                    const propSlots = tenantSlots.filter((s) => s.landlord_block_id === prop.landlord_block_id);
+                    const occupied = propSlots.filter((s) => s.is_occupied || s.tenant_id).length;
+                    return (
+                      <option key={prop.id} value={prop.id}>
+                        {prop.property_name} ({occupied || prop.capacity || 0} units)
+                      </option>
+                    );
+                  })}
+                </select>
+                <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              </div>
+            )}
           </div>
         )}
 
@@ -737,7 +977,9 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
         {role === "tenant" && (
           <div
             className={`rounded-2xl border p-5 ${
-              myCurrentMonthPaid
+              isSelectedMonthBeforeMyJoin
+                ? "bg-secondary/40 border-border"
+                : myCurrentMonthPaid
                 ? "bg-emerald-50 border-emerald-200 dark:bg-emerald-950/20 dark:border-emerald-800"
                 : "bg-amber-50 border-amber-200 dark:bg-amber-950/20 dark:border-amber-800"
             }`}
@@ -745,12 +987,16 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
             <div className="flex items-center gap-3 mb-3">
               <div
                 className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                  myCurrentMonthPaid
+                  isSelectedMonthBeforeMyJoin
+                    ? "bg-secondary"
+                    : myCurrentMonthPaid
                     ? "bg-emerald-100 dark:bg-emerald-900/40"
                     : "bg-amber-100 dark:bg-amber-900/40"
                 }`}
               >
-                {myCurrentMonthPaid ? (
+                {isSelectedMonthBeforeMyJoin ? (
+                  <Clock className="w-5 h-5 text-muted-foreground" />
+                ) : myCurrentMonthPaid ? (
                   <BadgeCheck className="w-5 h-5 text-emerald-600" />
                 ) : (
                   <Clock className="w-5 h-5 text-amber-900" />
@@ -759,12 +1005,18 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
               <div>
                 <p
                   className={`font-bold text-base ${
-                    myCurrentMonthPaid
+                    isSelectedMonthBeforeMyJoin
+                      ? "text-muted-foreground"
+                      : myCurrentMonthPaid
                       ? "text-emerald-700 dark:text-emerald-400"
                       : "text-amber-900 dark:text-amber-900"
                   }`}
                 >
-                  {myCurrentMonthPaid ? "Rent Paid ✅" : "Rent Due ⏳"}
+                  {isSelectedMonthBeforeMyJoin
+                    ? "Not In Occupancy (Pre-Tenancy)"
+                    : myCurrentMonthPaid
+                    ? "Rent Paid ✅"
+                    : "Rent Due ⏳"}
                 </p>
                 <p className="text-xs text-muted-foreground">
                   {
@@ -774,7 +1026,7 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
                   }
                 </p>
               </div>
-              {myRentSetting && (
+              {myRentSetting && !isSelectedMonthBeforeMyJoin && (
                 <div className="ml-auto text-right">
                   <p className="font-bold text-foreground">
                     {formatMoney(myRentSetting.monthly_amount)}
@@ -784,7 +1036,11 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
               )}
             </div>
 
-            {myCurrentPayment && (
+            {isSelectedMonthBeforeMyJoin ? (
+              <div className="bg-background/60 rounded-xl p-3 text-xs text-muted-foreground">
+                You were not in occupancy during this month. Your ledger history is only calculated starting from when your lease/account was active ({myJoinMonth || "current period"}). No payment is due for this month.
+              </div>
+            ) : myCurrentPayment ? (
               <div className="bg-white/60 dark:bg-black/20 rounded-xl p-3 space-y-1">
                 {myCurrentPayment.mpesa_code && (
                   <div className="flex items-center gap-2">
@@ -813,9 +1069,9 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
                   </span>
                 </div>
               </div>
-            )}
+            ) : null}
 
-            {!myCurrentMonthPaid && myRentSetting && (
+            {!isSelectedMonthBeforeMyJoin && !myCurrentMonthPaid && myRentSetting && (
               <>
                 <div className="mt-3 p-3 bg-white/60 dark:bg-black/20 rounded-xl">
                   <p className="text-xs font-semibold text-foreground mb-2">
@@ -994,11 +1250,14 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
                   className="w-full rounded-xl border border-border bg-secondary text-foreground p-3 text-sm focus:outline-none focus:ring-2 focus:ring-accent/40"
                 >
                   <option value="">Select tenant...</option>
-                  {tenants.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.full_name} — {t.email}
-                    </option>
-                  ))}
+                  {filteredTenantsByProperty.map((t) => {
+                    const prop = tenantPropertyMap[t.id];
+                    return (
+                      <option key={t.id} value={t.id}>
+                        {t.full_name} ({t.email}) {prop ? `—  ${prop.propertyName} (${prop.unitNumber || "Unit"})` : ""}
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -1126,11 +1385,14 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
                   className="w-full rounded-xl border border-border bg-secondary text-foreground p-3 text-sm focus:outline-none focus:ring-2 focus:ring-accent/40"
                 >
                   <option value="">Select tenant...</option>
-                  {tenants.map((t) => (
-                    <option key={t.id} value={t.id}>
-                      {t.full_name} — {t.email}
-                    </option>
-                  ))}
+                  {filteredTenantsByProperty.map((t) => {
+                    const prop = tenantPropertyMap[t.id];
+                    return (
+                      <option key={t.id} value={t.id}>
+                        {t.full_name} ({t.email}) {prop ? `—  ${prop.propertyName} (${prop.unitNumber || "Unit"})` : ""}
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
 
@@ -1262,7 +1524,7 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
         )}
 
         {/* ── LANDLORD: Tenant payment status grid ────── */}
-        {role === "landlord" && tenants.length > 0 && (
+        {role === "landlord" && filteredTenantsByProperty.length > 0 && (
           <div className="bg-card border border-border rounded-2xl overflow-hidden">
             <div className="p-4 border-b border-border flex items-center justify-between">
               <h3 className="font-semibold text-foreground text-sm">
@@ -1277,7 +1539,7 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
                 <span className="flex items-center gap-1">
                   <span className="w-2 h-2 rounded-full bg-emerald-500" />
                   {
-                    tenants.filter(
+                    filteredTenantsByProperty.filter(
                       (t) =>
                         getTenantPaymentStatus(t.id, activeMonth).isComplete,
                     ).length
@@ -1287,7 +1549,7 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
                 <span className="flex items-center gap-1">
                   <span className="w-2 h-2 rounded-full bg-amber-400" />
                   {
-                    tenants.filter(
+                    filteredTenantsByProperty.filter(
                       (t) =>
                         getTenantPaymentStatus(t.id, activeMonth).isPartial,
                     ).length
@@ -1297,9 +1559,9 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
                 <span className="flex items-center gap-1">
                   <span className="w-2 h-2 rounded-full bg-red-400" />
                   {
-                    tenants.filter((t) => {
+                    filteredTenantsByProperty.filter((t) => {
                       const s = getTenantPaymentStatus(t.id, activeMonth);
-                      return !s.isComplete && !s.isPartial && !s.hasNoSetting;
+                      return !s.isBeforeTenantJoined && !s.isComplete && !s.isPartial && !s.hasNoSetting;
                     }).length
                   }{" "}
                   unpaid
@@ -1307,7 +1569,7 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
               </div>
             </div>
             <div className="divide-y divide-border">
-              {tenants.map((tenant) => {
+              {filteredTenantsByProperty.map((tenant) => {
                 const status = getTenantPaymentStatus(tenant.id, activeMonth);
                 const rs = rentSettings.find((r) => r.tenant_id === tenant.id);
                 const now = new Date();
@@ -1325,7 +1587,13 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
                   style: "bg-amber-100 text-amber-700 border-amber-200",
                   dot: "bg-amber-400",
                 };
-                if (status.isComplete)
+                if (status.isBeforeTenantJoined)
+                  badge = {
+                    label: "NOT IN OCCUPANCY",
+                    style: "bg-secondary text-muted-foreground border-border",
+                    dot: "bg-muted-foreground",
+                  };
+                else if (status.isComplete)
                   badge = {
                     label: "PAID",
                     style: "bg-emerald-100 text-emerald-700 border-emerald-200",
@@ -1376,13 +1644,19 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
                       </div>
 
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-foreground truncate">
-                          {tenant.full_name}
-                        </p>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <p className="text-sm font-semibold text-foreground truncate">
+                            {tenant.full_name}
+                          </p>
+                          {tenantPropertyMap[tenant.id]?.propertyName && (
+                            <span className="px-1.5 py-0.5 rounded-md text-[10px] font-semibold bg-secondary border border-border text-foreground/80">
+                               {tenantPropertyMap[tenant.id].propertyName}
+                            </span>
+                          )}
+                        </div>
                         <p className="text-xs text-muted-foreground">
-                          {rs
-                            ? `Unit ${rs.unit_number || "—"} · ${formatMoney(rs.monthly_amount)}/mo`
-                            : "Rent not set"}
+                          {tenantPropertyMap[tenant.id]?.unitNumber || (rs ? `Unit ${rs.unit_number || "—"}` : "Unit —")}
+                          {rs ? ` · ${formatMoney(rs.monthly_amount)}/mo` : " · Rent not set"}
                           {rs?.wifi_enabled && (
                             <span className="inline-flex items-center gap-0.5 ml-1.5 text-sky-600">
                               <Wifi className="w-3 h-3" /> Wi-Fi
@@ -1412,7 +1686,8 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
                             -{formatMoney(status.pending)} pending
                           </span>
                         )}
-                        {!status.isComplete &&
+                        {!status.isBeforeTenantJoined &&
+                          !status.isComplete &&
                           !status.hasNoSetting &&
                           status.expected > 0 &&
                           status.totalPaid === 0 && (
@@ -1420,6 +1695,11 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
                               {formatMoney(status.expected)} due
                             </span>
                           )}
+                        {status.isBeforeTenantJoined && (
+                          <span className="text-[10px] text-muted-foreground font-medium">
+                            Was not in occupancy
+                          </span>
+                        )}
                       </div>
                     </div>
 
@@ -1644,13 +1924,25 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
                                   .toUpperCase() || "?"}
                               </div>
                               <div className="min-w-0">
-                                <p className="text-sm font-medium text-foreground truncate">
-                                  {tenant?.full_name ||
-                                    payment.tenant_name ||
-                                    "Unknown"}
-                                </p>
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <p className="text-sm font-medium text-foreground truncate">
+                                    {tenant?.full_name ||
+                                      payment.tenant_name ||
+                                      "Unknown"}
+                                  </p>
+                                  {payment.tenant_id && tenantPropertyMap[payment.tenant_id]?.propertyName && (
+                                    <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-secondary border border-border text-foreground/80">
+                                      {tenantPropertyMap[payment.tenant_id].propertyName}
+                                    </span>
+                                  )}
+                                </div>
                                 <p className="text-xs text-muted-foreground truncate">
                                   {tenant?.email || payment.tenant_email || ""}
+                                  {payment.tenant_id && tenantPropertyMap[payment.tenant_id]?.unitNumber && (
+                                    <span className="ml-1 font-medium text-foreground">
+                                      • {tenantPropertyMap[payment.tenant_id].unitNumber}
+                                    </span>
+                                  )}
                                 </p>
                               </div>
                             </div>

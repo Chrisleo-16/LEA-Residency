@@ -286,12 +286,8 @@ export default function Home() {
           <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/70 to-neutral-950/30" />
         </div>
 
-        <div className="relative max-w-7xl mx-auto px-6 lg:px-10 pt-24 pb-20 md:pt-32 md:pb-28">
-          <div className="inline-flex items-center gap-2 rounded-full border border-white/20 px-4 py-1.5 text-xs uppercase tracking-widest text-white/80 mb-8">
-            #1 Kenyan Real Estate Platform
-          </div>
-
-          <h1 className="font-extrabold uppercase leading-[0.92] tracking-tight text-[15vw] sm:text-7xl md:text-8xl mb-8 max-w-4xl">
+        <div className="relative max-w-7xl mx-auto px-6 lg:px-10 pt-20 sm:pt-24 md:pt-32 pb-16 sm:pb-20 md:pb-28">
+          <h1 className="font-extrabold uppercase leading-[0.92] tracking-tight text-5xl sm:text-7xl md:text-8xl mb-8 max-w-4xl break-words">
             Smart
             <br />
             Property
@@ -299,14 +295,14 @@ export default function Home() {
             Management.
           </h1>
 
-          <p className="max-w-md text-white/70 text-base md:text-lg leading-relaxed mb-16">
+          <p className="max-w-md text-white/70 text-base md:text-lg leading-relaxed mb-12 sm:mb-16">
             LEA Executive helps Kenyan tenants and landlords manage rent,
             maintenance, and communication — and browse verified listings
             across the country.
           </p>
 
-          <div className="flex flex-col md:flex-row gap-10 md:gap-16 md:items-end justify-between border-t border-white/15 pt-10">
-            <div className="grid sm:grid-cols-2 gap-10 max-w-xl">
+          <div className="flex flex-col md:flex-row gap-8 sm:gap-10 md:gap-16 md:items-end justify-between border-t border-white/15 pt-8 sm:pt-10">
+            <div className="grid sm:grid-cols-2 gap-6 sm:gap-10 max-w-xl">
               <p className="text-sm text-white/60 leading-relaxed">
                 Browse verified listings and connect directly with landlords
                 across Kenya — no middlemen, no fake ads.
@@ -318,7 +314,7 @@ export default function Home() {
             </div>
             <button
               onClick={() => goTo("/login")}
-              className="shrink-0 inline-flex items-center gap-2 rounded-full bg-white text-neutral-900 font-semibold px-8 py-4 hover:bg-neutral-100 transition-colors"
+              className="shrink-0 inline-flex items-center justify-center gap-2 rounded-full bg-white text-neutral-900 font-semibold px-8 py-4 hover:bg-neutral-100 transition-colors w-full sm:w-auto"
             >
               Get Started <span>→</span>
             </button>

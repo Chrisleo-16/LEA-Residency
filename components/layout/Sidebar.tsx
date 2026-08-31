@@ -108,8 +108,9 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
   ]
 
   const landlordMenu = [
+    { id: 'overview',   label: 'Overview & Units',    icon: Building2 },
     { id: 'chat',       label: 'Conversations',       icon: MessageSquare },
-    { id: 'leads',      label: 'Tenant Leads',         icon: Sparkles },
+    // { id: 'leads',      label: 'Tenant Leads',         icon: Sparkles },
     { id: 'community',  label: 'Community',           icon: Users },
     { id: 'complaints', label: 'Complaints',           icon: AlertCircle },
     { id: 'requests',   label: 'Requests',             icon: ClipboardList },
