@@ -120,7 +120,7 @@ export default function Dashboard() {
             localStorage.removeItem('landlord_block_id_to_link')
           }
 
-          router.push('/complete-setup')
+          router.push('/select-role')
           return
         }
 

@@ -212,10 +212,18 @@ function LoginPageContent() {
 
   const handleGoogleSignIn = async () => {
     try {
+      const pendingRef =
+        typeof window !== "undefined"
+          ? localStorage.getItem("landlord_block_id_to_link")
+          : null;
+      const callbackUrl = pendingRef
+        ? `${window.location.origin}/auth/callback?ref=${encodeURIComponent(pendingRef)}`
+        : `${window.location.origin}/auth/callback`;
+
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo: callbackUrl,
         },
       });
       if (error) {

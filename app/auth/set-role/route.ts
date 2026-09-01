@@ -22,9 +22,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid role' }, { status: 400 })
     }
 
+    const updatePayload =
+      role === 'tenant'
+        ? {
+            role,
+            onboarding_completed: true,
+            property_setup_complete: true,
+          }
+        : {
+            role,
+            onboarding_completed: false,
+            property_setup_complete: false,
+          }
+
     const { error } = await serviceSupabase
       .from('profiles')
-      .update({ role })
+      .update(updatePayload)
       .eq('id', user.id)
 
     if (error) {

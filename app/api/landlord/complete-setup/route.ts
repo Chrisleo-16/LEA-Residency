@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { propertyName, propertyAddress, totalUnits } = await request.json()
+    const { propertyName, propertyAddress, totalUnits, focusAreas } = await request.json()
     // console.log('🟡 Step 2: Body', { propertyName, propertyAddress, totalUnits })
 
     if (!propertyName || !propertyAddress || !totalUnits) {
@@ -164,7 +164,9 @@ export async function POST(request: NextRequest) {
         landlord_block_id: landlordBlockId,
         landlord_code: landlordCode,
         property_setup_complete: true,
+        onboarding_completed: true,
         blockchain_verified: true,
+        focus_areas: Array.isArray(focusAreas) && focusAreas.length > 0 ? focusAreas : null,
       })
       .eq('id', user.id)
     // console.log('🟡 Step 8: Profile update result:', updateProfileError)

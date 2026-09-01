@@ -61,7 +61,7 @@ export async function GET(request: NextRequest) {
     // Get profile
     const { data: profile } = await supabaseAdmin
       .from('profiles')
-      .select('role, landlord_block_id, property_setup_complete')
+      .select('role, landlord_block_id, property_setup_complete, landlord_code')
       .eq('id', userId)
       .maybeSingle()
 
@@ -80,30 +80,46 @@ export async function GET(request: NextRequest) {
       if (block) {
         await supabaseAdmin
           .from('profiles')
-          .update({ landlord_block_id: ref, role: 'tenant', property_setup_complete: true })
+          .update({
+            landlord_block_id: ref,
+            role: 'tenant',
+            property_setup_complete: true,
+            onboarding_completed: true,
+          })
           .eq('id', userId)
 
         return redirect(origin, '/dashboard', request, cookieResponse)
       }
     }
 
-    // New user — no role or trigger-created tenant with no landlord
-    const isNew =
-      !profile?.role ||
-      (profile.role === 'tenant' && !profile.landlord_block_id)
-
-    if (isNew) {
-      console.log('[OAuth Callback] New user — setting landlord')
+    // Brand-new OAuth user with no profile yet
+    if (!profile) {
+      console.log('[OAuth Callback] No profile — creating shell profile for role selection')
       await supabaseAdmin.from('profiles').upsert({
         id: userId,
         email: userEmail,
         full_name: userName,
-        role: 'landlord',
         blockchain_verified: false,
         property_setup_complete: false,
         kyc_verified: false,
+        onboarding_completed: false,
       })
-      return redirect(origin, '/complete-setup', request, cookieResponse)
+      return redirect(origin, '/select-role', request, cookieResponse)
+    }
+
+    // Profile exists but role not chosen yet
+    if (!profile.role) {
+      console.log('[OAuth Callback] Profile without role — sending to role selection')
+      return redirect(origin, '/select-role', request, cookieResponse)
+    }
+
+    // Tenant without a linked property — do not force landlord setup
+    if (profile.role === 'tenant') {
+      if (!profile.landlord_block_id) {
+        console.log('[OAuth Callback] Tenant without property link — role selection / join flow')
+        return redirect(origin, '/select-role', request, cookieResponse)
+      }
+      return redirect(origin, '/dashboard', request, cookieResponse)
     }
 
     // Returning user

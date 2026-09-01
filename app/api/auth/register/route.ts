@@ -56,15 +56,24 @@ export async function POST(request: NextRequest) {
 
     // Step 2: Create user profile only
     // Landlords will complete blockchain + property setup on /complete-setup
-    const { error: profileError } = await supabase.from('profiles').upsert({
+    const profilePayload: Record<string, unknown> = {
       id: userId,
       email,
       full_name: name,
       role,
       blockchain_verified: false,
-      property_setup_complete: false,
       kyc_verified: false,
-    })
+    }
+
+    if (role === 'tenant') {
+      profilePayload.property_setup_complete = true
+      profilePayload.onboarding_completed = true
+    } else {
+      profilePayload.property_setup_complete = false
+      profilePayload.onboarding_completed = false
+    }
+
+    const { error: profileError } = await supabase.from('profiles').upsert(profilePayload)
 
     if (profileError) {
       return NextResponse.json(

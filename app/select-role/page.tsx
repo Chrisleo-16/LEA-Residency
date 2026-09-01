@@ -24,7 +24,7 @@ export default function SelectRolePage() {
         return
       }
 
-      const response = await fetch('/api/auth/set-role', {
+      const response = await fetch('/auth/set-role', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ role }),
@@ -36,7 +36,12 @@ export default function SelectRolePage() {
       if (role === 'landlord') {
         router.push('/complete-setup')
       } else {
-        router.push('/dashboard')
+        const pendingRef = localStorage.getItem('landlord_block_id_to_link')
+        if (pendingRef) {
+          router.push(`/join?ref=${encodeURIComponent(pendingRef)}`)
+        } else {
+          router.push('/dashboard')
+        }
       }
     } catch (err: any) {
       setError(err.message || 'Failed to set role')

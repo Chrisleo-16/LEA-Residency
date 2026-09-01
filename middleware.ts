@@ -2,75 +2,95 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { createMiddlewareClient } from "@/lib/supabase/server"
 
+type ProfileGate = {
+  role?: string | null
+  landlord_code?: string | null
+  landlord_block_id?: string | null
+  property_setup_complete?: boolean | null
+}
+
+function needsLandlordSetup(profile: ProfileGate | null | undefined) {
+  return (
+    profile?.role === 'landlord' &&
+    (!profile.landlord_code ||
+      !profile.landlord_block_id ||
+      !profile.property_setup_complete)
+  )
+}
+
+function needsRoleSelection(profile: ProfileGate | null | undefined) {
+  return !profile?.role
+}
+
 export async function middleware(request: NextRequest) {
   const path = request.nextUrl.pathname
 
-  const isProtectedRoute = path.startsWith('/dashboard') ||
-                           path.startsWith('/developer-dashboard') ||
-                           path.startsWith('/landlord')
+  const isProtectedRoute =
+    path.startsWith('/dashboard') ||
+    path.startsWith('/developer-dashboard') ||
+    path.startsWith('/landlord')
 
   const isAuthPage = path === '/login'
-  const isOnboardingPage = path === '/onboarding'
+  const isSetupPage = path === '/complete-setup' || path === '/select-role'
 
-  // 1. Initialize the base response
   const initialResponse = NextResponse.next({ request })
-
-  // 2. Initialize Supabase and pull out the actively tracked response object
   const { client: supabase, supabaseResponse } = createMiddlewareClient(request, initialResponse)
-
-  // 3. Authenticate user server-side (Refreshes tokens if expired via supabaseResponse)
   const { data: { user } } = await supabase.auth.getUser()
 
-  // --- ROUTE GUARDING BLOCK ---
+  const copyCookies = (redirectRes: NextResponse) => {
+    supabaseResponse.cookies.getAll().forEach(({ name, value, ...options }) => {
+      redirectRes.cookies.set(name, value, options)
+    })
+    return redirectRes
+  }
 
-  // User is trying to access a protected dashboard route, but is not logged in
   if (isProtectedRoute && !user) {
-    const redirectRes = NextResponse.redirect(new URL('/login', request.url))
-    // Pull the freshest cookies directly from the active supabaseResponse object
-    supabaseResponse.cookies.getAll().forEach(({ name, value, ...options }) => {
-      redirectRes.cookies.set(name, value, options)
-    })
-    return redirectRes
+    return copyCookies(NextResponse.redirect(new URL('/login', request.url)))
   }
 
-  // User is logged in but trying to visit the login page
-  if (isAuthPage && user) {
+  if ((isProtectedRoute || isSetupPage || isAuthPage) && user) {
     const { data: profile } = await supabase
       .from('profiles')
-      .select('onboarding_completed, role')
+      .select('role, landlord_code, landlord_block_id, property_setup_complete')
       .eq('id', user.id)
       .single()
 
-    const targetUrl = (profile?.role === 'landlord' && !profile?.onboarding_completed) 
-      ? '/onboarding' 
-      : '/dashboard'
+    const resolvePostAuthTarget = () => {
+      if (profile?.role === 'developer') return '/developer-dashboard'
+      if (needsRoleSelection(profile)) return '/select-role'
+      if (needsLandlordSetup(profile)) return '/complete-setup'
+      return '/dashboard'
+    }
 
-    const redirectRes = NextResponse.redirect(new URL(targetUrl, request.url))
-    // Pull cookies AFTER the database query finishes to ensure we don't lose the session
-    supabaseResponse.cookies.getAll().forEach(({ name, value, ...options }) => {
-      redirectRes.cookies.set(name, value, options)
-    })
-    return redirectRes
-  }
+    if (isAuthPage) {
+      return copyCookies(NextResponse.redirect(new URL(resolvePostAuthTarget(), request.url)))
+    }
 
-  // Protecting uncompleted onboarding flows
-  if (isProtectedRoute && user && !isOnboardingPage) {
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('onboarding_completed, role')
-      .eq('id', user.id)
-      .single()
+    if (isProtectedRoute) {
+      if (needsRoleSelection(profile)) {
+        return copyCookies(NextResponse.redirect(new URL('/select-role', request.url)))
+      }
+      if (needsLandlordSetup(profile)) {
+        return copyCookies(NextResponse.redirect(new URL('/complete-setup', request.url)))
+      }
+    }
 
-    if (profile?.role === 'landlord' && !profile?.onboarding_completed) {
-      const redirectRes = NextResponse.redirect(new URL('/onboarding', request.url))
-      supabaseResponse.cookies.getAll().forEach(({ name, value, ...options }) => {
-        redirectRes.cookies.set(name, value, options)
-      })
-      return redirectRes
+    if (isSetupPage) {
+      if (path === '/select-role' && profile?.role && profile.role !== 'landlord') {
+        return copyCookies(NextResponse.redirect(new URL('/dashboard', request.url)))
+      }
+      if (path === '/complete-setup' && profile?.role === 'landlord' && !needsLandlordSetup(profile)) {
+        return copyCookies(NextResponse.redirect(new URL('/dashboard', request.url)))
+      }
+      if (path === '/select-role' && profile?.role === 'landlord' && needsLandlordSetup(profile)) {
+        return copyCookies(NextResponse.redirect(new URL('/complete-setup', request.url)))
+      }
+      if (path === '/select-role' && profile?.role === 'landlord' && !needsLandlordSetup(profile)) {
+        return copyCookies(NextResponse.redirect(new URL('/dashboard', request.url)))
+      }
     }
   }
 
-  // If no redirect is needed, return the base response containing the updated session cookies
   return supabaseResponse
 }
 
@@ -80,6 +100,7 @@ export const config = {
     '/developer-dashboard/:path*',
     '/landlord/:path*',
     '/login',
-    '/onboarding',
+    '/complete-setup',
+    '/select-role',
   ],
 }

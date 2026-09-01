@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { createClient } from "@/lib/supabase/client";
+import FocusAreaPicker from "@/components/onboarding/FocusAreaPicker";
 
 interface ProfileData {
   role?: string;
@@ -22,13 +23,15 @@ export default function CompleteSetupPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [step, setStep] = useState<1 | 2>(1);
   const [propertyName, setPropertyName] = useState("");
   const [propertyAddress, setPropertyAddress] = useState("");
   const [totalUnits, setTotalUnits] = useState("1");
   const [landlordCode, setLandlordCode] = useState("");
   const [referralLink, setReferralLink] = useState("");
   const [copySuccess, setCopySuccess] = useState("");
-  const [hasSubmitted, setHasSubmitted] = useState(false)
+  const [focusAreas, setFocusAreas] = useState<string[]>([]);
+  const [hasSubmitted, setHasSubmitted] = useState(false);
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -58,8 +61,7 @@ export default function CompleteSetupPage() {
       }
 
       if (!profileData) {
-        setError("Profile not found. Please log in again.");
-        setIsLoading(false);
+        router.push("/select-role");
         return;
       }
 
@@ -68,11 +70,20 @@ export default function CompleteSetupPage() {
         return;
       }
 
+      if (!profileData.role) {
+        router.push("/select-role");
+        return;
+      }
+
+      if (profileData.role !== "landlord") {
+        router.push("/dashboard");
+        return;
+      }
+
       const needsCompletion =
-        profileData.role === "landlord" &&
-        (!profileData.landlord_code ||
-          !profileData.landlord_block_id ||
-          !profileData.property_setup_complete);
+        !profileData.landlord_code ||
+        !profileData.landlord_block_id ||
+        !profileData.property_setup_complete;
 
       if (!needsCompletion) {
         router.push("/dashboard");
@@ -84,27 +95,30 @@ export default function CompleteSetupPage() {
       setLandlordCode(generatedCode);
       if (generatedCode && typeof window !== "undefined") {
         setReferralLink(
-          `${window.location.origin}/tenant-login?landlordCode=${encodeURIComponent(generatedCode)}`,
+          `${window.location.origin}/join?ref=${encodeURIComponent(profileData.landlord_block_id || "")}`,
         );
       }
-      if (profileData.role === "landlord") {
-        setPropertyName(
-          profileData.full_name
-            ? `${profileData.full_name}'s Property`
-            : "Main Property",
-        );
-        setPropertyAddress("123 Main St, Nairobi, Kenya");
-      }
+      setPropertyName(
+        profileData.full_name
+          ? `${profileData.full_name}'s Property`
+          : "Main Property",
+      );
+      setPropertyAddress("Nairobi, Kenya");
       setIsLoading(false);
     };
 
     loadProfile();
   }, [router]);
 
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+  const handlePropertyStep = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (hasSubmitted) return // ← block second fire
-   setHasSubmitted(true)
+    setError(null);
+    setStep(2);
+  };
+
+  const handleSubmit = async (skipFocusAreas = false) => {
+    if (hasSubmitted) return;
+    setHasSubmitted(true);
     setError(null);
     setIsSubmitting(true);
 
@@ -122,20 +136,24 @@ export default function CompleteSetupPage() {
           propertyName,
           propertyAddress,
           totalUnits,
+          focusAreas: skipFocusAreas ? [] : focusAreas,
         }),
       });
 
-      const result = await response.json()
-console.error('🔴 API response:', JSON.stringify(result, null, 2)) // ← change to error // ← add this
+      const result = await response.json();
 
       if (!response.ok) {
-        setHasSubmitted(false) // allow retry on error
+        setHasSubmitted(false);
         throw new Error(result.error || "Unable to complete property setup");
       }
 
       router.push("/dashboard");
-    } catch (err: any) {
-      setError(err.message || "Unable to complete setup. Please try again.");
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : "Unable to complete setup. Please try again.";
+      setError(message);
     } finally {
       setIsSubmitting(false);
     }
@@ -149,26 +167,20 @@ console.error('🔴 API response:', JSON.stringify(result, null, 2)) // ← chan
     );
   }
 
-  const isLandlord = profile?.role === "landlord";
-  const needsLandlordSetup =
-    isLandlord &&
-    (!profile?.landlord_code ||
-      !profile?.landlord_block_id ||
-      !profile?.property_setup_complete);
-
   return (
     <div className="min-h-screen bg-background flex items-center justify-center px-4 py-12">
-      <div className="w-full max-w-3xl rounded-4xl border border-border bg-popover p-8 shadow-xl">
+      <div className="w-full max-w-3xl rounded-4xl border border-border bg-popover p-6 sm:p-8 shadow-xl">
         <div className="mb-8">
           <p className="text-sm uppercase tracking-[0.22em] text-muted-foreground">
-            Account setup required
+            Account setup · Step {step} of 2
           </p>
-          <h1 className="mt-3 text-3xl font-semibold text-foreground">
-            Complete your LEA setup
+          <h1 className="mt-3 text-2xl sm:text-3xl font-semibold text-foreground">
+            {step === 1 ? "Set up your first property" : "What do you want to focus on?"}
           </h1>
           <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">
-            Finish your landlord account onboarding before you can access the
-            dashboard.
+            {step === 1
+              ? "Add your property details to create tenant slots and your invite link."
+              : "Pick the areas you care about most. You can change this anytime in Settings."}
           </p>
         </div>
 
@@ -178,8 +190,8 @@ console.error('🔴 API response:', JSON.stringify(result, null, 2)) // ← chan
           </div>
         )}
 
-        {needsLandlordSetup ? (
-          <form onSubmit={handleSubmit} className="space-y-6">
+        {step === 1 ? (
+          <form onSubmit={handlePropertyStep} className="space-y-6">
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
                 <label className="text-sm font-medium text-foreground">
@@ -227,41 +239,26 @@ console.error('🔴 API response:', JSON.stringify(result, null, 2)) // ← chan
 
             <div className="space-y-2">
               <label className="text-sm font-medium text-foreground">
-                Property Address
+                Property Location
               </label>
               <Input
                 type="text"
                 value={propertyAddress}
                 onChange={(event) => setPropertyAddress(event.target.value)}
                 required
+                placeholder="e.g. Kilimani, Nairobi"
                 className="h-12 bg-secondary/80 border-border text-foreground rounded-2xl"
               />
             </div>
 
             {referralLink && (
               <div className="rounded-2xl border border-border bg-background p-4">
-                <div className="flex items-center justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-medium text-foreground">
-                      Tenant referral link
-                    </p>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      Share this link with tenants so they can connect to your
-                      property safely.
-                    </p>
-                  </div>
-                  <Button
-                    type="button"
-                    onClick={async () => {
-                      await navigator.clipboard.writeText(referralLink);
-                      setCopySuccess("Referral link copied!");
-                      setTimeout(() => setCopySuccess(""), 2500);
-                    }}
-                    className="h-11 rounded-2xl"
-                  >
-                    Copy link
-                  </Button>
-                </div>
+                <p className="text-sm font-medium text-foreground">
+                  Tenant invite link
+                </p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  After setup, share this link so tenants join the right property automatically.
+                </p>
                 <p className="mt-3 break-all text-sm text-muted-foreground">
                   {referralLink}
                 </p>
@@ -271,30 +268,46 @@ console.error('🔴 API response:', JSON.stringify(result, null, 2)) // ← chan
               </div>
             )}
 
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-sm text-muted-foreground">
-                This information completes your landlord onboarding and creates
-                tenant slots for your property.
-              </p>
-              <Button
-                type="submit"
-                disabled={isSubmitting}
-                className="h-12 rounded-2xl"
-              >
-                {isSubmitting ? "Completing setup…" : "Complete setup"}
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
+              <Button type="submit" className="h-12 rounded-2xl">
+                Continue to focus areas
               </Button>
             </div>
           </form>
         ) : (
-          <div className="rounded-3xl border border-border px-6 py-8 bg-secondary">
-            <p className="text-base font-semibold text-foreground">
-              Waiting for verification
-            </p>
-            <p className="mt-3 text-sm text-muted-foreground">
-              Your account still requires verification before the dashboard can
-              be accessed. If you believe this is an error, reach out to
-              support.
-            </p>
+          <div className="space-y-6">
+            <FocusAreaPicker selected={focusAreas} onChange={setFocusAreas} />
+
+            <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setStep(1)}
+                className="h-11 rounded-2xl"
+              >
+                Back
+              </Button>
+
+              <div className="flex flex-col gap-2 sm:flex-row">
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={isSubmitting}
+                  onClick={() => handleSubmit(true)}
+                  className="h-11 rounded-2xl"
+                >
+                  Skip for now
+                </Button>
+                <Button
+                  type="button"
+                  disabled={isSubmitting}
+                  onClick={() => handleSubmit(false)}
+                  className="h-11 rounded-2xl"
+                >
+                  {isSubmitting ? "Completing setup…" : "Complete setup"}
+                </Button>
+              </div>
+            </div>
           </div>
         )}
       </div>
