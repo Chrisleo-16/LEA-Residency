@@ -7,7 +7,7 @@ import {
   MessageSquare, Settings, LogOut, Search,
   AlertCircle, ClipboardList, FileText, Users,
   Building2, Activity, Sparkles,
-  Receipt, HelpCircle,
+  Receipt, HelpCircle, ShieldCheck, ExternalLink,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { User, RealtimeChannel } from '@supabase/supabase-js'
@@ -191,8 +191,21 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
       {/* Help & Support */}
       <div className="px-3 pt-3 pb-1 shrink-0 border-t border-sidebar-border">
         <p className="px-3 pt-3 pb-2 text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
-          Help &amp; Support
+          Products &amp; Help
         </p>
+        <button
+          type="button"
+          onClick={() => {
+            const url = process.env.NEXT_PUBLIC_GUARANTEE_APP_URL || 'http://localhost:3001'
+            startLoading(url)
+            window.location.href = url
+          }}
+          className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-left text-sm text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/10 transition-colors"
+        >
+          <ShieldCheck className="w-4 h-4 shrink-0" strokeWidth={1.75} />
+          <span className="flex-1 truncate">Rent Guarantee</span>
+          <ExternalLink className="w-3 h-3 opacity-60 shrink-0" />
+        </button>
         <button
           onClick={() => router.push('/contact')}
           className="w-full flex items-center gap-3 px-3 py-2 rounded-md text-left text-sm text-sidebar-foreground/70 hover:bg-secondary hover:text-sidebar-foreground transition-colors"

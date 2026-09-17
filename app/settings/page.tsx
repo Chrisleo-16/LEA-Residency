@@ -780,7 +780,7 @@ export default function SettingsPage() {
                     <Button
                       onClick={() => {
                         const targetName = propertiesList.find((p) => p.blockId === selectedPropertyBlockId)?.name || businessName || 'our property'
-                        const message = `Hi! Welcome to ${targetName} on LEA. Access zero-deposit rent guarantee, M-Pesa automated receipts, and tenant portal directly here: ${inviteLink}`
+                        const message = `Hi! Welcome to ${targetName} on LEA. Join the tenant portal for receipts and updates: ${inviteLink}`
                         window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank')
                       }}
                       className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold"

@@ -149,7 +149,7 @@ export default function DashboardLayout({ user }: DashboardLayoutProps) {
 
   const getPageSubtitle = () => {
     const subtitles: Record<string, string> = {
-      overview: 'Multi-property tracking, unit capacity, rent guarantees & live payment tracker',
+      overview: 'Multi-property tracking, unit capacity & live payment tracker',
       chat: 'Your private conversations',
       leads: 'Tenants whose wishlist matches your listings',
       community: 'Group chat & announcements',

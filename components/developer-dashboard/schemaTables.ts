@@ -50,6 +50,11 @@ export const SCHEMA_TABLES: SchemaTableConfig[] = [
     rls: true, realtime: false,
   },
   {
+    name: 'rent_guarantees',
+    cols: ['id', 'tenant_id', 'landlord_id', 'property_id', 'monthly_rent', 'fee_percent', 'status', 'declared_income', 'coverage_start', 'coverage_end', 'applied_at'],
+    rls: true, realtime: false,
+  },
+  {
     name: 'rent_settings',
     cols: ['id', 'tenant_id', 'monthly_amount', 'due_day', 'unit_number', 'created_at'],
     rls: true, realtime: true,
