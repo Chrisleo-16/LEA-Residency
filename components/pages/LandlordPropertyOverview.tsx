@@ -364,7 +364,7 @@ export default function LandlordPropertyOverview({ user, onNavigateTab }: Dashbo
   const handleSharePropertyWhatsApp = (prop: PropertyItem) => {
     const origin = typeof window !== 'undefined' ? window.location.origin : 'https://learesidency.com'
     const joinUrl = `${origin}/join?ref=${prop.landlord_block_id}`
-    const message = `Hi! Welcome to ${prop.property_name}. Access zero-deposit rent guarantee, M-Pesa receipts, and our tenant portal directly here: ${joinUrl}`
+    const message = `Hi! Welcome to ${prop.property_name}. Join the tenant portal for receipts, requests, and updates: ${joinUrl}`
     window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank')
   }
 
@@ -451,7 +451,7 @@ export default function LandlordPropertyOverview({ user, onNavigateTab }: Dashbo
   const totalVacantUnits = Math.max(0, totalUnitsAcrossAll - totalOccupiedUnits)
   const occupancyRate = totalUnitsAcrossAll > 0 ? Math.round((totalOccupiedUnits / totalUnitsAcrossAll) * 100) : 0
 
-  const totalMonthlyGuaranteedInflow = useMemo(() => {
+  const totalMonthlyRentRoll = useMemo(() => {
     return allSlots
       .filter((s) => s.is_occupied && s.tenant_id)
       .reduce((sum, s) => {
@@ -517,8 +517,8 @@ export default function LandlordPropertyOverview({ user, onNavigateTab }: Dashbo
           { label: 'Occupied Units', value: loading ? '—' : fmt(totalOccupiedUnits), icon: Home, tone: 'teal' },
           { label: 'Vacant Units', value: loading ? '—' : fmt(totalVacantUnits), icon: Users, tone: totalVacantUnits > 0 ? 'amber' : 'slate' },
           {
-            label: 'Guaranteed Rent',
-            value: loading ? '—' : fmtKES(totalMonthlyGuaranteedInflow),
+            label: 'Monthly Rent Roll',
+            value: loading ? '—' : fmtKES(totalMonthlyRentRoll),
             icon: TrendingUp,
             tone: 'green',
           },
@@ -601,8 +601,8 @@ export default function LandlordPropertyOverview({ user, onNavigateTab }: Dashbo
             ]}
             highlight={{
               icon: <ShieldCheck className="size-4 text-emerald-500 shrink-0" />,
-              title: '12-Month Rent Guarantee',
-              description: `${totalOccupiedUnits} occupied units backed by automated M-Pesa payouts.`,
+              title: 'Portfolio occupancy',
+              description: `${totalOccupiedUnits} occupied unit${totalOccupiedUnits === 1 ? '' : 's'} across your properties.`,
             }}
           />
 
@@ -813,6 +813,7 @@ export default function LandlordPropertyOverview({ user, onNavigateTab }: Dashbo
                             </>
                           )}
                         </Button>
+                      </div>
                       </div>
                     </div>
                   )

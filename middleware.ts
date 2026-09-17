@@ -28,7 +28,8 @@ export async function middleware(request: NextRequest) {
   const isProtectedRoute =
     path.startsWith('/dashboard') ||
     path.startsWith('/developer-dashboard') ||
-    path.startsWith('/landlord')
+    path.startsWith('/landlord') ||
+    path.startsWith('/guarantee')
 
   const isAuthPage = path === '/login'
   const isSetupPage = path === '/complete-setup' || path === '/select-role'
@@ -99,6 +100,8 @@ export const config = {
     '/dashboard/:path*',
     '/developer-dashboard/:path*',
     '/landlord/:path*',
+    '/guarantee/:path*',
+    '/guarantee',
     '/login',
     '/complete-setup',
     '/select-role',

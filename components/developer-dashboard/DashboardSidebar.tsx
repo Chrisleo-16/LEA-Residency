@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Terminal, UserCheck, LogOut, Search, X, ChevronsUpDown, type LucideIcon } from 'lucide-react'
+import { Terminal, UserCheck, LogOut, Search, X, ChevronsUpDown, ShieldCheck, type LucideIcon } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 import { TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Separator } from '@/components/ui/separator'
 import {
@@ -149,6 +150,7 @@ function NavList({
 
 function AccountSwitcher({ onVerifications, onLogout }: { onVerifications: () => void; onLogout: () => void }) {
   const [email, setEmail] = useState<string | null>(null)
+  const router = useRouter()
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setEmail(data.user?.email ?? null))
@@ -174,6 +176,10 @@ function AccountSwitcher({ onVerifications, onLogout }: { onVerifications: () =>
           <DropdownMenuItem onClick={onVerifications}>
             <UserCheck className="size-4" />
             Verifications
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => window.location.href = process.env.NEXT_PUBLIC_GUARANTEE_APP_URL || 'http://localhost:3001'}>
+            <ShieldCheck className="size-4" />
+            Rent Guarantee App
           </DropdownMenuItem>
           <DropdownMenuItem onClick={onLogout} variant="destructive">
             <LogOut className="size-4" />

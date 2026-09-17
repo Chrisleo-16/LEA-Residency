@@ -280,7 +280,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { propertyId, propertyName, propertyAddress, totalUnits } = body
+    const { propertyId, propertyName, propertyAddress, totalUnits, guaranteeEnabled } = body
 
     if (!propertyId) {
       return NextResponse.json({ error: 'Property ID is required' }, { status: 400 })
@@ -318,6 +318,7 @@ export async function PATCH(request: NextRequest) {
     const updatePayload: Record<string, any> = {}
     if (propertyName && propertyName.trim()) updatePayload.property_name = propertyName.trim()
     if (propertyAddress && propertyAddress.trim()) updatePayload.property_address = propertyAddress.trim()
+    if (typeof guaranteeEnabled === 'boolean') updatePayload.guarantee_enabled = guaranteeEnabled
 
     if (Object.keys(updatePayload).length > 0) {
       const { error: updatePropErr } = await serviceSupabase
