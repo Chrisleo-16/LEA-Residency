@@ -1,397 +1,478 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { sendSMS, validatePhoneNumber, formatPhoneNumber } from '@/lib/sms'
+import { createClient as createServiceClient } from '@supabase/supabase-js'
+import {
+  pickBestStaff,
+  suggestStaffForRequest,
+  type AssignableStaff,
+} from '@/lib/maintenance/assignment'
 
-interface MaintenanceRequestData {
-  tenant_id: string
-  title: string
-  description: string
-  category: string
-  priority: string
-  tenant_notes?: string
+function service() {
+  return createServiceClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+}
+
+async function getTenantContext(sb: any, tenantId: string) {
+  const { data: profile } = await sb
+    .from('profiles')
+    .select('id, full_name, phone_number, landlord_block_id')
+    .eq('id', tenantId)
+    .maybeSingle()
+
+  const { data: slot } = await sb
+    .from('tenant_slots')
+    .select('landlord_block_id, unit_id')
+    .eq('tenant_id', tenantId)
+    .maybeSingle()
+
+  const blockId = slot?.landlord_block_id || profile?.landlord_block_id
+
+  let unitNumber: string | null = null
+  let propertyId: string | null = null
+
+  if (slot?.unit_id) {
+    const { data: unit } = await sb
+      .from('units')
+      .select('unit_number, property_id')
+      .eq('id', slot.unit_id)
+      .maybeSingle()
+    unitNumber = unit?.unit_number || null
+    propertyId = unit?.property_id || null
+  }
+
+  if (!propertyId && blockId) {
+    const { data: prop } = await sb
+      .from('properties')
+      .select('id')
+      .eq('landlord_block_id', blockId)
+      .limit(1)
+      .maybeSingle()
+    propertyId = prop?.id || null
+  }
+
+  const { data: rs } = await sb
+    .from('rent_settings')
+    .select('unit_number')
+    .eq('tenant_id', tenantId)
+    .maybeSingle()
+
+  return {
+    blockId,
+    unitNumber: unitNumber || rs?.unit_number || null,
+    propertyId,
+    profile,
+  }
+}
+
+async function loadAssignableStaff(
+  sb: any,
+  landlordId: string,
+  blockId: string | null,
+  tenantId: string
+): Promise<AssignableStaff[]> {
+  let q = sb
+    .from('staff')
+    .select('*')
+    .eq('is_active', true)
+    .eq('created_by', landlordId)
+
+  const { data: staffRows } = await q
+
+  const { data: assignments } = await sb
+    .from('staff_assignments')
+    .select('staff_id')
+    .eq('tenant_id', tenantId)
+    .eq('status', 'active')
+
+  const assignedIds = new Set((assignments || []).map((a: any) => a.staff_id))
+
+  return (staffRows || []).map((s: any) => ({
+    ...s,
+    propertyMatched:
+      assignedIds.has(s.id) ||
+      (!!blockId && s.landlord_block_id === blockId),
+  }))
+}
+
+async function resolveLandlordId(sb: any, blockId: string | null) {
+  if (!blockId) return null
+  const { data } = await sb
+    .from('profiles')
+    .select('id')
+    .eq('landlord_block_id', blockId)
+    .eq('role', 'landlord')
+    .maybeSingle()
+  return data?.id || null
 }
 
 /**
- * POST /api/maintenance
- * Handles maintenance request submissions from tenants
+ * GET /api/maintenance
  */
-export async function POST(request: NextRequest) {
+export async function GET(request: NextRequest) {
   try {
-    const supabase = await createClient()
-    const { data: authData, error: authError } = await supabase.auth.getUser()
-    if (authError || !authData?.user) {
+    const auth = await createClient()
+    const {
+      data: { user },
+      error: authError,
+    } = await auth.auth.getUser()
+    if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const body: MaintenanceRequestData = await request.json()
+    const sb = service()
+    const { data: profile } = await sb
+      .from('profiles')
+      .select('role, landlord_block_id')
+      .eq('id', user.id)
+      .maybeSingle()
 
-    // Ensure required fields (tenant_id will be taken from the authenticated user)
-    const requiredFields = ['title', 'description', 'category', 'priority']
-    const missingFields = requiredFields.filter(field => !body[field as keyof MaintenanceRequestData])
-    if (missingFields.length > 0) {
-      return NextResponse.json(
-        { error: `Missing required fields: ${missingFields.join(', ')}` },
-        { status: 400 }
-      )
-    }
+    const { searchParams } = new URL(request.url)
+    const status = searchParams.get('status')
+    const category = searchParams.get('category')
+    const suggest = searchParams.get('suggest_for')
 
-    const user = authData.user
-
-    // Get client IP and user agent
-    const ipAddress = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown'
-    const userAgent = request.headers.get('user-agent') || 'unknown'
-
-    // Create maintenance request record using authenticated tenant id to avoid spoofing
-    const { data, error } = await supabase
-      .from('maintenance_requests')
-      .insert({
-        tenant_id: user.id,
-        title: body.title,
-        description: body.description,
-        category: body.category,
-        priority: body.priority,
-        tenant_notes: body.tenant_notes || null,
-        ip_address: ipAddress,
-        user_agent: userAgent,
-        status: 'pending',
-        created_at: new Date().toISOString()
-      })
-      .select(`
-        *,
-        auth.users (
-          email,
-          phone,
-          raw_user_meta_data
-        )
-      `)
-      .single()
-
-    if (error) {
-      console.error('[Maintenance] Database error:', error)
-      return NextResponse.json({ error: 'Failed to save maintenance request' }, { status: 500 })
-    }
-
-    // Send SMS notification to landlord about new request
-    try {
-      const tenantData = data.auth.users
-      const tenantPhone = tenantData?.phone || tenantData?.raw_user_meta_data?.phone
-      
-      if (tenantPhone && validatePhoneNumber(tenantPhone)) {
-        const landlordSMS = await sendSMS({
-          to: process.env.LANDLORD_PHONE_NUMBER!,
-          message: `NEW MAINTENANCE REQUEST
-
-Title: ${body.title}
-Category: ${body.category}
-Priority: ${body.priority}
-Tenant: ${tenantData?.raw_user_meta_data?.first_name || 'Unknown'} ${tenantData?.raw_user_meta_data?.last_name || ''}
-Phone: ${tenantPhone}
-
-Description: ${body.description.substring(0, 100)}${body.description.length > 100 ? '...' : ''}
-
-Please review and assign appropriate staff.
-
-LEA Executive System`
-        })
-
-        console.log('[Maintenance] Landlord notification sent:', landlordSMS.success)
+    // Suggestion endpoint for landlord assignment UI
+    if (suggest && profile?.role === 'landlord') {
+      const { data: req } = await sb
+        .from('maintenance_requests')
+        .select('*')
+        .eq('id', suggest)
+        .maybeSingle()
+      if (!req) {
+        return NextResponse.json({ error: 'Request not found' }, { status: 404 })
       }
-    } catch (smsError) {
-      console.error('[Maintenance] SMS notification failed:', smsError)
-      // Continue even if SMS fails - the request is saved
+      const staff = await loadAssignableStaff(
+        sb,
+        user.id,
+        req.landlord_block_id,
+        req.tenant_id
+      )
+      const suggestions = suggestStaffForRequest(req.category, staff, {
+        landlordBlockId: req.landlord_block_id,
+      })
+      return NextResponse.json({
+        success: true,
+        suggestions,
+        best: suggestions[0] || null,
+      })
     }
 
-    console.log('[Maintenance] New request received:', data.id)
+    let query = sb
+      .from('maintenance_requests')
+      .select(
+        `
+        *,
+        staff:assigned_staff_id (
+          id, first_name, last_name, phone, whatsapp_number, specialty, availability
+        )
+      `
+      )
+      .order('created_at', { ascending: false })
 
-    return NextResponse.json({
-      success: true,
-      message: 'Maintenance request submitted successfully',
-      requestId: data.id
-    })
+    if (profile?.role === 'tenant') {
+      query = query.eq('tenant_id', user.id)
+    } else if (profile?.role === 'landlord') {
+      query = query.eq('landlord_block_id', profile.landlord_block_id)
+    } else {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
 
-  } catch (error) {
-    console.error('[Maintenance] Unexpected error:', error)
+    if (status) query = query.eq('status', status)
+    if (category) query = query.eq('category', category)
+
+    const { data, error } = await query
+    if (error) {
+      console.error('[Maintenance GET]', error)
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    // Attach tenant profiles
+    const tenantIds = [...new Set((data || []).map((r: any) => r.tenant_id))]
+    let tenantsById: Record<string, any> = {}
+    if (tenantIds.length) {
+      const { data: tenants } = await sb
+        .from('profiles')
+        .select('id, full_name, email, phone_number')
+        .in('id', tenantIds)
+      for (const t of tenants || []) tenantsById[t.id] = t
+    }
+
+    const requests = (data || []).map((r: any) => ({
+      ...r,
+      tenant: tenantsById[r.tenant_id] || null,
+    }))
+
+    return NextResponse.json({ success: true, requests })
+  } catch (err: any) {
+    console.error('[Maintenance GET]', err)
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: err.message || 'Internal server error' },
       { status: 500 }
     )
   }
 }
 
 /**
- * GET /api/maintenance
- * Retrieves maintenance requests (for landlords/admins)
+ * POST /api/maintenance — tenant submits request; auto-suggest + optional auto-assign
  */
-export async function GET(request: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
-    const supabase = await createClient()
-    const { data: authData, error: authError } = await supabase.auth.getUser()
-    if (authError || !authData?.user) {
+    const auth = await createClient()
+    const {
+      data: { user },
+      error: authError,
+    } = await auth.auth.getUser()
+    if (authError || !user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const user = authData.user
-    const { data: profile } = await supabase.from('profiles').select('role, landlord_block_id').eq('id', user.id).maybeSingle()
-
-    const { searchParams } = new URL(request.url)
-    const tenantId = searchParams.get('tenant_id')
-    const status = searchParams.get('status')
-    const category = searchParams.get('category')
-
-    let query = supabase
-      .from('maintenance_requests')
-      .select(`
-        *,
-        staff (
-          first_name,
-          last_name,
-          phone,
-          specialty,
-          rating
-        ),
-        auth.users (
-          email,
-          phone,
-          raw_user_meta_data
-        )
-      `)
-      .order('created_at', { ascending: false })
-
-    // Authorization & scoping
-    if (profile?.role === 'tenant') {
-      // Tenants can only see their own requests
-      query = query.eq('tenant_id', user.id)
-    } else if (profile?.role === 'landlord') {
-      // Landlords only see requests for their properties: fetch property ids for landlord_block_id
-      const { data: props } = await supabase.from('properties').select('id').eq('landlord_block_id', profile.landlord_block_id)
-      const propIds = (props || []).map((p: any) => p.id)
-      if (propIds.length === 0) {
-        return NextResponse.json({ success: true, requests: [] })
-      }
-      query = query.in('property_id', propIds)
-    }
-
-    // Additional filters
-    if (tenantId) {
-      query = query.eq('tenant_id', tenantId)
-    }
-    if (status) {
-      query = query.eq('status', status)
-    }
-    if (category) {
-      query = query.eq('category', category)
-    }
-
-    const { data, error } = await query
-
-    if (error) {
-      console.error('[Maintenance] Fetch error:', error)
-      return NextResponse.json({ error: 'Failed to fetch maintenance requests' }, { status: 500 })
-    }
-
-    return NextResponse.json({ success: true, requests: data || [] })
-  } catch (error) {
-    console.error('[Maintenance] Unexpected error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
-  }
-}
-
-/**
- * PUT /api/maintenance
- * Updates maintenance requests (for landlords/admins)
- */
-export async function PUT(request: NextRequest) {
-  try {
-    const supabase = await createClient()
-    const { data: authData, error: authError } = await supabase.auth.getUser()
-    if (authError || !authData?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
-    const user = authData.user
-    const { data: profile } = await supabase.from('profiles').select('role, landlord_block_id').eq('id', user.id).maybeSingle()
-
+    const sb = service()
     const body = await request.json()
-    const { requestId, status, assigned_staff_id, estimated_completion_date, cost_estimate, landlord_notes } = body
+    const { title, description, category, priority, photos, tenant_notes } = body
 
-    if (!requestId) {
+    if (!title || !description || !category) {
       return NextResponse.json(
-        { error: 'Request ID is required' },
+        { error: 'title, description, and category are required' },
         { status: 400 }
       )
     }
 
-    // Get current request details
-    const { data: currentRequest, error: fetchError } = await supabase
-      .from('maintenance_requests')
-      .select(`
-        *,
-        staff (
-          first_name,
-          last_name,
-          phone,
-          specialty
-        ),
-        auth.users (
-          email,
-          phone,
-          raw_user_meta_data
-        )
-      `)
-      .eq('id', requestId)
-      .single()
-
-    if (fetchError || !currentRequest) {
+    const ctx = await getTenantContext(sb, user.id)
+    if (!ctx.blockId) {
       return NextResponse.json(
-        { error: 'Maintenance request not found' },
-        { status: 404 }
+        { error: 'You must be linked to a property before submitting maintenance requests' },
+        { status: 400 }
       )
     }
 
-    // Authorization: only the tenant who owns this request or the landlord for its property may update
-    if (profile?.role === 'tenant') {
-      if (currentRequest.tenant_id !== user.id) {
-        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-      }
-    } else if (profile?.role === 'landlord') {
-      const { data: property } = await supabase
-        .from('properties')
-        .select('landlord_block_id')
-        .eq('id', currentRequest.property_id)
-        .maybeSingle()
+    const landlordId = await resolveLandlordId(sb, ctx.blockId)
+    let assignedStaffId: string | null = null
+    let status = 'pending'
 
-      if (!property || property.landlord_block_id !== profile.landlord_block_id) {
-        return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    if (landlordId) {
+      const staff = await loadAssignableStaff(sb, landlordId, ctx.blockId, user.id)
+      const best = pickBestStaff(category, staff, { landlordBlockId: ctx.blockId })
+      // Auto-assign only when there is a clear property-matched specialist
+      if (best?.propertyMatched && best.specialty === category) {
+        assignedStaffId = best.id
+        status = 'assigned'
       }
     }
 
-    // Update the request
-    const updateData: any = {
-      updated_at: new Date().toISOString()
-    }
-
-    if (status) updateData.status = status
-    if (assigned_staff_id) updateData.assigned_staff_id = assigned_staff_id
-    if (estimated_completion_date) updateData.estimated_completion_date = estimated_completion_date
-    if (cost_estimate) updateData.cost_estimate = cost_estimate
-    if (landlord_notes) updateData.landlord_notes = landlord_notes
-
-    // Set assigned_at if staff is being assigned
-    if (assigned_staff_id && !currentRequest.assigned_staff_id) {
-      updateData.assigned_at = new Date().toISOString()
-    }
-
-    const { data, error } = await supabase
+    const { data, error } = await sb
       .from('maintenance_requests')
-      .update(updateData)
-      .eq('id', requestId)
-      .select(`
+      .insert({
+        tenant_id: user.id,
+        landlord_block_id: ctx.blockId,
+        property_id: ctx.propertyId,
+        unit_number: ctx.unitNumber,
+        title,
+        description,
+        category,
+        priority: priority || 'medium',
+        photos: Array.isArray(photos) ? photos : null,
+        tenant_notes: tenant_notes || null,
+        status,
+        assigned_staff_id: assignedStaffId,
+        assigned_at: assignedStaffId ? new Date().toISOString() : null,
+      })
+      .select(
+        `
         *,
-        staff (
-          first_name,
-          last_name,
-          phone,
-          specialty
-        ),
-        auth.users (
-          email,
-          phone,
-          raw_user_meta_data
+        staff:assigned_staff_id (
+          id, first_name, last_name, phone, whatsapp_number, specialty
         )
-      `)
+      `
+      )
       .single()
 
     if (error) {
-      console.error('[Maintenance] Update error:', error)
-      return NextResponse.json(
-        { error: 'Failed to update maintenance request' },
-        { status: 500 }
-      )
+      console.error('[Maintenance POST]', error)
+      return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    // Send SMS notifications based on updates
-    try {
-      const tenantData = data.auth.users
-      const tenantPhone = tenantData?.phone || tenantData?.raw_user_meta_data?.phone
+    await sb.from('maintenance_updates').insert({
+      request_id: data.id,
+      updated_by: user.id,
+      update_type: 'created',
+      new_status: status,
+      notes: 'Request submitted by tenant',
+    })
 
-      // If staff was assigned, notify both tenant and staff
-      if (assigned_staff_id && data.staff) {
-        // Notify tenant
-        if (tenantPhone && validatePhoneNumber(tenantPhone)) {
-          const tenantSMS = await sendSMS({
-            to: tenantPhone,
-            message: `MAINTENANCE REQUEST ASSIGNED
-
-Your maintenance request "${currentRequest.title}" has been assigned to ${data.staff.first_name} ${data.staff.last_name} (${data.staff.specialty}).
-
-Staff Phone: ${data.staff.phone}
-Estimated Completion: ${estimated_completion_date ? new Date(estimated_completion_date).toLocaleDateString() : 'To be determined'}
-
-They will contact you shortly to schedule the work.
-
-LEA Executive Management`
-          })
-
-          console.log('[Maintenance] Tenant notification sent:', tenantSMS.success)
-        }
-
-        // Notify staff member
-        if (data.staff.phone && validatePhoneNumber(data.staff.phone)) {
-          const staffSMS = await sendSMS({
-            to: data.staff.phone,
-            message: `NEW MAINTENANCE ASSIGNMENT
-
-Request: ${currentRequest.title}
-Category: ${currentRequest.category}
-Priority: ${currentRequest.priority}
-Tenant: ${tenantData?.raw_user_meta_data?.first_name || 'Unknown'} ${tenantData?.raw_user_meta_data?.last_name || ''}
-Tenant Phone: ${tenantPhone}
-
-Description: ${currentRequest.description.substring(0, 150)}${currentRequest.description.length > 150 ? '...' : ''}
-
-Please contact the tenant to schedule the work.
-
-LEA Executive System`
-          })
-
-          console.log('[Maintenance] Staff notification sent:', staffSMS.success)
-        }
-      }
-
-      // If status changed to completed, notify tenant
-      if (status === 'completed' && currentRequest.status !== 'completed') {
-        if (tenantPhone && validatePhoneNumber(tenantPhone)) {
-          const completionSMS = await sendSMS({
-            to: tenantPhone,
-            message: `MAINTENANCE COMPLETED
-
-Your maintenance request "${currentRequest.title}" has been marked as completed.
-
-Please review the work and provide feedback through your dashboard.
-
-Thank you for using LEA Executive!`
-          })
-
-          console.log('[Maintenance] Completion notification sent:', completionSMS.success)
-        }
-      }
-    } catch (smsError) {
-      console.error('[Maintenance] SMS notification failed:', smsError)
-      // Continue even if SMS fails - the update is saved
+    if (assignedStaffId) {
+      await sb.from('maintenance_updates').insert({
+        request_id: data.id,
+        updated_by: user.id,
+        staff_id: assignedStaffId,
+        update_type: 'assigned',
+        previous_status: 'pending',
+        new_status: 'assigned',
+        notes: 'Auto-assigned by LEA based on category and property staff',
+      })
     }
 
-    console.log('[Maintenance] Request updated:', data.id)
+    // Suggestions for landlord (always return)
+    let suggestions: AssignableStaff[] = []
+    if (landlordId) {
+      const staff = await loadAssignableStaff(sb, landlordId, ctx.blockId, user.id)
+      suggestions = suggestStaffForRequest(category, staff, {
+        landlordBlockId: ctx.blockId,
+      })
+    }
 
     return NextResponse.json({
       success: true,
-      message: 'Maintenance request updated successfully',
-      request: data
+      request: data,
+      suggestions,
+      autoAssigned: !!assignedStaffId,
+    })
+  } catch (err: any) {
+    console.error('[Maintenance POST]', err)
+    return NextResponse.json(
+      { error: err.message || 'Internal server error' },
+      { status: 500 }
+    )
+  }
+}
+
+/**
+ * PUT /api/maintenance — assign / status updates
+ */
+export async function PUT(request: NextRequest) {
+  try {
+    const auth = await createClient()
+    const {
+      data: { user },
+      error: authError,
+    } = await auth.auth.getUser()
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const sb = service()
+    const { data: profile } = await sb
+      .from('profiles')
+      .select('role, landlord_block_id')
+      .eq('id', user.id)
+      .maybeSingle()
+
+    const body = await request.json()
+    const {
+      requestId,
+      status,
+      assigned_staff_id,
+      landlord_notes,
+      staff_notes,
+      estimated_completion_date,
+    } = body
+
+    if (!requestId) {
+      return NextResponse.json({ error: 'requestId required' }, { status: 400 })
+    }
+
+    const { data: current } = await sb
+      .from('maintenance_requests')
+      .select('*')
+      .eq('id', requestId)
+      .maybeSingle()
+
+    if (!current) {
+      return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    }
+
+    if (profile?.role === 'tenant' && current.tenant_id !== user.id) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+    if (
+      profile?.role === 'landlord' &&
+      current.landlord_block_id !== profile.landlord_block_id
+    ) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+    }
+
+    // Tenants can only add notes or close their own resolved requests
+    if (profile?.role === 'tenant') {
+      const allowed =
+        (status === 'closed' &&
+          ['completed', 'resolved'].includes(current.status)) ||
+        body.tenant_notes
+      if (!allowed && (assigned_staff_id || (status && status !== 'closed'))) {
+        return NextResponse.json(
+          { error: 'Tenants cannot assign staff or change status except closing resolved requests' },
+          { status: 403 }
+        )
+      }
+    }
+
+    const updateData: any = { updated_at: new Date().toISOString() }
+    if (status) {
+      updateData.status = status === 'resolved' ? 'completed' : status
+      if (updateData.status === 'completed') {
+        updateData.actual_completion_date = new Date().toISOString()
+      }
+      if (updateData.status === 'closed') {
+        updateData.closed_at = new Date().toISOString()
+      }
+    }
+    if (assigned_staff_id !== undefined) {
+      updateData.assigned_staff_id = assigned_staff_id || null
+      if (assigned_staff_id) {
+        updateData.assigned_at = new Date().toISOString()
+        if (!status && current.status === 'pending') {
+          updateData.status = 'assigned'
+        }
+      }
+    }
+    if (landlord_notes !== undefined) updateData.landlord_notes = landlord_notes
+    if (staff_notes !== undefined) updateData.staff_notes = staff_notes
+    if (body.tenant_notes !== undefined) updateData.tenant_notes = body.tenant_notes
+    if (estimated_completion_date) {
+      updateData.estimated_completion_date = estimated_completion_date
+    }
+
+    const { data, error } = await sb
+      .from('maintenance_requests')
+      .update(updateData)
+      .eq('id', requestId)
+      .select(
+        `
+        *,
+        staff:assigned_staff_id (
+          id, first_name, last_name, phone, whatsapp_number, specialty
+        )
+      `
+      )
+      .single()
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    const updateType = assigned_staff_id
+      ? 'assigned'
+      : status
+        ? status === 'completed' || status === 'resolved'
+          ? 'completed'
+          : 'status_change'
+        : 'note_added'
+
+    await sb.from('maintenance_updates').insert({
+      request_id: requestId,
+      updated_by: user.id,
+      staff_id: assigned_staff_id || current.assigned_staff_id,
+      update_type: updateType,
+      previous_status: current.status,
+      new_status: data.status,
+      notes: landlord_notes || staff_notes || body.tenant_notes || null,
     })
 
-  } catch (error) {
-    console.error('[Maintenance] Unexpected error:', error)
+    return NextResponse.json({ success: true, request: data })
+  } catch (err: any) {
+    console.error('[Maintenance PUT]', err)
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: err.message || 'Internal server error' },
       { status: 500 }
     )
   }

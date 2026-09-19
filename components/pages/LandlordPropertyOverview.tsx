@@ -38,6 +38,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { StatBar } from '@/components/developer-dashboard/StatCard'
 import { DonutBreakdown } from '@/components/developer-dashboard/DonutBreakdown'
+import { createClient } from '@/lib/supabase/client'
 import { SkeletonRows } from '@/components/developer-dashboard/DataRow'
 import { fmt, fmtKES, timeAgo } from '@/components/developer-dashboard/helpers'
 import { toast } from 'sonner'
@@ -220,15 +221,38 @@ export default function LandlordPropertyOverview({ user, onNavigateTab }: Dashbo
   const loadData = async () => {
     try {
       setLoading(true)
-      const res = await fetch('/api/landlord/properties')
-      const json = await res.json()
-      if (res.ok && json.success) {
-        setProperties(json.properties || [])
-        setAllSlots(json.allSlots || [])
+      const supabase = createClient()
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+
+      const res = await fetch('/api/landlord/properties', {
+        credentials: 'include',
+        headers: session?.access_token
+          ? { Authorization: `Bearer ${session.access_token}` }
+          : {},
+      })
+
+      const contentType = res.headers.get('content-type') || ''
+      const raw = await res.text()
+      if (!contentType.includes('application/json')) {
+        throw new Error(
+          res.status === 404
+            ? 'Properties API unavailable — restart the local server and try again.'
+            : `Server returned a non-JSON response (HTTP ${res.status}).`,
+        )
       }
+
+      const json = JSON.parse(raw)
+      if (!res.ok || !json.success) {
+        throw new Error(json.error || `Failed to load properties (HTTP ${res.status})`)
+      }
+
+      setProperties(json.properties || [])
+      setAllSlots(json.allSlots || [])
     } catch (err: any) {
       console.error('Failed to load properties dashboard:', err)
-      toast.error('Could not load properties data')
+      toast.error(err?.message || 'Could not load properties data')
     } finally {
       setLoading(false)
     }

@@ -26,6 +26,17 @@ import {
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 
+interface ChargePlanItem {
+  charge_type: string
+  label: string
+  amount: number | null
+  is_variable: boolean
+  is_active: boolean
+  priority: number
+  tenant_can_enter: boolean
+  pay_separately?: boolean
+}
+
 interface PayButtonProps {
   user: User | null
   amount: number
@@ -33,6 +44,11 @@ interface PayButtonProps {
   onSuccess: () => void
   onError: (msg: string) => void
   disabled?: boolean
+  /** Called after tenant acknowledges Pochi manual pay — parent should show SMS paste card */
+  onManualAwaitingCode?: (payment: { id: string; amount: number; month: string }) => void
+  /** Pay only these charge types (separate water/garbage/electricity) */
+  focusChargeTypes?: string[]
+  buttonLabel?: string
 }
 
 const REPAIR_SERVICES = [
@@ -53,6 +69,9 @@ export default function PayButton({
   onSuccess,
   onError,
   disabled = false,
+  onManualAwaitingCode,
+  focusChargeTypes,
+  buttonLabel,
 }: PayButtonProps) {
   const [showModal, setShowModal] = useState(false)
   const [phone, setPhone] = useState('')
@@ -66,7 +85,12 @@ export default function PayButton({
   const [selectedService, setSelectedService] = useState('')
   const [customServiceAmount, setCustomServiceAmount] = useState('')
   const [serviceDescription, setServiceDescription] = useState('')
-  
+  const [chargePlan, setChargePlan] = useState<ChargePlanItem[]>([])
+  const [allowAdvanceMonths, setAllowAdvanceMonths] = useState(0)
+  const [advanceExtra, setAdvanceExtra] = useState(0) // additional months beyond current (0..allow)
+  const [variableAmounts, setVariableAmounts] = useState<Record<string, number>>({})
+  const [openDue, setOpenDue] = useState(amount)
+
   // Multi-channel states
   const [landlordChannels, setLandlordChannels] = useState<any[]>([])
   const [selectedMethod, setSelectedMethod] = useState<'mpesa' | 'bank'>('mpesa')
@@ -75,21 +99,105 @@ export default function PayButton({
 
   const formatMoney = (n: number) => `KES ${n.toLocaleString('en-KE')}`
 
+  const fixedMonthlyTotal = () => {
+    const focus = (focusChargeTypes || []).map((t) => t.toLowerCase())
+    return chargePlan
+      .filter((c) => {
+        if (c.pay_separately && focus.length === 0) return false
+        if (focus.length && !focus.includes(c.charge_type.toLowerCase()))
+          return false
+        return !c.is_variable && Number(c.amount) > 0
+      })
+      .reduce((s, c) => s + Number(c.amount || 0), 0)
+  }
+
+  const variableEnteredTotal = () => {
+    const focus = (focusChargeTypes || []).map((t) => t.toLowerCase())
+    return chargePlan
+      .filter((c) => {
+        if (c.pay_separately && focus.length === 0) return false
+        if (focus.length && !focus.includes(c.charge_type.toLowerCase()))
+          return false
+        return c.is_variable && c.tenant_can_enter
+      })
+      .reduce((s, c) => s + Math.max(0, Number(variableAmounts[c.charge_type]) || 0), 0)
+  }
+
+  const visiblePlan = () => {
+    const focus = (focusChargeTypes || []).map((t) => t.toLowerCase())
+    return chargePlan.filter((c) => {
+      if (focus.length) return focus.includes(c.charge_type.toLowerCase())
+      return !c.pay_separately
+    })
+  }
+
   const getTotalAmount = () => {
     if (paymentType === 'rent') {
-      return rentAmount + waterBill
-    } else {
-      const service = REPAIR_SERVICES.find(s => s.id === selectedService)
-      const baseAmount = service?.basePrice ?? 0
-      const customAmount = parseFloat(customServiceAmount) || 0
-      return baseAmount + customAmount
+      if (focusChargeTypes?.length) {
+        const base = Math.max(0, Number(amount) || 0)
+        return Math.max(0, Math.round((base + variableEnteredTotal()) * 100) / 100)
+      }
+      if (visiblePlan().length > 0 || chargePlan.length > 0) {
+        const baseCurrent =
+          openDue > 0
+            ? openDue + variableEnteredTotal()
+            : fixedMonthlyTotal() + variableEnteredTotal()
+        const advancePortion = advanceExtra * fixedMonthlyTotal()
+        return Math.max(0, Math.round((baseCurrent + advancePortion) * 100) / 100)
+      }
+      return Math.max(0, rentAmount) + Math.max(0, waterBill)
     }
+    const service = REPAIR_SERVICES.find((s) => s.id === selectedService)
+    const baseAmount = service?.basePrice ?? 0
+    const customAmount = Math.max(0, parseFloat(customServiceAmount) || 0)
+    return Math.max(0, baseAmount + customAmount)
+  }
+
+  const buildVariablePayload = () => {
+    const out: Record<string, number> = {}
+    for (const c of chargePlan) {
+      if (!c.is_variable || !c.tenant_can_enter) continue
+      const v = Math.max(0, Number(variableAmounts[c.charge_type]) || 0)
+      if (v > 0) out[c.charge_type] = v
+    }
+    // legacy waterBill fallback
+    if (!out.water && waterBill > 0) out.water = waterBill
+    return out
+  }
+
+  /** Pochi la Biashara / unverified tills cannot receive STK — tenants pay manually. */
+  const isManualMpesaChannel = (channel: any | null) =>
+    !!channel &&
+    channel.payment_type !== 'bank' &&
+    !channel.payhero_channel_id
+
+  const channelMethodLabel = (channel: any) => {
+    if (channel.payment_type === 'bank') return 'PesaLink Bank Transfer'
+    if (isManualMpesaChannel(channel)) return 'Pochi la Biashara (manual)'
+    return `M-Pesa ${channel.payment_type}`
+  }
+
+  const channelDestinationLabel = (channel: any) => {
+    if (channel.payment_type === 'bank') {
+      return `${channel.bank_name} · Acc: ${channel.bank_account_number}`
+    }
+    if (isManualMpesaChannel(channel)) {
+      return `Pochi la Biashara: ${channel.paybill_number}`
+    }
+    return `${channel.payment_type.toUpperCase()}: ${channel.paybill_number} · Acc: ${channel.account_name}`
   }
 
   const handlePay = async () => {
     const totalAmount = getTotalAmount()
     if (totalAmount <= 0) {
       onError('Payment amount must be greater than 0')
+      return
+    }
+
+    if (isManualMpesaChannel(selectedChannel)) {
+      onError(
+        `This landlord uses Pochi la Biashara (${selectedChannel.paybill_number}). Pay manually via M-Pesa → Pochi la Biashara, then share your M-Pesa code with your landlord.`,
+      )
       return
     }
 
@@ -107,6 +215,7 @@ export default function PayButton({
 
     setIsSending(true)
     try {
+      const vars = buildVariablePayload()
       const paymentData = {
         amount: totalAmount,
         phone,
@@ -115,7 +224,13 @@ export default function PayButton({
         paymentType,
         channelId: selectedChannel?.payhero_channel_id,
         reference: `${paymentType.toUpperCase()}-${user?.id}-${month}`,
-        ...(paymentType === 'rent' && { rentAmount, waterBill }),
+        ...(paymentType === 'rent' && {
+          rentAmount: fixedMonthlyTotal() || rentAmount,
+          waterBill: vars.water || 0,
+          variableAmounts: vars,
+          advanceMonths: focusChargeTypes?.length ? 0 : advanceExtra,
+          onlyChargeTypes: focusChargeTypes || undefined,
+        }),
         ...(paymentType === 'repairs' && { 
           serviceId: selectedService,
           serviceDescription,
@@ -159,9 +274,11 @@ export default function PayButton({
  const openModal = async () => {
   if (disabled) return
   setShowModal(true)
-  setIsLoadingChannels(true)   // already there, but now initial state matches
-  setLandlordChannels([])      // ← ADD THIS to clear stale state on reopen
-  setSelectedChannel(null) 
+  setIsLoadingChannels(true)
+  setLandlordChannels([])
+  setSelectedChannel(null)
+  setAdvanceExtra(0)
+  setVariableAmounts({})
 
   try {
     if (user) {
@@ -171,6 +288,40 @@ export default function PayButton({
         .eq('id', user.id)
         .single()
       if (profile?.phone_number) setPhone(profile.phone_number)
+
+      // Load charge plan + open due for bill-driven pay
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession()
+        const accRes = await fetch('/api/tenancy/account?generate=1', {
+          credentials: 'include',
+          headers: session?.access_token
+            ? { Authorization: `Bearer ${session.access_token}` }
+            : {},
+        })
+        if (accRes.ok) {
+          const acc = await accRes.json()
+          setChargePlan(acc.chargePlan || [])
+          setAllowAdvanceMonths(
+            focusChargeTypes?.length
+              ? 0
+              : Math.min(3, Math.max(0, Number(acc.paymentRules?.allowAdvanceMonths) || 0))
+          )
+          setOpenDue(
+            focusChargeTypes?.length
+              ? Number(amount) || 0
+              : Number(acc.rentDue ?? acc.totalDue) || amount
+          )
+          const rentLine = (acc.chargePlan || []).find(
+            (c: ChargePlanItem) => c.charge_type === 'rent'
+          )
+          if (rentLine?.amount) setRentAmount(Number(rentLine.amount))
+        }
+      } catch (e) {
+        console.warn('charge plan load', e)
+        setOpenDue(amount)
+      }
     }
 
     const { data: slot } = await supabase
@@ -195,16 +346,23 @@ export default function PayButton({
           .eq('verified', true)
 
         if (channels && channels.length > 0) {
-          setLandlordChannels(channels)
-          const mpesa = channels.find((c: any) => 
-            c.payment_type === 'paybill' || c.payment_type === 'till'
+          const rentChannels = channels.filter((c: any) => {
+            if (c.is_wifi) return false
+            const name = String(c.account_name || '').toLowerCase()
+            return !name.includes('wifi') && !name.includes('wi-fi')
+          })
+          setLandlordChannels(rentChannels)
+          const mpesa = rentChannels.find(
+            (c: any) => c.payment_type === 'paybill' || c.payment_type === 'till'
           )
           if (mpesa) {
             setSelectedChannel(mpesa)
             setSelectedMethod('mpesa')
-          } else {
-            setSelectedChannel(channels[0])
-            setSelectedMethod(channels[0].payment_type === 'bank' ? 'bank' : 'mpesa')
+          } else if (rentChannels[0]) {
+            setSelectedChannel(rentChannels[0])
+            setSelectedMethod(
+              rentChannels[0].payment_type === 'bank' ? 'bank' : 'mpesa'
+            )
           }
         }
       }
@@ -212,7 +370,7 @@ export default function PayButton({
   } catch (err) {
     console.error('Error fetching landlord channels:', err)
   } finally {
-    setIsLoadingChannels(false)  // ✅ keep here — runs after all state is set
+    setIsLoadingChannels(false)
   }
 }
 
@@ -226,7 +384,7 @@ export default function PayButton({
         }`}
       >
         <Smartphone className="w-4 h-4" />
-        Complete Payment
+        {buttonLabel || (focusChargeTypes?.length ? 'Pay this fee' : 'Complete Payment')}
       </Button>
 
       {showModal && (
@@ -305,35 +463,115 @@ export default function PayButton({
                 <div className="mb-5 space-y-4">
                   {paymentType === 'rent' ? (
                     <div className="space-y-3">
-                      <div>
-                        <Label className="text-xs font-medium text-foreground block mb-2">
-                          Monthly Rent
-                        </Label>
-                        <Input
-                          type="number"
-                          disabled
-                          value={rentAmount}
-                          onChange={(e) => setRentAmount(parseFloat(e.target.value) || 0)}
-                          className="bg-accent/5 border-accent/20 text-center font-bold text-accent"
-                        />
-                      </div>
-                      <div>
-                        <Label className="text-xs font-medium text-foreground block mb-2">
-                          Water Bill (Optional)
-                        </Label>
-                        <div className="bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800 rounded-xl p-3">
-                          <Input
-                            type="number"
-                            value={waterBill === 0 ? '' : waterBill}
-                            onChange={(e) => {
-                              const value = e.target.value;
-                              setWaterBill(value === '' ? 0 : parseFloat(value) || 0);
-                            }}
-                            className="bg-transparent border-0 text-center font-semibold text-accent"
-                            placeholder="0"
-                          />
-                        </div>
-                      </div>
+                      {visiblePlan().length > 0 ? (
+                        <>
+                          {visiblePlan().map((c) => (
+                            <div key={c.charge_type}>
+                              <Label className="text-xs font-medium text-foreground block mb-1.5">
+                                {c.label}
+                                {c.is_variable ? ' (variable)' : ''}
+                              </Label>
+                              {c.is_variable && c.tenant_can_enter ? (
+                                <Input
+                                  type="number"
+                                  min={0}
+                                  step="1"
+                                  inputMode="decimal"
+                                  value={
+                                    variableAmounts[c.charge_type]
+                                      ? variableAmounts[c.charge_type]
+                                      : ''
+                                  }
+                                  onChange={(e) => {
+                                    const raw = e.target.value
+                                    const n =
+                                      raw === '' ? 0 : Math.max(0, Number(raw) || 0)
+                                    setVariableAmounts((prev) => ({
+                                      ...prev,
+                                      [c.charge_type]: Math.round(n * 100) / 100,
+                                    }))
+                                  }}
+                                  placeholder="Enter amount"
+                                  className="bg-amber-50 border-amber-200 text-center font-semibold"
+                                />
+                              ) : c.is_variable && !c.tenant_can_enter ? (
+                                <p className="text-xs text-muted-foreground rounded-xl border border-dashed border-border p-3">
+                                  Awaiting landlord to set this amount
+                                </p>
+                              ) : (
+                                <Input
+                                  type="number"
+                                  disabled
+                                  value={Number(c.amount) || 0}
+                                  className="bg-accent/5 border-accent/20 text-center font-bold text-accent"
+                                />
+                              )}
+                            </div>
+                          ))}
+                          {allowAdvanceMonths > 0 && !focusChargeTypes?.length && (
+                            <div>
+                              <Label className="text-xs font-medium block mb-1.5">
+                                Also pay ahead
+                              </Label>
+                              <select
+                                value={advanceExtra}
+                                onChange={(e) =>
+                                  setAdvanceExtra(Number(e.target.value))
+                                }
+                                className="w-full rounded-xl border border-border bg-secondary text-sm p-2.5"
+                              >
+                                <option value={0}>This month only</option>
+                                {Array.from(
+                                  { length: allowAdvanceMonths },
+                                  (_, i) => i + 1,
+                                ).map((n) => (
+                                  <option key={n} value={n}>
+                                    This month + next {n}
+                                  </option>
+                                ))}
+                              </select>
+                              <p className="text-[11px] text-muted-foreground mt-1">
+                                Advance covers fixed charges only; variable meters stay
+                                per month.
+                              </p>
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <>
+                          <div>
+                            <Label className="text-xs font-medium text-foreground block mb-2">
+                              Monthly Rent
+                            </Label>
+                            <Input
+                              type="number"
+                              disabled
+                              value={rentAmount}
+                              className="bg-accent/5 border-accent/20 text-center font-bold text-accent"
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs font-medium text-foreground block mb-2">
+                              Water Bill (Optional)
+                            </Label>
+                            <Input
+                              type="number"
+                              min={0}
+                              value={waterBill === 0 ? '' : waterBill}
+                              onChange={(e) => {
+                                const n = Number(e.target.value)
+                                setWaterBill(
+                                  !Number.isFinite(n) || n < 0
+                                    ? 0
+                                    : Math.round(n * 100) / 100,
+                                )
+                              }}
+                              className="bg-amber-50 border-amber-200 text-center font-semibold"
+                              placeholder="0"
+                            />
+                          </div>
+                        </>
+                      )}
                     </div>
                   ) : (
                     <div className="space-y-3">
@@ -424,7 +662,7 @@ export default function PayButton({
                               <div>
                                 <p className="text-sm font-bold text-foreground leading-none">{channel.account_name}</p>
                                 <p className="text-[10px] text-muted-foreground mt-1 uppercase font-medium">
-                                  {channel.payment_type === 'bank' ? 'PesaLink Bank Transfer' : `M-Pesa ${channel.payment_type}`}
+                                  {channelMethodLabel(channel)}
                                 </p>
                               </div>
                             </div>
@@ -454,16 +692,28 @@ export default function PayButton({
                     <div className="pt-2 border-t border-accent/10">
                       <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Target Destination</p>
                       <p className="text-xs font-medium text-foreground mt-1">
-                        {selectedChannel.payment_type === 'bank' 
-                          ? `${selectedChannel.bank_name} · Acc: ${selectedChannel.bank_account_number}`
-                          : `${selectedChannel.payment_type.toUpperCase()}: ${selectedChannel.paybill_number} · Acc: ${selectedChannel.account_name}`
-                        }
+                        {channelDestinationLabel(selectedChannel)}
                       </p>
                     </div>
                   )}
                 </div>
 
-                {selectedMethod === 'mpesa' ? (
+                {selectedMethod === 'mpesa' && isManualMpesaChannel(selectedChannel) ? (
+                  <div className="mb-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    <div className="p-4 bg-amber-50 border border-amber-100 rounded-xl space-y-2">
+                      <p className="text-sm font-bold text-amber-900">Pay manually via Pochi la Biashara</p>
+                      <p className="text-xs text-amber-800 leading-relaxed">
+                        STK push is not available for this payment method. On your phone: M-Pesa → Pochi la Biashara → enter{' '}
+                        <span className="font-bold">{selectedChannel.paybill_number}</span> → amount{' '}
+                        <span className="font-bold">{formatMoney(getTotalAmount())}</span>.
+                      </p>
+                      <p className="text-xs text-amber-800 leading-relaxed">
+                        After paying, come back here and paste your M-Pesa confirmation
+                        SMS — LEA will read the code, amount and time. No STK push for Pochi.
+                      </p>
+                    </div>
+                  </div>
+                ) : selectedMethod === 'mpesa' ? (
                   <div className="mb-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
                     <label className="text-sm font-medium text-foreground block mb-1.5">
                       Confirm M-Pesa Number
@@ -491,9 +741,20 @@ export default function PayButton({
 
                 <div className="bg-muted/50 rounded-xl p-4 mb-6 space-y-1.5">
                   <p className="text-xs font-bold text-muted-foreground mb-1 uppercase tracking-wider">
-                    {selectedMethod === 'mpesa' ? 'How M-Pesa STK works:' : 'How PesaLink works:'}
+                    {isManualMpesaChannel(selectedChannel)
+                      ? 'How Pochi la Biashara works:'
+                      : selectedMethod === 'mpesa'
+                        ? 'How M-Pesa STK works:'
+                        : 'How PesaLink works:'}
                   </p>
-                  {(selectedMethod === 'mpesa' ? [
+                  {(isManualMpesaChannel(selectedChannel)
+                    ? [
+                        '1. Open M-Pesa on your phone',
+                        `2. Choose Pochi la Biashara → ${selectedChannel?.paybill_number}`,
+                        `3. Enter ${formatMoney(getTotalAmount())} and your PIN`,
+                        '4. Enter the M-Pesa receipt code on your dashboard',
+                      ]
+                    : selectedMethod === 'mpesa' ? [
                     '1. Click "Send STK Push" below',
                     '2. M-Pesa prompt appears on your phone',
                     '3. Enter your M-Pesa PIN',
@@ -522,6 +783,63 @@ export default function PayButton({
                   >
                     Cancel
                   </Button>
+                  {isManualMpesaChannel(selectedChannel) ? (
+                    <Button
+                      onClick={async () => {
+                        setIsSending(true)
+                        try {
+                          const total = getTotalAmount()
+                          const {
+                            data: { session },
+                          } = await supabase.auth.getSession()
+                          const res = await fetch('/api/payments/confirm-mpesa', {
+                            method: 'POST',
+                            headers: {
+                              'Content-Type': 'application/json',
+                              ...(session?.access_token
+                                ? { Authorization: `Bearer ${session.access_token}` }
+                                : {}),
+                            },
+                            credentials: 'include',
+                            body: JSON.stringify({
+                              action: 'start',
+                              amount: total,
+                              month,
+                              waterBill: Math.max(
+                                0,
+                                buildVariablePayload().water || waterBill || 0,
+                              ),
+                              variableAmounts: buildVariablePayload(),
+                              advanceMonths: focusChargeTypes?.length ? 0 : advanceExtra,
+                              onlyChargeTypes: focusChargeTypes || undefined,
+                            }),
+                          })
+                          const data = await res.json()
+                          if (!res.ok) throw new Error(data.error || 'Could not start confirmation')
+                          setShowModal(false)
+                          setPhone('')
+                          onManualAwaitingCode?.({
+                            id: data.payment.id,
+                            amount: total,
+                            month,
+                          })
+                        } catch (err: any) {
+                          onError(err.message || 'Failed')
+                        } finally {
+                          setIsSending(false)
+                        }
+                      }}
+                      disabled={isSending || getTotalAmount() <= 0}
+                      className="flex-1 bg-accent hover:bg-accent/90 text-accent-foreground rounded-xl h-12 gap-2 font-bold shadow-lg shadow-accent/20 disabled:opacity-50"
+                    >
+                      {isSending ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <CheckCircle2 className="w-4 h-4" />
+                      )}
+                      Got it — I&apos;ll enter my code
+                    </Button>
+                  ) : (
                   <Button
                     onClick={handlePay}
                     disabled={isSending || (selectedMethod === 'mpesa' && !phone) || getTotalAmount() <= 0 || (paymentType === 'repairs' && !selectedService) || (landlordChannels.length > 0 && !selectedChannel)}
@@ -539,6 +857,7 @@ export default function PayButton({
                       </>
                     )}
                   </Button>
+                  )}
                 </div>
               </>
             )}

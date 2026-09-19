@@ -76,7 +76,13 @@ export async function middleware(request: NextRequest) {
     }
 
     if (isSetupPage) {
-      if (path === '/select-role' && profile?.role && profile.role !== 'landlord') {
+      // Only bounce tenants off /select-role once they already have a property link.
+      // Defaulted OAuth tenants (role=tenant, no block) must still reach role selection.
+      if (
+        path === '/select-role' &&
+        profile?.role === 'tenant' &&
+        profile.landlord_block_id
+      ) {
         return copyCookies(NextResponse.redirect(new URL('/dashboard', request.url)))
       }
       if (path === '/complete-setup' && profile?.role === 'landlord' && !needsLandlordSetup(profile)) {

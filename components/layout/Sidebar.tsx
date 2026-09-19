@@ -101,8 +101,8 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
     { id: 'chat',       label: 'Chat with Landlord', icon: MessageSquare },
     { id: 'community',  label: 'Community',          icon: Users },
     { id: 'complaints', label: 'My Complaints',      icon: AlertCircle },
-    { id: 'requests',   label: 'My Requests',        icon: ClipboardList },
-    { id: 'payments',   label: 'Payments',           icon: Receipt },
+    { id: 'requests',   label: 'Maintenance',        icon: ClipboardList },
+    { id: 'payments',   label: 'My Bills & Payments', icon: Receipt },
     // { id: 'listings',   label: 'Listings',           icon: Grid3x3 },
     { id: 'policy',     label: 'Policy & Docs',      icon: FileText },
   ]
@@ -113,8 +113,9 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
     // { id: 'leads',      label: 'Tenant Leads',         icon: Sparkles },
     { id: 'community',  label: 'Community',           icon: Users },
     { id: 'complaints', label: 'Complaints',           icon: AlertCircle },
-    { id: 'requests',   label: 'Requests',             icon: ClipboardList },
-    { id: 'payments',   label: 'Rent Ledger',          icon: Receipt },
+    { id: 'requests',   label: 'Maintenance',          icon: ClipboardList },
+    { id: 'staff',      label: 'Staff & Services',     icon: Users },
+    { id: 'payments',   label: 'Tenant Accounts',      icon: Receipt },
     { id: 'policy',     label: 'Manage Policies',      icon: FileText },
     { id: 'billing',    label: 'Subscription Billing', icon: Activity },
   ]

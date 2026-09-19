@@ -126,11 +126,23 @@ const faqs = [
   },
   {
     q: "Who actually gets my rent money?",
-    a: "Your landlord, directly. Payments go straight to the building's M-Pesa Paybill — LEA Executive never holds your money. The app reads the confirmation the moment M-Pesa sends it.",
+    a: "Your landlord, directly. Payments go straight to the landlord's registered M-Pesa channel (Paybill, Till, or Pochi la Biashara) — LEA Executive never holds your money. The app reads the confirmation the moment M-Pesa sends it, when that channel supports it.",
+  },
+  {
+    q: "What data do you receive — and do you sell it?",
+    a: "We receive only what the app needs to run your tenancy: account details (name, email, phone), payment confirmations from M-Pesa (never your PIN), chat and maintenance records, and basic device/usage logs. We do not sell, rent, or trade your personal data to advertisers or data brokers — ever. Full detail is in the Privacy Policy.",
   },
   {
     q: "What happens to a maintenance request after I submit it?",
     a: "It moves through three states you can actually see: submitted, in progress, resolved. No more wondering if anyone read it.",
+  },
+  {
+    q: "How is tenant security handled?",
+    a: "Tenants only join via a landlord referral link, so random signups cannot attach themselves to a building. Private chat, payments, and unit records are isolated with Row Level Security — other tenants cannot see yours. We never take your M-Pesa PIN. Two-step verification (2FA) for sign-in is on our roadmap to harden accounts further.",
+  },
+  {
+    q: "How is landlord security handled?",
+    a: "Landlords manage their own property block, payment channels, and invite links. Tenants cannot access landlord settings, other buildings, or staff tools. Payment destinations stay under the landlord's control; LEA does not move tenant funds. Account access uses authenticated sessions over HTTPS, and we are planning two-step verification for landlord logins as well.",
   },
   {
     q: "Can my landlord see things I do not want them to?",
@@ -142,7 +154,7 @@ const faqs = [
   },
   {
     q: "Is my data actually safe?",
-    a: "Yes — and we mean that specifically, not as a slogan. Read the Privacy Policy for exactly what we collect, why, and who can see it.",
+    a: "Yes — and we mean that specifically, not as a slogan. Data is encrypted in transit (HTTPS), access is authenticated, and database Row Level Security limits who can read what. We do not sell your data. Two-step verification is planned as an extra login safeguard. Read the Privacy Policy for exactly what we collect, why, and who can see it.",
   },
 ];
 

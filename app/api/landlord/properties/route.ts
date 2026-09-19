@@ -6,9 +6,23 @@ import { NextRequest, NextResponse } from 'next/server'
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient()
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
+
+    const authHeader = request.headers.get('authorization')
+    const bearer =
+      authHeader?.toLowerCase().startsWith('bearer ')
+        ? authHeader.slice(7).trim()
+        : null
+
+    const { data: authData, error: authError } = bearer
+      ? await supabase.auth.getUser(bearer)
+      : await supabase.auth.getUser()
+
+    const user = authData.user
     if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json(
+        { error: authError?.message || 'Unauthorized' },
+        { status: 401 }
+      )
     }
 
     const serviceSupabase = createServiceClient(
@@ -97,7 +111,7 @@ export async function GET(request: NextRequest) {
 
       const { data: rentSettings } = await serviceSupabase
         .from('rent_settings')
-        .select('tenant_id, monthly_amount, due_day, unit_number, wifi_enabled, wifi_amount, created_at')
+        .select('tenant_id, monthly_amount, due_day, unit_number, wifi_enabled, wifi_amount, garbage_enabled, garbage_amount, electricity_enabled, electricity_amount, electricity_is_variable, water_enabled, water_fixed, water_is_variable, allow_advance_months, allow_tenant_variable_entry, deposit_months, deposit_billed_period, water_pay_separate, garbage_pay_separate, electricity_pay_separate, created_at')
         .in('tenant_id', tenantIds)
 
       if (rentSettings) {

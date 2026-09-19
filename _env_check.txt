@@ -1,0 +1,6 @@
+﻿FOUND: .env
+MISSING: .env.local
+MISSING: .env.development
+MISSING: .env.development.local
+MISSING: .env.production
+MISSING: .env.production.local

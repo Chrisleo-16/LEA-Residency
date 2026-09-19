@@ -378,6 +378,62 @@ return
   }
 
   console.log(`✅ PayHero: ${receipt_number} | KES ${paidAmount} | ${isComplete ? 'COMPLETE' : `PARTIAL — KES ${pendingAmount} pending`}`)
+
+  // Allocate into continuous tenancy ledger (credits / arrears / bill lines)
+  if (tenantId && landlordId && paymentType !== 'wifi') {
+    try {
+      const { ensureTenancyAccount, generateBillForPeriod, allocatePayment } =
+        await import('@/lib/tenancy/ledger')
+
+      const { data: slot } = await supabase
+        .from('tenant_slots')
+        .select('landlord_block_id')
+        .eq('tenant_id', tenantId)
+        .maybeSingle()
+
+      const account = await ensureTenancyAccount(supabase, {
+        tenantId,
+        landlordId,
+        landlordBlockId: slot?.landlord_block_id || null,
+      })
+
+      await generateBillForPeriod(supabase, account.id, paymentMonth!, {
+        createdBy: tenantId,
+      })
+
+      const { data: payRow } = await supabase
+        .from('payments')
+        .select('id')
+        .eq('mpesa_code', receipt_number)
+        .maybeSingle()
+
+      if (payRow?.id) {
+        const notes = String(
+          (await supabase.from('payments').select('notes').eq('id', payRow.id).maybeSingle())
+            .data?.notes || ''
+        )
+        const onlyMatch = notes.match(/only:([a-z,_]+)/i)
+        const onlyChargeTypes = onlyMatch
+          ? onlyMatch[1].split(',').map((t) => t.trim()).filter(Boolean)
+          : undefined
+        const alloc = await allocatePayment(supabase, {
+          paymentId: payRow.id,
+          tenancyAccountId: account.id,
+          amount: paidAmount,
+          createdBy: tenantId,
+          onlyChargeTypes,
+          skipSeparateCharges: !onlyChargeTypes?.length,
+        })
+        console.log('[Ledger] Allocated payment:', {
+          credit: alloc.creditAdded,
+          lines: alloc.allocated.length,
+        })
+      }
+    } catch (ledgerErr: any) {
+      // Ledger tables may not be migrated yet — never fail the payment
+      console.warn('[Ledger] Allocation skipped:', ledgerErr?.message || ledgerErr)
+    }
+  }
 }
 
 export async function GET() {

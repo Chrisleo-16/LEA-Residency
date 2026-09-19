@@ -1,0 +1,13 @@
+﻿node.exe : npm warn Unknown env config "devdir". This will stop working in the next major version of npm. See `npm 
+help npmrc` for supported config options.
+At line:1 char:1
++ & "C:\Program Files\nodejs/node.exe" "C:\Users\surfice\AppData\Roamin ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (npm warn Unknow...config options.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+failed to inspect container health: error during connect: in the default daemon configuration on Windows, the docker 
+client must be run with elevated privileges to connect: Get 
+"http://%2F%2F.%2Fpipe%2Fdocker_engine/v1.51/containers/supabase_db_b_Vm1CO3QhQME-1773605101471/json": open 
+//./pipe/docker_engine: The system cannot find the file specified.
+Try rerunning the command with --debug to troubleshoot the error.

@@ -6,7 +6,7 @@ import { useRouteLoader } from '@/components/RouteLoaderProvider'
 
 export default function PrivacyPolicy() {
   const router = useRouter()
-  const lastUpdated = 'June 22, 2026'
+  const lastUpdated = 'September 18, 2026'
   const {startLoading} = useRouteLoader();
 
   const sections = [
@@ -90,6 +90,9 @@ export default function PrivacyPolicy() {
       title: 'Security',
       body: [
         'We use industry-standard measures including encrypted connections (HTTPS/TLS), authenticated access, and database-level access controls (Row Level Security) to protect your data.',
+        'Tenant security: residents join a property only through a landlord referral link. Private messages, payment history, and unit records are visible only to that tenant and authorised management — not to other tenants.',
+        'Landlord security: landlords control their own property block, invite links, payment channels, and staff access. Tenants cannot open landlord settings or another landlord\u2019s building data. LEA Executive does not hold or move tenant rent funds; payments go to the landlord\u2019s registered M-Pesa channel.',
+        'We do not sell, rent, or trade personal data. Two-step verification (2FA) for account sign-in is on our product roadmap to further protect both tenant and landlord accounts.',
         'No system is perfectly secure. If we become aware of a data breach affecting your personal information, we will notify you and the relevant authority as required by Kenyan law.',
       ],
     },

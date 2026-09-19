@@ -14,6 +14,7 @@ interface StaffData {
   hourly_rate?: number
   availability?: string
   notes?: string
+  whatsapp_number?: string
 }
 
 /**
@@ -96,7 +97,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
     const user = authData.user
-    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle()
+    const { data: profile } = await supabase.from('profiles').select('role, landlord_block_id').eq('id', user.id).maybeSingle()
     if (!profile || (profile.role !== 'landlord' && profile.role !== 'admin')) {
       return NextResponse.json({ error: 'Only landlords or admins can add staff' }, { status: 403 })
     }
@@ -141,6 +142,7 @@ export async function POST(request: NextRequest) {
         last_name: body.last_name,
         email: body.email,
         phone: body.phone,
+        whatsapp_number: body.whatsapp_number || body.phone,
         specialty: body.specialty,
         company_name: body.company_name || null,
         experience_years: body.experience_years || null,
@@ -149,6 +151,7 @@ export async function POST(request: NextRequest) {
         notes: body.notes || null,
         is_active: true,
         created_by: user.id,
+        landlord_block_id: profile.landlord_block_id || null,
         created_at: new Date().toISOString()
       })
       .select()

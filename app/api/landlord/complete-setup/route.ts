@@ -12,10 +12,25 @@ export async function POST(request: NextRequest) {
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     )
 
-    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    // Prefer Bearer token from the browser session (more reliable after OAuth
+    // than cookie-only auth in App Router route handlers), then fall back to cookies.
+    const authHeader = request.headers.get('authorization')
+    const bearer =
+      authHeader?.toLowerCase().startsWith('bearer ')
+        ? authHeader.slice(7).trim()
+        : null
+
+    const { data: authData, error: authError } = bearer
+      ? await supabase.auth.getUser(bearer)
+      : await supabase.auth.getUser()
+
+    const user = authData.user
     // console.log('🟡 Step 1: Auth', { userId: user?.id, authError })
     if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      return NextResponse.json(
+        { error: authError?.message || 'Unauthorized' },
+        { status: 401 }
+      )
     }
 
     const { propertyName, propertyAddress, totalUnits, focusAreas } = await request.json()

@@ -112,14 +112,26 @@ export default function WhatYouCanDoPage() {
         via M-Pesa. The platform only reads and logs the confirmation.
       </p>
       <p>
+        <strong>What data do you receive — and do you sell it?</strong> Only
+        what is needed to run the tenancy (account details, payment
+        confirmations, chat/requests, basic device logs). We never collect
+        your M-Pesa PIN, and we do not sell, rent, or trade personal data.
+      </p>
+      <p>
         <strong>Can my landlord see my private messages?</strong> No.
         Row-level security keeps your conversations and records visible only
         to you and your property manager.
       </p>
       <p>
+        <strong>How are tenants and landlords protected?</strong> Tenants
+        join via referral links; records are isolated per user. Landlords
+        control invites, payment channels, and staff — tenants cannot access
+        landlord settings. Two-step verification is planned for sign-in.
+      </p>
+      <p>
         <strong>Is my data safe?</strong> Yes — see the full{" "}
-        <a href="/privacy-policy">Privacy Policy</a> and{" "}
-        <a href="/terms-of-service">Terms of Service</a> for exactly
+        <a href="/privacy">Privacy Policy</a> and{" "}
+        <a href="/terms">Terms of Service</a> for exactly
         what&apos;s collected and who can access it.
       </p>
     </main>

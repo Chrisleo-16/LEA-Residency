@@ -11,6 +11,7 @@ import SettingsPanel from '@/components/settings/SettingsPanel'
 import InstallPrompt from '@/components/pwa/InstallPrompt'
 import ComplaintsPage from '@/components/pages/ComplaintsPage'
 import RequestsPage from '@/components/pages/RequestsPage'
+import MaintenancePage from '@/components/pages/MaintenancePage'
 import StaffManagementPage from '@/components/pages/StaffManagementPage'
 import PolicyPage from '@/components/pages/PolicyPage'
 import CommunityPage from '@/components/pages/CommunityPage'
@@ -137,11 +138,11 @@ export default function DashboardLayout({ user }: DashboardLayoutProps) {
       leads: 'Tenant Leads',
       community: 'Community',
       complaints: 'Complaints',
-      requests: 'Requests',
+      requests: 'Maintenance',
       policy: 'Policy & Docs',
-      payments: 'Payments',
+      payments: 'Tenant Accounts',
       settings: 'Settings',
-      staff: 'Staff Management',
+      staff: 'Staff & Services',
       billing: 'Subscription Billing',
     }
     return titles[activeTab] || 'LEA Executive'
@@ -154,12 +155,12 @@ export default function DashboardLayout({ user }: DashboardLayoutProps) {
       leads: 'Tenants whose wishlist matches your listings',
       community: 'Group chat & announcements',
       complaints: 'Submit and track your issues',
-      requests: 'Service & maintenance requests',
+      requests: 'Track and assign service requests',
       policy: 'Rules, documents & guidelines',
-      payments: 'Track rent payments and receipts',
+      payments: 'Bills, balances, and payment history',
       settings: 'Account & preferences',
       maintenance: 'Maintenance requests and tracking',
-      staff: 'Staff management and information',
+      staff: 'People who handle maintenance for your property',
       billing: 'Subscription & payment management',
     }
     return subtitles[activeTab] || ''
@@ -172,7 +173,7 @@ export default function DashboardLayout({ user }: DashboardLayoutProps) {
       case 'leads':      return <LeadsPage user={user} />
       case 'community':  return <CommunityPage user={user} />
       case 'complaints': return <ComplaintsPage user={user} />
-      case 'requests':   return <RequestsPage user={user} />
+      case 'requests':   return <MaintenancePage user={user} />
       case 'staff':      return <StaffManagementPage user={user} />
       case 'policy':     return <PolicyPage user={user} />
       case 'payments':   return <PaymentsPage user={user} />

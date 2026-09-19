@@ -1,0 +1,3 @@
+﻿C:\Users\surfice\OneDrive\Documents\devchris\lea_application\b_Vm1CO3QhQME-1773605101471\.env
+C:\Users\surfice\OneDrive\Documents\devchris\lea_application\b_Vm1CO3QhQME-1773605101471\.env.example
+C:\Users\surfice\OneDrive\Documents\devchris\lea_application\b_Vm1CO3QhQME-1773605101471\.env.sentry-build-plugin

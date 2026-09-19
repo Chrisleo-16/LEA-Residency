@@ -280,7 +280,11 @@ export default function PaymentChannelSetup({ channels, onAdd, onRemove }: Payme
                       </span>
                     )}
                   </div>
-                  <p className="text-xs text-muted-foreground uppercase truncate">{channel.type} · {channel.number}</p>
+                  <p className="text-xs text-muted-foreground uppercase truncate">
+                    {channel.account?.toLowerCase().includes('pochi')
+                      ? `Pochi la Biashara · ${channel.number}`
+                      : `${channel.type} · ${channel.number}`}
+                  </p>
                 </div>
               </div>
               {onRemove && (

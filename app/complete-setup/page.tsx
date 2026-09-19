@@ -129,9 +129,23 @@ export default function CompleteSetupPage() {
         );
       }
 
+      const supabase = createClient();
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!session?.access_token) {
+        setHasSubmitted(false);
+        throw new Error("Your session expired. Please sign in again.");
+      }
+
       const response = await fetch("/api/landlord/complete-setup", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        credentials: "include",
         body: JSON.stringify({
           propertyName,
           propertyAddress,
@@ -140,7 +154,24 @@ export default function CompleteSetupPage() {
         }),
       });
 
-      const result = await response.json();
+      const contentType = response.headers.get("content-type") || "";
+      const raw = await response.text();
+      let result: { error?: string; success?: boolean; message?: string } = {};
+      if (contentType.includes("application/json")) {
+        try {
+          result = JSON.parse(raw);
+        } catch {
+          setHasSubmitted(false);
+          throw new Error("Setup server returned invalid JSON. Please try again.");
+        }
+      } else {
+        setHasSubmitted(false);
+        throw new Error(
+          response.status === 404
+            ? "Setup API is unavailable (404). Restart the local server and try again."
+            : `Setup failed (HTTP ${response.status}). Please try again.`,
+        );
+      }
 
       if (!response.ok) {
         setHasSubmitted(false);

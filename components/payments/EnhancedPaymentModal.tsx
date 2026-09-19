@@ -129,12 +129,12 @@ export default function EnhancedPaymentModal({
   // Calculate total amount
   const getTotalAmount = () => {
     if (paymentType === 'rent') {
-      return rentAmount + waterBill
+      return Math.max(0, rentAmount) + Math.max(0, waterBill)
     } else {
       const service = REPAIR_SERVICES.find(s => s.id === selectedService)
       const baseAmount = service?.basePrice ?? 0
-      const customAmount = parseFloat(customServiceAmount) || 0
-      return baseAmount + customAmount
+      const customAmount = Math.max(0, parseFloat(customServiceAmount) || 0)
+      return Math.max(0, baseAmount + customAmount)
     }
   }
 
@@ -323,8 +323,26 @@ export default function EnhancedPaymentModal({
                       </div>
                       <Input
                         type="number"
-                        value={waterBill}
-                        onChange={(e) => setWaterBill(parseFloat(e.target.value) || 0)}
+                        min={0}
+                        step="1"
+                        inputMode="decimal"
+                        value={waterBill === 0 ? '' : waterBill}
+                        onChange={(e) => {
+                          const raw = e.target.value
+                          if (raw === '' || raw === null) {
+                            setWaterBill(0)
+                            return
+                          }
+                          const n = Number(raw)
+                          if (!Number.isFinite(n) || n < 0) {
+                            setWaterBill(0)
+                            return
+                          }
+                          setWaterBill(Math.round(n * 100) / 100)
+                        }}
+                        onBlur={() => {
+                          if (waterBill < 0) setWaterBill(0)
+                        }}
                         className="bg-transparent border-0 text-lg font-semibold text-blue-600 text-center focus:ring-0 p-0"
                         placeholder="0"
                       />

@@ -63,14 +63,38 @@ export async function POST(req: NextRequest) {
       paymentType = 'rent',
       rentAmount,
       waterBill,
+      variableAmounts: bodyVars,
+      advanceMonths: bodyAdvance,
       serviceId,
       serviceDescription,
       customAmount,
     } = body
 
+    const variableAmounts: Record<string, number> = { ...(bodyVars || {}) }
+    const water = Math.max(0, Number(waterBill) || 0)
+    if (water > 0 && !variableAmounts.water) variableAmounts.water = water
+    const advanceMonths = Math.min(3, Math.max(0, Number(bodyAdvance) || 0))
+    const onlyChargeTypes: string[] = Array.isArray(body.onlyChargeTypes)
+      ? body.onlyChargeTypes.map((t: string) => String(t).toLowerCase())
+      : []
+
     if (!amount || !phone || !tenantId || !month) {
       return NextResponse.json(
         { error: 'Missing required fields: amount, phone, tenantId, month' },
+        { status: 400 }
+      )
+    }
+
+    if (Number(amount) <= 0) {
+      return NextResponse.json(
+        { error: 'Payment amount must be greater than 0' },
+        { status: 400 }
+      )
+    }
+
+    if (waterBill != null && Number(waterBill) < 0) {
+      return NextResponse.json(
+        { error: 'Water bill cannot be negative' },
         { status: 400 }
       )
     }
@@ -97,6 +121,31 @@ export async function POST(req: NextRequest) {
         )
       }
     } else {
+      // Rent / repairs: never fall back to the platform default channel when the
+      // landlord has no PayHero channel (e.g. Pochi la Biashara — manual only).
+      if (!targetChannelId && landlordId) {
+        const { data: rentChannel } = await supabase
+          .from('landlord_payment_settings')
+          .select('payhero_channel_id, payment_type, paybill_number, account_name')
+          .eq('landlord_id', landlordId)
+          .eq('verified', true)
+          .eq('is_wifi', false)
+          .order('updated_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+
+        if (rentChannel?.payhero_channel_id) {
+          targetChannelId = Number(rentChannel.payhero_channel_id)
+        } else if (rentChannel) {
+          return NextResponse.json(
+            {
+              error:
+                `This landlord uses ${rentChannel.account_name || 'Pochi la Biashara'} (${rentChannel.paybill_number}). STK push is not available — pay manually and share your M-Pesa code with your landlord.`,
+            },
+            { status: 400 }
+          )
+        }
+      }
       targetChannelId = targetChannelId || DEFAULT_RENT_CHANNEL_ID
     }
 
@@ -134,7 +183,11 @@ export async function POST(req: NextRequest) {
     let notes = `STK sent | ref:${externalReference}`
     if (paymentType === 'rent') {
       notes += ` | rent:${rentAmount || amount}`
-      if (waterBill && Number(waterBill) > 0) notes += ` | water:${waterBill}`
+      if (Object.keys(variableAmounts).length) {
+        notes += ` | vars:${JSON.stringify(variableAmounts)}`
+      }
+      if (advanceMonths > 0) notes += ` | advance:${advanceMonths}`
+      if (onlyChargeTypes.length) notes += ` | only:${onlyChargeTypes.join(',')}`
     } else if (paymentType === 'repairs') {
       notes += ` | service:${serviceId || 'general'}`
       if (serviceDescription) notes += ` | ${serviceDescription}`
@@ -158,6 +211,39 @@ export async function POST(req: NextRequest) {
 
     if (insertError) {
       console.error('[PayHero STK] Failed to insert pending record:', insertError)
+    }
+
+    // Seed / update tenancy bill so My Bills reflects rent (+ variables / advance)
+    if (paymentType === 'rent' && landlordId) {
+      try {
+        const {
+          ensureTenancyAccount,
+          generateBillForPeriod,
+          addBillingMonths,
+        } = await import('@/lib/tenancy/ledger')
+        const { data: slot } = await supabase
+          .from('tenant_slots')
+          .select('landlord_block_id')
+          .eq('tenant_id', tenantId)
+          .maybeSingle()
+        const account = await ensureTenancyAccount(supabase, {
+          tenantId,
+          landlordId,
+          landlordBlockId: slot?.landlord_block_id || null,
+        })
+        for (let i = 0; i <= advanceMonths; i++) {
+          const period = addBillingMonths(month, i)
+          await generateBillForPeriod(supabase, account.id, period, {
+            variableAmounts:
+              i === 0 && Object.keys(variableAmounts).length
+                ? variableAmounts
+                : undefined,
+            createdBy: tenantId,
+          })
+        }
+      } catch (ledgerErr: any) {
+        console.warn('[PayHero STK] bill seed skip:', ledgerErr?.message)
+      }
     }
 
     return NextResponse.json({

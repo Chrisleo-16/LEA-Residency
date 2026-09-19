@@ -28,9 +28,15 @@ import {
   ChevronDown,
   Layers,
   MapPin,
+  MessageSquareText,
+  Package,
+  Zap,
 } from "lucide-react";
 import PayButton from "../payments/PaymentsButton";
 import WifiPayModal from "../payments/WifiPayModal";
+import MpesaCodeSubmitCard from "../payments/MpesaCodeSubmitCard";
+import LandlordPochiReview from "../payments/LandlordPochiReview";
+import MyBillsPanel from "../payments/MyBillsPanel";
 
 const TZ = "Africa/Nairobi";
 const toUTC = (s: string) => new Date(s.endsWith("Z") ? s : s + "Z");
@@ -72,6 +78,21 @@ interface RentSetting {
   unit_number: string | null;
   wifi_enabled?: boolean;
   wifi_amount?: number | null;
+  garbage_enabled?: boolean;
+  garbage_amount?: number | null;
+  electricity_enabled?: boolean;
+  electricity_amount?: number | null;
+  electricity_is_variable?: boolean;
+  water_enabled?: boolean;
+  water_fixed?: number | null;
+  water_is_variable?: boolean;
+  allow_advance_months?: number;
+  allow_tenant_variable_entry?: boolean;
+  water_pay_separate?: boolean;
+  garbage_pay_separate?: boolean;
+  electricity_pay_separate?: boolean;
+  deposit_months?: number;
+  deposit_billed_period?: string | null;
   created_at?: string;
   profiles?: { full_name: string; email: string; avatar_url: string | null; created_at?: string };
 }
@@ -107,6 +128,29 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
 
   const [settingsWifiEnabled, setSettingsWifiEnabled] = useState(false);
   const [settingsWifiAmount, setSettingsWifiAmount] = useState("");
+  const [settingsWaterEnabled, setSettingsWaterEnabled] = useState(true);
+  const [settingsWaterMode, setSettingsWaterMode] = useState<"variable" | "fixed">(
+    "variable",
+  );
+  const [settingsWaterFixed, setSettingsWaterFixed] = useState("");
+  const [settingsGarbageEnabled, setSettingsGarbageEnabled] = useState(false);
+  const [settingsGarbageAmount, setSettingsGarbageAmount] = useState("");
+  const [settingsElecEnabled, setSettingsElecEnabled] = useState(false);
+  const [settingsElecMode, setSettingsElecMode] = useState<"variable" | "fixed">(
+    "fixed",
+  );
+  const [settingsElecAmount, setSettingsElecAmount] = useState("");
+  const [settingsAdvanceMonths, setSettingsAdvanceMonths] = useState(0);
+  const [settingsAllowTenantVar, setSettingsAllowTenantVar] = useState(true);
+  const [settingsDepositMonths, setSettingsDepositMonths] = useState(0);
+  const [settingsWaterSeparate, setSettingsWaterSeparate] = useState(false);
+  const [settingsGarbageSeparate, setSettingsGarbageSeparate] = useState(false);
+  const [settingsElecSeparate, setSettingsElecSeparate] = useState(false);
+  const [separatePayFocus, setSeparatePayFocus] = useState<{
+    types: string[];
+    amount: number;
+    label: string;
+  } | null>(null);
   const [landlordWifiChannel, setLandlordWifiChannel] = useState<any>(null);
   const [showWifiPayModal, setShowWifiPayModal] = useState(false);
 
@@ -132,12 +176,37 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
   const [showPayModal, setShowPayModal] = useState(false);
   const [payPhone, setPayPhone] = useState("");
   const [isPaying, setIsPaying] = useState(false);
+  const [paymentTab, setPaymentTab] = useState<"bills" | "pay" | "history">(
+    "bills",
+  );
+  const [billsPayAmount, setBillsPayAmount] = useState<number | null>(null);
+  const [selectedTenantAccountId, setSelectedTenantAccountId] = useState<
+    string | null
+  >(null);
+  /** Pochi manual flow: tenant clicked Got it — enter M-Pesa code here */
+  const [awaitingCodePayment, setAwaitingCodePayment] = useState<{
+    id: string;
+    amount: number;
+    month: string;
+  } | null>(null);
+
+  const countsAsConfirmedRent = (p: any) => {
+    const notes = (p.notes || "").toUpperCase();
+    if (notes.includes("WIFI")) return false;
+    const s = String(p.status || "confirmed").toLowerCase();
+    return !["awaiting_sms", "awaiting_ll", "awaiting_confirmation", "pending", "failed", "cancelled", "declined"].includes(
+      s,
+    );
+  };
 
   // ── Payment status calculator ─────────────────────────
   const getTenantPaymentStatus = (tenantId: string, month: string) => {
     const rs = rentSettings.find((r) => r.tenant_id === tenantId);
     const monthPayments = payments.filter(
-      (p) => p.tenant_id === tenantId && p.payment_month === month,
+      (p) =>
+        p.tenant_id === tenantId &&
+        p.payment_month === month &&
+        countsAsConfirmedRent(p),
     );
     const totalPaid = monthPayments.reduce((s, p) => s + Number(p.amount), 0);
     const expected = rs?.monthly_amount || 0;
@@ -171,8 +240,10 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
     }, 5000);
   };
 
-  const fetchData = useCallback(async () => {
-    setIsLoading(true);
+  const fetchData = useCallback(async (opts?: { silent?: boolean }) => {
+    const silent = !!opts?.silent;
+    if (!silent) setIsLoading(true);
+    try {
     const { data: profile } = await supabase
       .from("profiles")
       .select("role, landlord_block_id")
@@ -358,29 +429,38 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
         .maybeSingle();
       setLandlordWifiChannel(wifiChan || null);
     }
-
-    setIsLoading(false);
+    } finally {
+      if (!silent) setIsLoading(false);
+    }
   }, [user]);
 
   useEffect(() => {
     if (!user) return;
-    fetchData();
+    fetchData(); // full-page spinner only on first load
+
+    let refreshTimer: ReturnType<typeof setTimeout> | null = null;
+    const softRefresh = () => {
+      // Debounce + silent: My Bills ledger writes must not remount this whole page
+      if (refreshTimer) clearTimeout(refreshTimer);
+      refreshTimer = setTimeout(() => fetchData({ silent: true }), 400);
+    };
 
     const channel = supabase
       .channel("payments-realtime")
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "payments" },
-        () => fetchData(),
+        softRefresh,
       )
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "rent_settings" },
-        () => fetchData(),
+        softRefresh,
       )
       .subscribe();
 
     return () => {
+      if (refreshTimer) clearTimeout(refreshTimer);
       channel.unsubscribe();
     };
   }, [user, fetchData]);
@@ -425,12 +505,74 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
       setLogPhone("");
       setLogNotes("");
       setShowLogForm(false);
-      fetchData();
+      fetchData({ silent: true });
     } catch (err: any) {
       showFeedback(err.message, true);
     } finally {
       setIsLogging(false);
     }
+  };
+
+  const loadSettingsFromExisting = (existing: RentSetting | undefined) => {
+    if (!existing) {
+      setSettingsAmount("");
+      setSettingsUnit("");
+      setSettingsWifiEnabled(false);
+      setSettingsWifiAmount("");
+      setSettingsWaterEnabled(true);
+      setSettingsWaterMode("variable");
+      setSettingsWaterFixed("");
+      setSettingsGarbageEnabled(false);
+      setSettingsGarbageAmount("");
+      setSettingsElecEnabled(false);
+      setSettingsElecMode("fixed");
+      setSettingsElecAmount("");
+      setSettingsAdvanceMonths(0);
+      setSettingsAllowTenantVar(true);
+      setSettingsDepositMonths(0);
+      setSettingsWaterSeparate(false);
+      setSettingsGarbageSeparate(false);
+      setSettingsElecSeparate(false);
+      return;
+    }
+    setSettingsAmount(String(existing.monthly_amount));
+    setSettingsUnit(existing.unit_number || "");
+    setSettingsWifiEnabled(!!existing.wifi_enabled);
+    setSettingsWifiAmount(
+      existing.wifi_amount ? String(existing.wifi_amount) : "",
+    );
+    setSettingsWaterEnabled(existing.water_enabled !== false);
+    setSettingsWaterMode(
+      existing.water_is_variable === false && Number(existing.water_fixed) > 0
+        ? "fixed"
+        : "variable",
+    );
+    setSettingsWaterFixed(
+      existing.water_fixed ? String(existing.water_fixed) : "",
+    );
+    setSettingsGarbageEnabled(!!existing.garbage_enabled);
+    setSettingsGarbageAmount(
+      existing.garbage_amount ? String(existing.garbage_amount) : "",
+    );
+    setSettingsElecEnabled(!!existing.electricity_enabled);
+    setSettingsElecMode(
+      existing.electricity_is_variable ? "variable" : "fixed",
+    );
+    setSettingsElecAmount(
+      existing.electricity_amount ? String(existing.electricity_amount) : "",
+    );
+    setSettingsAdvanceMonths(
+      Math.min(3, Math.max(0, Number(existing.allow_advance_months) || 0)),
+    );
+    setSettingsAllowTenantVar(existing.allow_tenant_variable_entry !== false);
+    setSettingsDepositMonths(
+      [0, 2, 3].includes(Number(existing.deposit_months))
+        ? Number(existing.deposit_months)
+        : 0,
+    );
+    setSettingsWaterSeparate(!!existing.water_pay_separate);
+    setSettingsGarbageSeparate(!!existing.garbage_pay_separate);
+    setSettingsElecSeparate(!!existing.electricity_pay_separate);
   };
 
   const handleSaveRentSettings = async (e: React.FormEvent) => {
@@ -442,6 +584,7 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
         throw new Error("Selected tenant is not assigned to you.");
       }
 
+      const waterIsVariable = settingsWaterMode === "variable";
       const { error } = await supabase.from("rent_settings").upsert(
         {
           tenant_id: settingsTenantId,
@@ -451,14 +594,54 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
           wifi_amount: settingsWifiEnabled
             ? parseFloat(settingsWifiAmount || "0")
             : null,
+          water_enabled: settingsWaterEnabled,
+          water_is_variable: waterIsVariable,
+          water_fixed:
+            settingsWaterEnabled && !waterIsVariable
+              ? parseFloat(settingsWaterFixed || "0")
+              : null,
+          garbage_enabled: settingsGarbageEnabled,
+          garbage_amount: settingsGarbageEnabled
+            ? parseFloat(settingsGarbageAmount || "0")
+            : null,
+          electricity_enabled: settingsElecEnabled,
+          electricity_is_variable: settingsElecMode === "variable",
+          electricity_amount: settingsElecEnabled
+            ? parseFloat(settingsElecAmount || "0")
+            : null,
+          allow_advance_months: settingsAdvanceMonths,
+          allow_tenant_variable_entry: settingsAllowTenantVar,
+          deposit_months: settingsDepositMonths,
+          water_pay_separate: settingsWaterSeparate,
+          garbage_pay_separate: settingsGarbageSeparate,
+          electricity_pay_separate: settingsElecSeparate,
           updated_at: new Date().toISOString(),
         },
         { onConflict: "tenant_id" },
       );
       if (error) throw error;
-      showFeedback("Rent settings saved!");
+
+      // Sync ledger recurring charges for this tenant
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        await fetch(
+          `/api/tenancy/account?tenant_id=${settingsTenantId}&generate=1`,
+          {
+            credentials: "include",
+            headers: session?.access_token
+              ? { Authorization: `Bearer ${session.access_token}` }
+              : {},
+          },
+        );
+      } catch {
+        /* best-effort */
+      }
+
+      showFeedback("Charge plan saved!");
       setShowSettingsForm(false);
-      fetchData();
+      fetchData({ silent: true });
     } catch (err: any) {
       showFeedback(err.message, true);
     } finally {
@@ -536,7 +719,7 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
     }
 
     showFeedback("Payment record deleted.");
-    fetchData();
+    fetchData({ silent: true });
   };
 
   const formatDate = (s: string) =>
@@ -645,7 +828,7 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
           `Smart sync completed: ${stats.updated} updated, ${stats.created} created, ${stats.skipped} skipped`,
           false,
         );
-        fetchData();
+        fetchData({ silent: true });
       } else {
         showFeedback(
           `Smart sync failed: ${result.error || "Unknown error"}`,
@@ -752,11 +935,41 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
   const isSelectedMonthBeforeMyJoin = myJoinMonth ? activeMonth < myJoinMonth : false;
 
   const myCurrentMonthPaid = payments.some(
-    (p) => p.tenant_id === user?.id && p.payment_month === activeMonth,
+    (p) =>
+      p.tenant_id === user?.id &&
+      p.payment_month === activeMonth &&
+      countsAsConfirmedRent(p),
   );
   const myCurrentPayment = payments.find(
-    (p) => p.tenant_id === user?.id && p.payment_month === activeMonth,
+    (p) =>
+      p.tenant_id === user?.id &&
+      p.payment_month === activeMonth &&
+      countsAsConfirmedRent(p),
   );
+  const myAwaitingCodeEntry = payments.find(
+    (p) =>
+      p.tenant_id === user?.id &&
+      p.payment_month === activeMonth &&
+      String(p.status || "").toLowerCase() === "awaiting_sms" &&
+      !(p.notes || "").toUpperCase().includes("WIFI"),
+  );
+  const myAwaitingLandlord = payments.find(
+    (p) =>
+      p.tenant_id === user?.id &&
+      p.payment_month === activeMonth &&
+      String(p.status || "").toLowerCase() === "awaiting_ll" &&
+      !(p.notes || "").toUpperCase().includes("WIFI"),
+  );
+  const pendingCodePayment =
+    awaitingCodePayment?.month === activeMonth
+      ? awaitingCodePayment
+      : myAwaitingCodeEntry
+        ? {
+            id: myAwaitingCodeEntry.id,
+            amount: Number(myAwaitingCodeEntry.amount),
+            month: myAwaitingCodeEntry.payment_month,
+          }
+        : null;
   const myWifiEnabled = !!myRentSetting?.wifi_enabled;
   const myWifiAmount = Number(myRentSetting?.wifi_amount || 0);
   const myWifiPaidThisMonth = payments.some(
@@ -799,7 +1012,7 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
         <div className="flex items-start justify-between gap-4">
           <div>
             <h2 className="text-2xl font-bold text-foreground">
-              {role === "landlord" ? "Rent Ledger" : "My Payments"}
+              {role === "landlord" ? "Tenant Accounts" : "My Bills & Payments"}
             </h2>
             <p className="text-sm text-muted-foreground mt-1">
               {role === "landlord" ? (
@@ -870,6 +1083,21 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
               {success}
             </p>
           </div>
+        )}
+
+        {/* ── LANDLORD: Pending Pochi codes ─────────────── */}
+        {role === "landlord" && (
+          <LandlordPochiReview
+            payments={payments.filter(
+              (p) => String(p.status || "").toLowerCase() === "awaiting_ll",
+            )}
+            tenants={tenants}
+            onDone={(msg) => {
+              showFeedback(msg);
+              fetchData({ silent: true });
+            }}
+            onError={(msg) => showFeedback(msg, true)}
+          />
         )}
 
         {/* ── LANDLORD: Property Filter Scope Selector ───────────── */}
@@ -973,8 +1201,54 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
           </div>
         )}
 
-        {/* ── TENANT: Payment status card ─────────────── */}
+        {/* ── TENANT: My Bills / Pay / History tabs ───── */}
         {role === "tenant" && (
+          <div className="flex gap-1 rounded-xl border border-border bg-secondary/40 p-1">
+            {(
+              [
+                ["bills", "My Bills"],
+                ["pay", "Make Payment"],
+                ["history", "History"],
+              ] as const
+            ).map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => setPaymentTab(id)}
+                className={`flex-1 rounded-lg py-2 text-sm font-medium transition-all ${
+                  paymentTab === id
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {role === "tenant" && paymentTab === "bills" && (
+          <MyBillsPanel
+            user={user}
+            onPayTotal={(total) => {
+              setSeparatePayFocus(null);
+              setBillsPayAmount(total);
+              setPaymentTab("pay");
+            }}
+            onPaySeparate={(item) => {
+              setSeparatePayFocus({
+                types: [item.charge_type],
+                amount: item.amount,
+                label: item.label,
+              });
+              setBillsPayAmount(item.amount);
+              setPaymentTab("pay");
+            }}
+          />
+        )}
+
+        {/* ── TENANT: Payment status card ─────────────── */}
+        {role === "tenant" && paymentTab === "pay" && (
           <div
             className={`rounded-2xl border p-5 ${
               isSelectedMonthBeforeMyJoin
@@ -998,6 +1272,8 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
                   <Clock className="w-5 h-5 text-muted-foreground" />
                 ) : myCurrentMonthPaid ? (
                   <BadgeCheck className="w-5 h-5 text-emerald-600" />
+                ) : pendingCodePayment ? (
+                  <MessageSquareText className="w-5 h-5 text-amber-900" />
                 ) : (
                   <Clock className="w-5 h-5 text-amber-900" />
                 )}
@@ -1016,6 +1292,10 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
                     ? "Not In Occupancy (Pre-Tenancy)"
                     : myCurrentMonthPaid
                     ? "Rent Paid ✅"
+                    : pendingCodePayment
+                    ? "Enter your M-Pesa code"
+                    : myAwaitingLandlord
+                    ? "Awaiting landlord confirmation"
                     : "Rent Due ⏳"}
                 </p>
                 <p className="text-xs text-muted-foreground">
@@ -1071,7 +1351,50 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
               </div>
             ) : null}
 
-            {!isSelectedMonthBeforeMyJoin && !myCurrentMonthPaid && myRentSetting && (
+            {!isSelectedMonthBeforeMyJoin &&
+              !myCurrentMonthPaid &&
+              pendingCodePayment && (
+                <div className="mt-3">
+                  <MpesaCodeSubmitCard
+                    paymentId={pendingCodePayment.id}
+                    amount={pendingCodePayment.amount}
+                    month={pendingCodePayment.month}
+                    onDone={() => {
+                      setAwaitingCodePayment(null);
+                      showFeedback(
+                        "Code submitted — your landlord will confirm it on Pochi",
+                      );
+                      fetchData({ silent: true });
+                    }}
+                  />
+                </div>
+              )}
+
+            {!isSelectedMonthBeforeMyJoin &&
+              !myCurrentMonthPaid &&
+              myAwaitingLandlord && (
+                <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 dark:bg-amber-950/20 dark:border-amber-800 p-4 space-y-1">
+                  <p className="text-sm font-semibold text-amber-900 dark:text-amber-200">
+                    Code submitted — waiting for landlord
+                  </p>
+                  <p className="text-xs text-amber-800/80 dark:text-amber-300/80">
+                    M-Pesa code{" "}
+                    <span className="font-mono font-bold">
+                      {myAwaitingLandlord.mpesa_code}
+                    </span>{" "}
+                    · KES{" "}
+                    {Number(myAwaitingLandlord.amount).toLocaleString("en-KE")}.
+                    Your landlord will confirm this against their Pochi la Biashara
+                    (PayHero cannot see Pochi payments).
+                  </p>
+                </div>
+              )}
+
+            {!isSelectedMonthBeforeMyJoin &&
+              !myCurrentMonthPaid &&
+              !pendingCodePayment &&
+              !myAwaitingLandlord &&
+              myRentSetting && (
               <>
                 <div className="mt-3 p-3 bg-white/60 dark:bg-black/20 rounded-xl">
                   <p className="text-xs font-semibold text-foreground mb-2">
@@ -1079,10 +1402,10 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
                   </p>
                   <div className="space-y-1">
                     {[
-                      "💰 Rent + Water Bills + Repair Services",
-                      "📱 Choose payment type in the modal",
-                      "🔢 M-Pesa STK Push integration",
-                      "✅ Automatic payment tracking",
+                      "Rent + Water Bills + Repair Services",
+                      "Choose payment type in the modal",
+                      "M-Pesa STK Push or Pochi la Biashara",
+                      "Enter your M-Pesa code after Pochi payment",
                     ].map((s) => (
                       <p key={s} className="text-xs text-muted-foreground">
                         {s}
@@ -1093,24 +1416,91 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
                 <div className="mt-3">
                   <PayButton
                     user={user}
-                    amount={myRentSetting.monthly_amount}
+                    amount={
+                      separatePayFocus?.amount ||
+                      billsPayAmount ||
+                      myRentSetting.monthly_amount
+                    }
                     month={activeMonth}
+                    focusChargeTypes={separatePayFocus?.types}
+                    buttonLabel={
+                      separatePayFocus
+                        ? `Pay ${separatePayFocus.label}`
+                        : undefined
+                    }
                     onSuccess={() => {
                       showFeedback(
-                        "Enhanced payment initiated! Check your phone 📱",
+                        separatePayFocus
+                          ? `${separatePayFocus.label} payment initiated`
+                          : "Enhanced payment initiated! Check your phone 📱",
                       );
-                      fetchData();
+                      fetchData({ silent: true });
+                      setBillsPayAmount(null);
+                      setSeparatePayFocus(null);
                     }}
                     onError={(msg: string) => showFeedback(msg, true)}
+                    onManualAwaitingCode={(payment) => {
+                      setAwaitingCodePayment(payment);
+                      setPaymentTab("pay");
+                      showFeedback(
+                        "Pay via Pochi, then enter your M-Pesa code below",
+                      );
+                      fetchData({ silent: true });
+                    }}
                   />
+                  {separatePayFocus && (
+                    <button
+                      type="button"
+                      className="text-xs text-muted-foreground underline mt-2 w-full"
+                      onClick={() => setSeparatePayFocus(null)}
+                    >
+                      Back to rent payment
+                    </button>
+                  )}
                 </div>
               </>
             )}
+
+            {/* Separate utility pay when rent already paid */}
+            {!isSelectedMonthBeforeMyJoin &&
+              myCurrentMonthPaid &&
+              separatePayFocus &&
+              myRentSetting && (
+                <div className="mt-3">
+                  <p className="text-sm font-medium mb-2">
+                    Paying {separatePayFocus.label} separately
+                  </p>
+                  <PayButton
+                    user={user}
+                    amount={separatePayFocus.amount}
+                    month={activeMonth}
+                    focusChargeTypes={separatePayFocus.types}
+                    buttonLabel={`Pay ${separatePayFocus.label}`}
+                    onSuccess={() => {
+                      showFeedback(
+                        `${separatePayFocus.label} payment initiated`,
+                      );
+                      fetchData({ silent: true });
+                      setSeparatePayFocus(null);
+                      setBillsPayAmount(null);
+                    }}
+                    onError={(msg: string) => showFeedback(msg, true)}
+                    onManualAwaitingCode={(payment) => {
+                      setAwaitingCodePayment(payment);
+                      showFeedback(
+                        "Pay via Pochi, then enter your M-Pesa code below",
+                      );
+                      fetchData({ silent: true });
+                    }}
+                  />
+                </div>
+              )}
           </div>
         )}
 
         {/* ── TENANT: Wi-Fi callout — shown only after rent is paid, only if landlord enabled Wi-Fi for this tenant, only if not yet paid this month ── */}
         {role === "tenant" &&
+          paymentTab === "pay" &&
           myCurrentMonthPaid &&
           myWifiEnabled &&
           !myWifiPaidThisMonth && (
@@ -1179,7 +1569,7 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
           channelId={landlordWifiChannel?.payhero_channel_id || null}
           onSuccess={() => {
             showFeedback("Wi-Fi payment request sent — check your phone.");
-            fetchData();
+            fetchData({ silent: true });
           }}
           onError={(msg) => showFeedback(msg, true)}
         />
@@ -1209,7 +1599,7 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
           <div className="bg-card border border-border rounded-2xl p-5 shadow-sm">
             <div className="flex items-center justify-between mb-4">
               <h3 className="font-semibold text-foreground">
-                Set Tenant Rent Amount
+                Tenant charge plan
               </h3>
               <button
                 onClick={() => setShowSettingsForm(false)}
@@ -1230,21 +1620,7 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
                     const existing = rentSettings.find(
                       (r) => r.tenant_id === e.target.value,
                     );
-                    if (existing) {
-                      setSettingsAmount(String(existing.monthly_amount));
-                      setSettingsUnit(existing.unit_number || "");
-                      setSettingsWifiEnabled(!!existing.wifi_enabled);
-                      setSettingsWifiAmount(
-                        existing.wifi_amount
-                          ? String(existing.wifi_amount)
-                          : "",
-                      );
-                    } else {
-                      setSettingsAmount("");
-                      setSettingsUnit("");
-                      setSettingsWifiEnabled(false);
-                      setSettingsWifiAmount("");
-                    }
+                    loadSettingsFromExisting(existing);
                   }}
                   required
                   className="w-full rounded-xl border border-border bg-secondary text-foreground p-3 text-sm focus:outline-none focus:ring-2 focus:ring-accent/40"
@@ -1287,44 +1663,272 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
                 </div>
               </div>
 
-              <div className="flex items-center justify-between p-3.5 bg-secondary rounded-xl">
-                <div className="flex items-center gap-2.5">
-                  <Wifi className="w-4 h-4 text-sky-500" />
-                  <div>
-                    <p className="text-sm font-medium text-foreground">
-                      Add Wi-Fi
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Offer Wi-Fi billing to this tenant
-                    </p>
+              <div className="rounded-xl border border-border p-3.5 space-y-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Utilities &amp; fees
+                </p>
+
+                {/* Water */}
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <Droplets className="w-4 h-4 text-sky-600" />
+                    <p className="text-sm font-medium">Water</p>
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => setSettingsWaterEnabled(!settingsWaterEnabled)}
+                    className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${settingsWaterEnabled ? "bg-accent" : "bg-border"}`}
+                  >
+                    <span
+                      className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform ${settingsWaterEnabled ? "translate-x-5" : "translate-x-0"}`}
+                    />
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setSettingsWifiEnabled(!settingsWifiEnabled)}
-                  className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${settingsWifiEnabled ? "bg-sky-500" : "bg-border"}`}
-                >
-                  <span
-                    className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform ${settingsWifiEnabled ? "translate-x-5" : "translate-x-0"}`}
-                  />
-                </button>
+                {settingsWaterEnabled && (
+                  <div className="space-y-2 w-full min-w-0">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <select
+                        value={settingsWaterMode}
+                        onChange={(e) =>
+                          setSettingsWaterMode(
+                            e.target.value as "variable" | "fixed",
+                          )
+                        }
+                        className="w-full rounded-xl border border-border bg-secondary text-sm p-2.5 h-11"
+                      >
+                        <option value="variable">Variable (meter)</option>
+                        <option value="fixed">Fixed amount</option>
+                      </select>
+                      {settingsWaterMode === "fixed" && (
+                        <Input
+                          type="number"
+                          min={0}
+                          placeholder="Water fee (KES)"
+                          value={settingsWaterFixed}
+                          onChange={(e) => setSettingsWaterFixed(e.target.value)}
+                          className="w-full bg-secondary border-border rounded-xl h-11"
+                        />
+                      )}
+                    </div>
+                    <select
+                      value={settingsWaterSeparate ? "separate" : "bundled"}
+                      onChange={(e) =>
+                        setSettingsWaterSeparate(e.target.value === "separate")
+                      }
+                      className="w-full rounded-xl border border-border bg-secondary text-sm p-2.5 h-11"
+                    >
+                      <option value="bundled">Pay with rent (one total)</option>
+                      <option value="separate">Pay separately</option>
+                    </select>
+                  </div>
+                )}
+
+                {/* Garbage */}
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <Package className="w-4 h-4 text-muted-foreground" />
+                    <p className="text-sm font-medium">Garbage plan</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setSettingsGarbageEnabled(!settingsGarbageEnabled)
+                    }
+                    className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${settingsGarbageEnabled ? "bg-accent" : "bg-border"}`}
+                  >
+                    <span
+                      className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform ${settingsGarbageEnabled ? "translate-x-5" : "translate-x-0"}`}
+                    />
+                  </button>
+                </div>
+                {settingsGarbageEnabled && (
+                  <div className="space-y-2 w-full min-w-0">
+                    <Input
+                      type="number"
+                      min={0}
+                      placeholder="Garbage fee (KES)"
+                      value={settingsGarbageAmount}
+                      onChange={(e) => setSettingsGarbageAmount(e.target.value)}
+                      className="w-full bg-secondary border-border rounded-xl h-11"
+                    />
+                    <select
+                      value={settingsGarbageSeparate ? "separate" : "bundled"}
+                      onChange={(e) =>
+                        setSettingsGarbageSeparate(e.target.value === "separate")
+                      }
+                      className="w-full rounded-xl border border-border bg-secondary text-sm p-2.5 h-11"
+                    >
+                      <option value="bundled">Pay with rent (one total)</option>
+                      <option value="separate">Pay separately</option>
+                    </select>
+                  </div>
+                )}
+
+                {/* Electricity */}
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <Zap className="w-4 h-4 text-amber-600" />
+                    <p className="text-sm font-medium">Electricity</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSettingsElecEnabled(!settingsElecEnabled)}
+                    className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${settingsElecEnabled ? "bg-accent" : "bg-border"}`}
+                  >
+                    <span
+                      className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform ${settingsElecEnabled ? "translate-x-5" : "translate-x-0"}`}
+                    />
+                  </button>
+                </div>
+                {settingsElecEnabled && (
+                  <div className="space-y-2 w-full min-w-0">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <select
+                        value={settingsElecMode}
+                        onChange={(e) =>
+                          setSettingsElecMode(
+                            e.target.value as "variable" | "fixed",
+                          )
+                        }
+                        className="w-full rounded-xl border border-border bg-secondary text-sm p-2.5 h-11"
+                      >
+                        <option value="fixed">Fixed amount</option>
+                        <option value="variable">Variable (meter)</option>
+                      </select>
+                      <Input
+                        type="number"
+                        min={0}
+                        placeholder="Electricity (KES)"
+                        value={settingsElecAmount}
+                        onChange={(e) => setSettingsElecAmount(e.target.value)}
+                        className="w-full bg-secondary border-border rounded-xl h-11"
+                        disabled={settingsElecMode === "variable"}
+                      />
+                    </div>
+                    <select
+                      value={settingsElecSeparate ? "separate" : "bundled"}
+                      onChange={(e) =>
+                        setSettingsElecSeparate(e.target.value === "separate")
+                      }
+                      className="w-full rounded-xl border border-border bg-secondary text-sm p-2.5 h-11"
+                    >
+                      <option value="bundled">Pay with rent (one total)</option>
+                      <option value="separate">Pay separately</option>
+                    </select>
+                  </div>
+                )}
+
+                {/* Wi-Fi — separate after rent */}
+                <div className="flex items-center justify-between gap-3 pt-1 border-t border-border">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <Wifi className="w-4 h-4 text-sky-500 shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-foreground">
+                        Wi-Fi (after rent)
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Paid separately once rent is confirmed
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSettingsWifiEnabled(!settingsWifiEnabled)}
+                    className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${settingsWifiEnabled ? "bg-sky-500" : "bg-border"}`}
+                  >
+                    <span
+                      className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform ${settingsWifiEnabled ? "translate-x-5" : "translate-x-0"}`}
+                    />
+                  </button>
+                </div>
+                {settingsWifiEnabled && (
+                  <div className="w-full min-w-0">
+                    <Input
+                      type="number"
+                      min={0}
+                      placeholder="Wi-Fi monthly (KES)"
+                      value={settingsWifiAmount}
+                      onChange={(e) => setSettingsWifiAmount(e.target.value)}
+                      required={settingsWifiEnabled}
+                      className="w-full bg-secondary border-border rounded-xl h-11"
+                    />
+                  </div>
+                )}
               </div>
 
-              {settingsWifiEnabled && (
+              <div className="rounded-xl border border-border p-3.5 space-y-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  First-time deposit
+                </p>
                 <div>
-                  <label className="text-sm font-medium text-foreground block mb-1.5">
-                    Wi-Fi Monthly Price (KES)
+                  <label className="text-sm font-medium block mb-1.5">
+                    Security deposit (new tenants)
                   </label>
-                  <Input
-                    type="number"
-                    placeholder="e.g. 1500"
-                    value={settingsWifiAmount}
-                    onChange={(e) => setSettingsWifiAmount(e.target.value)}
-                    required={settingsWifiEnabled}
-                    className="bg-secondary border-border text-foreground rounded-xl h-11"
-                  />
+                  <select
+                    value={settingsDepositMonths}
+                    onChange={(e) =>
+                      setSettingsDepositMonths(Number(e.target.value))
+                    }
+                    className="w-full rounded-xl border border-border bg-secondary text-sm p-2.5 h-11"
+                  >
+                    <option value={0}>None</option>
+                    <option value={2}>2 months of rent</option>
+                    <option value={3}>3 months of rent</option>
+                  </select>
+                  <p className="text-[11px] text-muted-foreground mt-1.5 leading-relaxed">
+                    For a first bill only: deposit is due instead of normal rent.
+                    From the next month they pay the usual monthly rent. Overpayments
+                    cover following months automatically.
+                    {settingsAmount && settingsDepositMonths > 0
+                      ? ` Preview: KES ${(Number(settingsAmount) * settingsDepositMonths).toLocaleString("en-KE")}.`
+                      : ""}
+                  </p>
                 </div>
-              )}
+              </div>
+
+              <div className="rounded-xl border border-border p-3.5 space-y-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Payment rules
+                </p>
+                <div>
+                  <label className="text-sm font-medium block mb-1.5">
+                    Advance months allowed
+                  </label>
+                  <select
+                    value={settingsAdvanceMonths}
+                    onChange={(e) =>
+                      setSettingsAdvanceMonths(Number(e.target.value))
+                    }
+                    className="w-full rounded-xl border border-border bg-secondary text-sm p-2.5"
+                  >
+                    <option value={0}>None — current month only</option>
+                    <option value={1}>1 month ahead</option>
+                    <option value={2}>2 months ahead</option>
+                    <option value={3}>3 months ahead</option>
+                  </select>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-medium">
+                      Tenant may enter variable amounts
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Off = fixed-only plan, no self-log inputs
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setSettingsAllowTenantVar(!settingsAllowTenantVar)
+                    }
+                    className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${settingsAllowTenantVar ? "bg-accent" : "bg-border"}`}
+                  >
+                    <span
+                      className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-transform ${settingsAllowTenantVar ? "translate-x-5" : "translate-x-0"}`}
+                    />
+                  </button>
+                </div>
+              </div>
 
               <div className="flex gap-2 pt-1">
                 <Button
@@ -2010,7 +2614,7 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
         )}
 
         {/* ── TENANT: Payment History ───────────────────── */}
-        {role === "tenant" && (
+        {role === "tenant" && paymentTab === "history" && (
           <div className="bg-card border border-border rounded-2xl overflow-hidden p-2 max-h-[calc(100vh-120px)]">
             <div className="p-4 border-b border-border">
               <h3 className="font-semibold text-foreground">Payment History</h3>
@@ -2127,7 +2731,7 @@ export default function PaymentsPage({ user }: PaymentsPageProps) {
                 "✅ Pay between 1st and 5th of every month",
                 "✅ Water bill must be paid together with rent",
                 "❌ Cash and cheque payments not accepted",
-                "📋 Always save your M-Pesa confirmation SMS",
+                "📋 Always save your M-Pesa receipt code",
                 "⚠️ Late payments attract a 10% penalty",
               ].map((tip) => (
                 <p key={tip} className="text-xs text-muted-foreground">

@@ -10,6 +10,12 @@ export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url)
   const code = searchParams.get('code')
   const ref = searchParams.get('ref') ?? searchParams.get('state')
+  const intendedRoleParam = searchParams.get('intended_role')
+  const intendedRoleCookie = request.cookies.get('pending_oauth_role')?.value
+  const intendedRole =
+    intendedRoleParam === 'landlord' || intendedRoleCookie === 'landlord'
+      ? 'landlord'
+      : null
 
   if (!code) {
     return NextResponse.redirect(`${origin}/login?error=auth_failed&message=no_authorization_code`)
@@ -37,7 +43,7 @@ export async function GET(request: NextRequest) {
     )
 
     const { data, error } = await supabase.auth.exchangeCodeForSession(code)
-    console.log('[OAuth Callback] ref:', ref, '| user:', data.session?.user?.id)
+    console.log('[OAuth Callback] ref:', ref, '| intendedRole:', intendedRole, '| user:', data.session?.user?.id)
 
     if (error || !data.session?.user) {
       console.error('[OAuth Callback] Error:', error?.message)
@@ -67,7 +73,10 @@ export async function GET(request: NextRequest) {
 
     console.log('[OAuth Callback] profile:', profile)
 
-    // Handle tenant joining via referral link
+    // Clear signup intent cookie after we read it
+    cookieResponse.cookies.set('pending_oauth_role', '', { path: '/', maxAge: 0 })
+
+    // Handle tenant joining via referral link (takes priority over signup landlord intent)
     if (ref) {
       console.log('[OAuth Callback] ref present, checking block...')
       const { data: block } = await supabaseAdmin
@@ -90,6 +99,26 @@ export async function GET(request: NextRequest) {
 
         return redirect(origin, '/dashboard', request, cookieResponse)
       }
+    }
+
+    // Signup → Google with landlord intent (new or defaulted-tenant shell profile)
+    const isUnsetOrDefaultTenant =
+      !profile?.role ||
+      (profile.role === 'tenant' && !profile.landlord_block_id)
+
+    if (intendedRole === 'landlord' && isUnsetOrDefaultTenant) {
+      console.log('[OAuth Callback] Applying signup landlord intent')
+      await supabaseAdmin.from('profiles').upsert({
+        id: userId,
+        email: userEmail,
+        full_name: userName,
+        role: 'landlord',
+        blockchain_verified: false,
+        property_setup_complete: false,
+        kyc_verified: false,
+        onboarding_completed: false,
+      })
+      return redirect(origin, '/complete-setup', request, cookieResponse)
     }
 
     // Brand-new OAuth user with no profile yet

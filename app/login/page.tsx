@@ -216,8 +216,24 @@ function LoginPageContent() {
         typeof window !== "undefined"
           ? localStorage.getItem("landlord_block_id_to_link")
           : null;
-      const callbackUrl = pendingRef
-        ? `${window.location.origin}/auth/callback?ref=${encodeURIComponent(pendingRef)}`
+
+      // Signup Google must carry landlord intent — OAuth drops React state, and
+      // new profiles default to tenant in the DB (which then skips /select-role).
+      // Sign-in Google must NOT set this cookie so existing roles are unchanged.
+      if (!isLogin && !pendingRef) {
+        document.cookie =
+          "pending_oauth_role=landlord; Path=/; Max-Age=600; SameSite=Lax";
+      } else {
+        document.cookie =
+          "pending_oauth_role=; Path=/; Max-Age=0; SameSite=Lax";
+      }
+
+      const callbackParams = new URLSearchParams();
+      if (pendingRef) callbackParams.set("ref", pendingRef);
+      if (!isLogin && !pendingRef) callbackParams.set("intended_role", "landlord");
+      const qs = callbackParams.toString();
+      const callbackUrl = qs
+        ? `${window.location.origin}/auth/callback?${qs}`
         : `${window.location.origin}/auth/callback`;
 
       const { error } = await supabase.auth.signInWithOAuth({

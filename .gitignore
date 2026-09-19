@@ -20,3 +20,4 @@ node_modules/
 # Sentry Config File
 .env.sentry-build-plugin
 LEA_Residency_YC_Pivot_Strategy.pdf
+supabase/migrations/
