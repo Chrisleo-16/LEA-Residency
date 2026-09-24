@@ -37,6 +37,7 @@ import {
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import NotificationPermission from "@/components/notifications/NotificationPermission";
 import VerificationSection from "@/components/settings/VerificationSection";
+import SecuritySection from "@/components/settings/SecuritySection";
 import FocusAreaPicker from "@/components/onboarding/FocusAreaPicker";
 import PaymentChannelSetup, { PaymentChannel } from "@/components/payments/PaymentChannelSetup";
 import { LayoutGrid, Wallet } from "lucide-react";
@@ -756,6 +757,23 @@ export default function SettingsPanel({ user }: SettingsPanelProps) {
             )}
           </Section>
         )}
+
+        {/* ── Security (all roles) ── */}
+        <Section>
+          <SectionHeader
+            icon={<Shield className="w-4 h-4 text-accent" />}
+            title="Security"
+          />
+          <p className="text-sm text-muted-foreground mb-4">
+            Bank-style protection: SMS two-step login and App Lock (PIN / biometrics) for your dashboard.
+          </p>
+          {user?.id && (
+            <SecuritySection
+              userId={user.id}
+              displayName={fullName || user.email || undefined}
+            />
+          )}
+        </Section>
 
         {/* ── LANDLORD ONLY: Payment channels ── */}
         {role === "landlord" && (

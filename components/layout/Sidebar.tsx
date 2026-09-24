@@ -93,6 +93,16 @@ export default function Sidebar({ activeTab, setActiveTab }: SidebarProps) {
   }, [router])
 
   const handleLogout = async () => {
+    try {
+      const { clearUnlock } = await import('@/lib/security/appLock')
+      clearUnlock()
+      await fetch('/api/auth/2fa/session-end', {
+        method: 'POST',
+        credentials: 'include',
+      })
+    } catch {
+      /* ignore */
+    }
     await supabaseRef.current.auth.signOut()
     router.push('/login')
   }

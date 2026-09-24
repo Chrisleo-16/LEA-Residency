@@ -53,13 +53,18 @@ function LoginPageContent() {
       const { data: profile, error: profileError } = await supabase
         .from("profiles")
         .select(
-          "role, kyc_verified, landlord_code, landlord_block_id, property_setup_complete",
+          "role, kyc_verified, landlord_code, landlord_block_id, property_setup_complete, two_factor_enabled",
         )
         .eq("id", session.user.id)
         .maybeSingle();
 
       if (profileError) {
         console.error("Profile error:", profileError);
+        return;
+      }
+
+      if (profile?.two_factor_enabled) {
+        router.push("/verify-2fa");
         return;
       }
 
@@ -102,12 +107,14 @@ function LoginPageContent() {
       const { data: profile } = await supabase
         .from("profiles")
         .select(
-          "role, kyc_verified, landlord_code, landlord_block_id, property_setup_complete",
+          "role, kyc_verified, landlord_code, landlord_block_id, property_setup_complete, two_factor_enabled",
         )
         .eq("id", data.user.id)
         .maybeSingle();
 
-      if (profile?.role === "developer") {
+      if (profile?.two_factor_enabled) {
+        router.push("/verify-2fa");
+      } else if (profile?.role === "developer") {
         router.push("/developer-dashboard");
       } else if (
         profile?.role === "landlord" &&

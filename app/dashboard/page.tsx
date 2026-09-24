@@ -6,6 +6,7 @@ import { User } from '@supabase/supabase-js'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import { createClient } from '@/lib/supabase/client'
 import AuthErrorHandler from '@/components/auth/AuthErrorHandler'
+import AppLockGate from '@/components/security/AppLockGate'
 
 export default function Dashboard() {
   const router = useRouter()
@@ -190,7 +191,12 @@ export default function Dashboard() {
   return (
     <>
       <Suspense fallback={<DashboardLoadingFallback />}>
-        <DashboardLayout user={user} />
+        <AppLockGate
+          userId={user.id}
+          displayName={user.user_metadata?.full_name || user.email || undefined}
+        >
+          <DashboardLayout user={user} />
+        </AppLockGate>
       </Suspense>
       {authError && <AuthErrorHandler error={authError} />}
     </>

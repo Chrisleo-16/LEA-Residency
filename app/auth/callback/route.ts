@@ -67,7 +67,7 @@ export async function GET(request: NextRequest) {
     // Get profile
     const { data: profile } = await supabaseAdmin
       .from('profiles')
-      .select('role, landlord_block_id, property_setup_complete, landlord_code')
+      .select('role, landlord_block_id, property_setup_complete, landlord_code, two_factor_enabled')
       .eq('id', userId)
       .maybeSingle()
 
@@ -140,6 +140,11 @@ export async function GET(request: NextRequest) {
     if (!profile.role) {
       console.log('[OAuth Callback] Profile without role — sending to role selection')
       return redirect(origin, '/select-role', request, cookieResponse)
+    }
+
+    // SMS 2FA gate (session exists; App Lock is separate on dashboard)
+    if (profile.two_factor_enabled) {
+      return redirect(origin, '/verify-2fa', request, cookieResponse)
     }
 
     // Tenant without a linked property — do not force landlord setup
